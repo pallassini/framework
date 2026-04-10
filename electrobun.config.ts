@@ -12,7 +12,7 @@ export default {
     artifactFolder: "build/desktop/dist",
     watchIgnore: ["client/**", "core/client/**"],
     bun: {
-      entrypoint: "core/desktop/browserWindow.ts",
+      entrypoint: "core/desktop/index.ts",
       naming: {
         entry: "index.js",
         chunk: "[name]-[hash].js",

@@ -1,34 +1,41 @@
 import path from "node:path";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { startClient } from "./client";
+import { killDesktop, startDesktop } from "./desktop";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const clientConfig = path.join(root, "core/client/vite.config.ts");
-const vp = path.join(root, "node_modules/vite-plus/bin/vp");
 
-// START CLIENT
-const child = Bun.spawn({
-  cmd: ["bun", vp, "dev", "-c", clientConfig],
-  cwd: root,
-  stdin: "inherit",
-  stdout: "inherit",
-  stderr: "inherit",
-});
+process.on("exit", () => killDesktop());
 
+// CLIENT START
+const { client } = await startClient(root);
 
-// Ctrl+C -> STOP CLIENT
-for (const sig of [
+// STOP
+const stop = async () => {
+  killDesktop();
+  await client.close().catch(() => {});
+  process.exit(0);
+};
+
+// WINDOWS BREAK -> STOP
+for (const s of [
   "SIGINT",
   "SIGTERM",
   "SIGHUP",
-  ...(process.platform === "win32" ? (["SIGBREAK"] as const) : []),
+  ...(process.platform === "win32" ? ["SIGBREAK"] : []),
 ] as const) {
-  process.on(sig, () => {
-    try {
-      child.kill(9);
-    } catch {}
-    process.exit(0);
-  });
+  process.on(s, () => void stop());
 }
 
-// ERROR -> STOP CLIENT
-process.exit((await child.exited) ?? 0);
+// Ctrl+C → STOP
+// D → START DESKTOP
+if (process.stdin.isTTY) {
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.on("keypress", (ch, k) => {
+    if (k?.ctrl && k?.name === "c") void stop();
+    // START DESKTOP
+    else if (ch === "d" || ch === "D") void startDesktop(root, client.url);
+  });
+}
