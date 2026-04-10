@@ -1,5 +1,20 @@
 import { runWithPrefetchWatchCleanup } from "../../state";
-import { routePatternFromFilePath } from "./path-map";
+
+function patternFromFile(input: string): string | null {
+	const norm = input.replace(/\\/g, "/");
+	const fromGlob = norm.match(/\/routes\/(.+?)\.(?:tsx?|jsx?)$/);
+	if (fromGlob) return segmentToPath(fromGlob[1]);
+	const fromRel = norm.match(/^(.+?)\.(?:tsx?|jsx?)$/);
+	if (fromRel) return segmentToPath(fromRel[1]);
+	return null;
+}
+
+function segmentToPath(seg: string): string {
+	if (seg === "index") return "/";
+	if (seg.endsWith("/index")) return "/" + seg.slice(0, -"/index".length);
+	if (seg.includes("[...")) return "*";
+	return "/" + seg.replace(/\[([^\]]+)\]/g, ":$1");
+}
 
 export type PrefetchMode = "module" | "all" | "no-assets" | "no-fetch";
 
@@ -22,13 +37,13 @@ const ROUTE_GLOB = import.meta.glob<RouteModule>("../../../../client/routes/**/*
 
 const ROUTES: RouteMap = Object.fromEntries(
 	Object.entries(ROUTE_GLOB).flatMap(([key, loader]) => {
-		const route = routePatternFromFilePath(key);
+		const route = patternFromFile(key);
 		return route != null ? [[route, loader]] : [];
 	}),
 );
 const ROUTE_KEYS: RouteKeyMap = Object.fromEntries(
 	Object.keys(ROUTE_GLOB).flatMap((key) => {
-		const route = routePatternFromFilePath(key);
+		const route = patternFromFile(key);
 		return route != null ? [[route, key]] : [];
 	}),
 );

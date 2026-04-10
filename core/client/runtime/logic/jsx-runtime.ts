@@ -1,5 +1,5 @@
 import { toNodes } from "./children";
-import { applyDomProps, type DomProps, type SharedProps, type UiNode } from "./dom-props";
+import { applyDomProps, type DomProps, type UiNode } from "./dom-props";
 import { ingestTagModule, resolveTagFn, type TagFn } from "./registry";
 import type { FrameworkIntrinsicElements } from "../tag/jsx-intrinsic-elements";
 
@@ -59,7 +59,5 @@ export function Fragment({ children }: { children?: unknown }): UiNode {
 
 export namespace JSX {
 	export type Element = UiNode;
-	export interface IntrinsicElements extends FrameworkIntrinsicElements {
-		[name: string]: SharedProps;
-	}
+	export interface IntrinsicElements extends FrameworkIntrinsicElements {}
 }

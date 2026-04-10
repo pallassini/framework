@@ -1,13 +1,10 @@
-import { Fragment } from "../../core/client/runtime";
+import { go } from "../../core/client/router";
 
 export default function NotFound() {
-	return (
-		<Fragment>
-			<h1 s="fw-title">404</h1>
-			<p>Pagina non trovata.</p>
-			<p>
-				<a href="/">Torna alla home</a>
-			</p>
-		</Fragment>
-	);
+  return (
+    <>
+      <t click={() => go("/")}>HOME</t>
+      <t>404</t>
+    </>
+  );
 }

@@ -1,4 +1,5 @@
-import { FW_NAV } from "../nav-signal";
+/** Same event `App` listens to so `go()`, link clicks, and history stay aligned. */
+export const NAVIGATE_EVENT = "fw:navigate" as const;
 
 const listeners = new Set<(path: string) => void>();
 
@@ -7,7 +8,7 @@ export const go = Object.assign(
 		if (location.pathname + location.search === path) return;
 		if (replace) history.replaceState(null, "", path);
 		else history.pushState(null, "", path);
-		window.dispatchEvent(new CustomEvent<string>(FW_NAV, { detail: path }));
+		window.dispatchEvent(new CustomEvent<string>(NAVIGATE_EVENT, { detail: path }));
 		for (const fn of listeners) fn(path);
 	},
 	{

@@ -2,16 +2,42 @@ import type { UiNode } from "../../runtime/tag/props";
 import { watch } from "../../state";
 import { toNodes } from "../../runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
-import { stripRouteLoadingFromPageRoot } from "./strip-loading";
 import {
 	routeAsyncFallback,
 	routeModuleLoading,
 	routePage,
 	routePhase,
 	type ClientPage,
-} from "./phase";
+} from "./signals";
 
-export function routerViewport(globalLoading: unknown, shellRouteLoading?: unknown): UiNode {
+const LOADING = "data-fw-route-loading";
+
+function stripLoadingRoot(root: UiNode): globalThis.Node[] {
+	if (root == null) return [];
+	const g = root as globalThis.Node;
+
+	if (g.nodeType === globalThis.Node.DOCUMENT_FRAGMENT_NODE) {
+		const out: globalThis.Node[] = [];
+		for (const c of Array.from(g.childNodes)) {
+			if (
+				c.nodeType === globalThis.Node.ELEMENT_NODE &&
+				(c as Element).hasAttribute(LOADING)
+			) {
+				continue;
+			}
+			out.push(c);
+		}
+		return out;
+	}
+
+	if (g.nodeType === globalThis.Node.ELEMENT_NODE && (g as Element).hasAttribute(LOADING)) {
+		return [];
+	}
+
+	return [g];
+}
+
+export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): UiNode {
 	const anchor = document.createElement("span");
 	anchor.style.display = "contents";
 	const ph = document.createElement("span");
@@ -42,8 +68,7 @@ export function routerViewport(globalLoading: unknown, shellRouteLoading?: unkno
 			ch.style.display = "contents";
 			replaceChildrenWithDispose(ph);
 			const pageRoot = routePage()({});
-			const stripped = stripRouteLoadingFromPageRoot(pageRoot);
-			replaceChildrenWithDispose(ch, ...stripped);
+			replaceChildrenWithDispose(ch, ...stripLoadingRoot(pageRoot));
 		}
 	});
 	onNodeDispose(anchor, dispose);
@@ -52,5 +77,5 @@ export function routerViewport(globalLoading: unknown, shellRouteLoading?: unkno
 }
 
 export const RouteProxy: ClientPage = function RouteProxy(props) {
-	return routerViewport(props["loading"] ?? null, props["routeLoading"] as unknown);
+	return viewport(props["loading"] ?? null, props["routeLoading"] as unknown);
 };

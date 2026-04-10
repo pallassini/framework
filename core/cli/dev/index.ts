@@ -1,25 +1,34 @@
-import { createServer } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { printDevBanner } from "./ui";
 
-const dir = path.dirname(fileURLToPath(import.meta.url));
-const configFile = path.resolve(dir, "../../client/vite.config.ts");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const clientConfig = path.join(root, "core/client/vite.config.ts");
+const vp = path.join(root, "node_modules/vite-plus/bin/vp");
 
-const server = await createServer({
-	configFile,
-	server: { port: 3000, strictPort: false },
-	logLevel: "warn",
+// START CLIENT
+const child = Bun.spawn({
+  cmd: ["bun", vp, "dev", "-c", clientConfig],
+  cwd: root,
+  stdin: "inherit",
+  stdout: "inherit",
+  stderr: "inherit",
 });
 
-await server.listen();
 
-const urls = server.resolvedUrls;
-printDevBanner(urls?.local[0] ?? "http://localhost:3000", urls?.network[0]);
+// Ctrl+C -> STOP CLIENT
+for (const sig of [
+  "SIGINT",
+  "SIGTERM",
+  "SIGHUP",
+  ...(process.platform === "win32" ? (["SIGBREAK"] as const) : []),
+] as const) {
+  process.on(sig, () => {
+    try {
+      child.kill(9);
+    } catch {}
+    process.exit(0);
+  });
+}
 
-const stop = async () => {
-	await server.close();
-	process.exit(0);
-};
-process.on("SIGINT", stop);
-process.on("SIGTERM", stop);
+// ERROR -> STOP CLIENT
+process.exit((await child.exited) ?? 0);
