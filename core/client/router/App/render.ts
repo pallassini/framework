@@ -1,6 +1,6 @@
 import type { UiNode } from "../../runtime/tag/props";
 import { replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
-import { getRouteLoader, loadRouteModuleFresh } from "./loader";
+import { getRouteLoader, loadRouteModuleFresh } from "./routes";
 import {
 	emptyRoutePage,
 	routeModuleLoading,
