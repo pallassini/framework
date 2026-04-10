@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { build } from "vite";
+import { build } from "vite-plus";
 
 let child: ReturnType<typeof Bun.spawn> | undefined;
 let busy = false;

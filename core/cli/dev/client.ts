@@ -1,7 +1,7 @@
 import { networkInterfaces } from "node:os";
 import path from "node:path";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
+import { createServer } from "vite-plus";
+import type { ViteDevServer } from "vite-plus";
 
 export async function startClient(root: string): Promise<{ client: ViteClient }> {
   const server = await createServer({

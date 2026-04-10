@@ -13,10 +13,10 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "csstype": "^3.2.3",
     "typescript": "^6.0.2",
     "vite": "latest",
+    "vite-plugin-mkcert": "^1.17.0",
     "vite-plus": "latest"
   }
 }
