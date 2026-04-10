@@ -10,7 +10,7 @@ export default {
   build: {
     buildFolder: "build/desktop/bundle",
     artifactFolder: "build/desktop/dist",
-    watchIgnore: ["client/**", "core/client/**"],
+  //  watchIgnore: ["client/**", "core/client/**"],
     bun: {
       entrypoint: "core/desktop/index.ts",
       naming: {

@@ -23,7 +23,7 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 
 		// START DESKTOP
 		child = Bun.spawn({
-			cmd: ["bun", "x", "electrobun", "dev"],
+			cmd: ["bun", "x", "electrobun", "dev", "--watch"],
 			cwd: root,
 			stdin: "inherit",
 			stdout: "inherit",
