@@ -10,19 +10,14 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 	if (child || busy) return;
 	busy = true;
 	try {
-
-		// BUILD WEB (if not already built)
-		const indexHtml = path.join(root, "build/web/index.html");
-		const assetsDir = path.join(root, "build/web/assets");
+		const webDir = path.join(root, "build/web");
+		const indexHtml = path.join(webDir, "index.html");
+		const assetsDir = path.join(webDir, "assets");
 		if (!existsSync(indexHtml) || !existsSync(assetsDir)) {
-			await build({
-				configFile: path.join(root, "core/client/vite.config.ts"),
-			});
+			await build({ configFile: path.join(root, "core/client/vite.config.ts") });
 			if (!existsSync(assetsDir)) mkdirSync(assetsDir, { recursive: true });
 		}
-
-		// START DESKTOP
-		child = Bun.spawn({
+		const proc = Bun.spawn({
 			cmd: ["bun", "x", "electrobun", "dev", "--watch"],
 			cwd: root,
 			stdin: "inherit",
@@ -30,8 +25,9 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			stderr: "inherit",
 			env: { ...process.env, CLIENT_DEV_SERVER_URL: url },
 		});
-		void child.exited.then(() => {
-			child = undefined;
+		child = proc;
+		void proc.exited.then(() => {
+			if (child === proc) child = undefined;
 		});
 	} catch (e) {
 		console.error(e);

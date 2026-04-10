@@ -1,80 +1,131 @@
+import { spawnSync } from "node:child_process";
+import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
-import { createServer } from "vite-plus";
-import type { ViteDevServer } from "vite-plus";
+
+const PORT_START = 3000;
+const PORT_SPAN = 200;
+
+let child: ReturnType<typeof Bun.spawn> | undefined;
+
+export function killViteProc(): void {
+	const c = child;
+	if (!c) return;
+	child = undefined;
+	try {
+		if (process.platform === "win32") {
+			spawnSync("taskkill", ["/PID", String(c.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+		} else {
+			c.kill(9);
+		}
+	} catch {
+		try {
+			c.kill(9);
+		} catch {
+			/* */
+		}
+	}
+}
+
+async function isPortFree(port: number): Promise<boolean> {
+	return await new Promise((resolve) => {
+		const s = createServer();
+		s.once("error", () => resolve(false));
+		s.once("listening", () => s.close(() => resolve(true)));
+		s.listen(port, "127.0.0.1");
+	});
+}
+
+async function pickPort(start: number, span: number): Promise<number> {
+	for (let p = start; p < start + span; p++) {
+		if (await isPortFree(p)) return p;
+	}
+	throw new Error(`nessuna porta libera in ${start}-${start + span - 1}`);
+}
+
+async function waitVpUrl(url: string): Promise<void> {
+	for (let i = 0; i < 250; i++) {
+		try {
+			if ((await fetch(url, { tls: { rejectUnauthorized: false } })).ok) return;
+		} catch {
+			/* */
+		}
+		await Bun.sleep(40);
+	}
+	throw new Error("vp dev non risponde");
+}
 
 export async function startClient(root: string): Promise<{ client: ViteClient }> {
-  const server = await createServer({
-    configFile: path.join(root, "core/client/vite.config.ts"),
-    root: root,
-  });
-  await server.listen();
-  const cfg = Number(server.config.server.port) || 3000;
-  const base = server.resolvedUrls?.local?.[0] ?? `https://localhost:${cfg}/`;
-  const url = base.endsWith("/") ? base : `${base}/`;
-  const port = Number(new URL(url).port) || cfg;
-  const client = Object.assign(server, {
-    url,
-    port,
-    network: networkUrl(url, server.resolvedUrls?.network?.[0]),
-  }) as ViteClient;
-  ui(client);
-  return { client };
-}
-//______________________________________________________________________________________________________________
-// UTILS
-export type ViteClient = ViteDevServer & { url: string; port: number; network: string };
+	const cfg = path.join(root, "core/client/vite.config.ts");
+	const port = await pickPort(PORT_START, PORT_SPAN);
+	child = Bun.spawn({
+		cmd: ["bun", "x", "vp", "dev", "-c", cfg, "--port", String(port), "--strictPort"],
+		cwd: root,
+		env: { ...process.env },
+		stdout: "inherit",
+		stderr: "inherit",
+	});
+	const c = child;
+	const probe = `https://127.0.0.1:${port}/`;
+	await Promise.race([
+		waitVpUrl(probe),
+		c.exited.then((code) => {
+			throw new Error(`vp dev (${code ?? "n/d"})`);
+		}),
+	]);
 
-function networkUrl(url: string, fromVite?: string): string {
-  if (fromVite) return fromVite;
-  const u = new URL(url.endsWith("/") ? url : `${url}/`);
-  const port = u.port;
-  for (const list of Object.values(networkInterfaces() ?? {})) {
-    if (!list) continue;
-    for (const i of list) {
-      if (i.family === "IPv4" && !i.internal) {
-        return `https://${i.address}:${port}/`;
-      }
-    }
-  }
-  return url;
+	const url = `https://localhost:${port}/`;
+	const cl: ViteClient = {
+		url,
+		port,
+		network: lan(url),
+		close: async () => {
+			killViteProc();
+		},
+	};
+	box(cl);
+	return { client: cl };
 }
 
-const R = "\x1b[0m";
-const M = "\x1b[38;2;255;0;135m";
-const B = "\x1b[1;38;2;255;0;135m";
-const W = 40;
-const P = 2;
-const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+//_______________________________________________________________________________________________________________
+//UTILS
+export type ViteClient = { url: string; port: number; network: string; close: () => Promise<void> };
+
+function lan(base: string): string {
+	const u = new URL(base);
+	for (const list of Object.values(networkInterfaces() ?? {})) {
+		if (!list) continue;
+		for (const i of list) {
+			if (i.family === "IPv4" && !i.internal) return `https://${i.address}:${u.port}/`;
+		}
+	}
+	return base;
+}
+
+const R = "\x1b[0m",
+	M = "\x1b[38;2;255;0;135m",
+	B = "\x1b[1;38;2;255;0;135m",
+	W = 40,
+	P = 2;
+const ANSI_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+const strip = (s: string) => s.replace(ANSI_RE, "");
 const fill = (s: string, n: number) => s + " ".repeat(Math.max(0, n - strip(s).length));
 const row = (t: string) => M + "\u2502" + R + " ".repeat(P) + fill(t, W - P) + M + "\u2502" + R;
 
-function ui(c: ViteClient): void {
-  const d = M + "\u25c6" + R;
-  const title = " " + B + "dev" + R + " ";
-  const tw = strip(title).length;
-  const L = Math.floor((W - tw) / 2);
-  const top =
-    M + "\u256d" + "\u2500".repeat(L) + title + M + "\u2500".repeat(W - L - tw) + "\u256e" + R;
-  const blank = M + "\u2502" + R + " ".repeat(W) + M + "\u2502" + R;
-  process.stdout.write(
-    "\n" +
-      top +
-      "\n" +
-      blank +
-      "\n" +
-      row(`${d} local  ${M}${c.url}${R}`) +
-      "\n" +
-      row(`${d} lan    ${M}${c.network}${R}`) +
-      "\n" +
-      blank +
-      "\n" +
-      M +
-      "\u2570" +
-      "\u2500".repeat(W) +
-      "\u256f" +
-      R +
-      "\n" +
-      ` ${B}[d]${R} Desktop\n\n`,
-  );
+function box(c: ViteClient): void {
+	const d = M + "\u25c6" + R,
+		title = " " + B + "dev" + R + " ",
+		tw = strip(title).length,
+		L = Math.floor((W - tw) / 2),
+		top = M + "\u256d" + "\u2500".repeat(L) + title + M + "\u2500".repeat(W - L - tw) + "\u256e" + R,
+		blank = M + "\u2502" + R + " ".repeat(W) + M + "\u2502" + R;
+	process.stdout.write(
+		`\n${top}\n${blank}\n${row(`${d} local  ${M}${c.url}${R}`)}\n${row(`${d} lan    ${M}${c.network}${R}`)}\n${blank}\n` +
+			M +
+			"\u2570" +
+			"\u2500".repeat(W) +
+			"\u256f" +
+			R +
+			`\n ${B}[d]${R} Desktop\n\n`,
+	);
 }

@@ -18,3 +18,5 @@ export function App(shell: Shell): void {
 	// 4. Handle globale e Vite `hot` (solo patch JS).
 	primeRuntimeAndHot(bridge);
 }
+
+if (import.meta.hot) import.meta.hot.accept();

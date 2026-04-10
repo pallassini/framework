@@ -1,12 +1,15 @@
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
-import { startClient } from "./client";
+import { killViteProc, startClient } from "./client";
 import { killDesktop, startDesktop } from "./desktop";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
-process.on("exit", () => killDesktop());
+process.on("exit", () => {
+  killViteProc();
+  killDesktop();
+});
 
 // CLIENT START
 const { client } = await startClient(root);
