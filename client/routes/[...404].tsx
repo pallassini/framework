@@ -1,4 +1,4 @@
-import { go } from "../../core/client/router";
+import { go } from "client";
 
 export default function NotFound() {
   return (

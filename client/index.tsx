@@ -1,4 +1,4 @@
-import { App } from "../core/client/router";
+import { App } from "client";
 import "./index.css";
 
 App((Page) => (
