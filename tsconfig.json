@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"lib": ["ES2022"],
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"esModuleInterop": true,
@@ -12,7 +12,14 @@
 		"resolveJsonModule": true,
 		"isolatedModules": true,
 		"jsx": "react-jsx",
-		"types": ["bun", "node"]
+		"jsxImportSource": "jsx-runtime",
+		"types": ["bun", "node"],
+		"paths": {
+			"jsx-runtime/jsx-runtime": ["./core/client/runtime/logic/jsx-runtime.ts"],
+			"jsx-runtime/jsx-dev-runtime": ["./core/client/runtime/logic/jsx-dev-runtime.ts"],
+			"svg-icon-jsx/jsx-runtime": ["./core/client/runtime/tag/tags/icon/svg-jsx-runtime.ts"],
+			"svg-icon-jsx/jsx-dev-runtime": ["./core/client/runtime/tag/tags/icon/svg-jsx-runtime.ts"]
+		}
 	},
 	"include": ["**/*.ts", "**/*.tsx"],
 	"exclude": ["node_modules","build"]

@@ -1,0 +1,33 @@
+import { props } from "../tag/props";
+import type { DomEl, DomProps, DomPropApplier } from "../tag/props";
+
+const PROP = props as Record<string, DomPropApplier>;
+
+const SKIP = new Set([
+	"children",
+	"when",
+	"fallback",
+	"each",
+	"key",
+	"pick",
+]);
+
+export function applyDomProps(el: DomEl, propsObj: DomProps): void {
+	for (const [k, v] of Object.entries(propsObj)) {
+		if (SKIP.has(k)) continue;
+		const handler = PROP[k];
+		if (handler) {
+			handler(el, v);
+			continue;
+		}
+		if (k === "className") {
+			if (v != null && v !== false) el.setAttribute("class", String(v));
+			continue;
+		}
+		if (v == null || v === false) continue;
+		if (v === true) el.setAttribute(k, "");
+		else if (typeof v !== "function") el.setAttribute(k, String(v));
+	}
+}
+
+export type { UiNode, DomProps, SharedProps } from "../tag/props";
