@@ -1,10 +1,17 @@
-import { For, server, state, type ServerRouteOut } from "client";
+import { createDb, For, server, state, type ServerRouteOut } from "client";
+
+type OrmDemoUser = { id: string; name: string; score: number };
+
+/** Istanza condivisa nella sessione pagina: ORM in RAM nel browser (non passa dal server). */
+const ormDemo = createDb();
+const ormUsers = ormDemo.folder("customdb").folder("demo").table<OrmDemoUser>("users");
 
 export default function DbCustomRoute() {
 	const res = state<server<"zigDb">>();
 	const zigBench = state<ServerRouteOut<"zigDb.bench"> | null>(null);
 	const pgBench = state<ServerRouteOut<"db.bench"> | null>(null);
 	const loadSim = state<ServerRouteOut<"loadSim"> | null>(null);
+	const ormRows = state<OrmDemoUser[]>([]);
 
 	return (
 		<div s="col gap-4 p-4 max-w-2xl">
@@ -12,6 +19,47 @@ export default function DbCustomRoute() {
 			<t s="text-14 text-#aaa">
 				Motore attuale: map id→blob (non relazionale). Benchmark = molti put/get in-process vs molti `select` su Postgres.
 			</t>
+
+			<div s="col gap-2 border-1 border-#444 rounded p-3 bg-#1a1a1e">
+				<t s="text-16 font-bold text-#e9d5ff">ORM (client, `core/client/db/orm`)</t>
+				<t s="text-13 text-#a1a1aa">
+					Dati solo in memoria in questa tab: path `/customdb/demo/users`. Dopo deploy vedi questa sezione; Zig/Postgres sopra restano invariati.
+				</t>
+				<div s="row gap-2 flex-wrap">
+					<t
+						s="text-#fff bg-#7c2d12 px-3 py-2 rounded pointer"
+						click={() => {
+							void (async () => {
+								await ormUsers.insert({
+									name: `guest-${String(ormRows().length + 1)}`,
+									score: Math.floor(Math.random() * 100),
+								});
+								ormRows(await ormUsers.findMany({ limit: 50 }));
+							})();
+						}}
+					>
+						ORM: insert + elenco
+					</t>
+					<t
+						s="text-#ccc border-1 border-#555 px-3 py-2 rounded pointer"
+						click={() => {
+							void (async () => {
+								await ormUsers.delete({});
+								ormRows([]);
+							})();
+						}}
+					>
+						Svuota tabella demo
+					</t>
+				</div>
+				<For each={ormRows} pick={(rows) => rows}>
+					{(u) => (
+						<t s="text-12 font-mono text-#bef264">
+							{u.id} · {u.name} · score={u.score}
+						</t>
+					)}
+				</For>
+			</div>
 			<t
 				s="text-#ffffff bg-#7c3aed px-3 py-2 rounded pointer inline-block"
 				click={() =>
