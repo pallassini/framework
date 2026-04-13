@@ -3,7 +3,7 @@
  * createState(value) → Signal (Promise risolte automaticamente).
  */
 
-import { isRpcRunRef } from "../../rpc-ref";
+import { isRpcRunRef } from "../../../desktop/rpc-ref";
 import { signal, type Signal } from "./signal";
 import { buildStore, isPlainObject, type StateMap } from "../utils/store";
 import { withCallableStore } from "../utils/withCallableStore";

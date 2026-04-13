@@ -109,6 +109,7 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 				...process.env,
 				CLIENT_DEV_SERVER_URL: url,
 				FRAMEWORK_PROJECT_ROOT: root,
+				FRAMEWORK_DESKTOP_OUT: "dev",
 				FRAMEWORK_DESKTOP_DEV_INSTANCE: instanceId,
 			},
 		});

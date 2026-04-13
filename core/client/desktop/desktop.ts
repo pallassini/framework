@@ -1,5 +1,5 @@
 import type { DesktopPath, DesktopRoutes } from "./routes-gen";
-import { markRpcRun } from "../rpc-ref";
+import { markRpcRun } from "../../desktop/rpc-ref";
 import { getDesktopElectroview } from "./electroview";
 
 export type DesktopRpcSettledResult<O> =

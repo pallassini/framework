@@ -7,6 +7,21 @@ import { killRpcServer, startRpcServer } from "./server";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
+// —— BUILD (opzionale: `FRAMEWORK_BUILD_BEFORE_DEV=web|desktop|all`)
+const prebuild = process.env.FRAMEWORK_BUILD_BEFORE_DEV?.trim().toLowerCase();
+if (prebuild === "web" || prebuild === "desktop" || prebuild === "all" || prebuild === "server") {
+	const arg = prebuild === "server" ? "web" : prebuild;
+	const buildEntry = path.join(root, "core", "cli", "build", "index.ts");
+	const r = Bun.spawnSync(["bun", buildEntry, arg], {
+		cwd: root,
+		stdout: "inherit",
+		stderr: "inherit",
+		stdin: "inherit",
+		env: { ...process.env, FRAMEWORK_PROJECT_ROOT: root },
+	});
+	if (r.exitCode !== 0) process.exit(r.exitCode ?? 1);
+}
+
 // —— cleanup su exit del processo dev ——
 process.on("exit", () => {
 	killViteProc();

@@ -2,5 +2,11 @@
     "files.exclude": {
         "bun.lock": true,
         "node_modules": true,
+        "tsconfig.json": true,
+        "index.html": true,
+        "package.json": true,
+        ".dockerignore": true,
+        "Dockerfile": true,
+        ".gitignore": true,
     }
 }

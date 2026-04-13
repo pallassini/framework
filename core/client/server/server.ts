@@ -1,5 +1,5 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
-import { markRpcRun } from "../rpc-ref";
+import { markRpcRun } from "../../desktop/rpc-ref";
 
 export type RpcSettledResult<O> =
 	| { readonly ok: true; readonly data: O }
