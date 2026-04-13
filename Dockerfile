@@ -3,12 +3,28 @@
 #
 # RPC: `VITE_SERVER_RPC_ORIGIN=""` di default → stesso origin.
 # DB: `FWDB_LIB` punta alla .so in immagine; dati in `/app/data` (monta volume per persistenza).
-# Se il tag Zig non esiste su Docker Hub, cambia `ZIG_IMAGE` (es. ziglang/zig:0.15.1).
+# Zig: tarball ufficiale da ziglang.org (evita `ziglang/zig` su Hub, spesso assente o non pullabile).
 
-ARG ZIG_IMAGE=ziglang/zig:0.15.2
-
-FROM ${ZIG_IMAGE} AS zigbuild
+FROM debian:bookworm-slim AS zigbuild
 WORKDIR /src
+
+ARG ZIG_VERSION=0.15.2
+ARG TARGETARCH
+
+RUN apt-get update \
+&& apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& set -eux \
+	&& case "$TARGETARCH" in \
+		amd64) ZIG_ARCH=x86_64 ;; \
+		arm64) ZIG_ARCH=aarch64 ;; \
+		*) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+	esac \
+	&& curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz \
+	&& tar -xJf /tmp/zig.tar.xz -C /opt \
+	&& rm /tmp/zig.tar.xz \
+	&& ln -sf "/opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig" /usr/local/bin/zig
+
 COPY core/db/zig/ ./
 RUN zig build -Doptimize=ReleaseSafe
 
