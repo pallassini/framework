@@ -6,7 +6,8 @@ const libFile =
 	process.platform === "win32" ? "fwdb.dll" : process.platform === "darwin" ? "libfwdb.dylib" : "libfwdb.so";
 
 function defaultLibPath(): string {
-	return join(import.meta.dir, "..", "zig", "zig-out", "bin", libFile);
+	const sub = process.platform === "win32" ? "bin" : "lib";
+	return join(import.meta.dir, "..", "zig", "zig-out", sub, libFile);
 }
 
 /** Handle opaco ritornato da `fwdb_engine_create` (Bun FFI: number o bigint). */
@@ -50,7 +51,7 @@ export type FwdbNative = {
 	close: () => void;
 };
 
-/** Carica `fwdb` (Zig). `FWDB_LIB` = path assoluto; se assente si usa `core/db/zig/zig-out/bin/`. */
+/** Carica `fwdb` (Zig). `FWDB_LIB` = path assoluto; se assente si usa `zig-out/bin` (Windows) o `zig-out/lib` (Unix). */
 export function tryLoadFwdb(): FwdbNative | null {
 	if (process.env.FWDB_DISABLE === "1") return null;
 	const path = process.env.FWDB_LIB?.trim() || defaultLibPath();

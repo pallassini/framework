@@ -57,7 +57,7 @@ RUN mkdir -p /app/lib
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
-COPY --from=zigbuild /src/zig-out/bin/libfwdb.so /app/lib/libfwdb.so
+COPY --from=zigbuild /src/zig-out/lib/libfwdb.so /app/lib/libfwdb.so
 COPY --from=builder /app/build/web ./build/web
 COPY --from=builder /app/core ./core
 COPY --from=builder /app/server ./server
