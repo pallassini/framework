@@ -5,15 +5,15 @@
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
-import type { ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 import { writeServerRoutesGen } from "../server/routes/generate";
 
-export function genServerRoutesPlugin(projectRoot: string): unknown {
+export function genServerRoutes(projectRoot: string): Plugin {
 	const rdir = normalize(join(projectRoot, "server", "routes"));
 	const regen = () => writeServerRoutesGen(projectRoot);
 	return {
-		name: "gen-server-routes",
-		enforce: "pre" as const,
+		name: "server-routes-gen",
+		enforce: "pre",
 		buildStart() {
 			regen();
 		},

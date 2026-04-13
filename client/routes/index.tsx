@@ -1,5 +1,11 @@
+import { server } from "client";
+
 export default function Home() {
-  console.log('cd')
+
+  void server.ping.brooo({
+    onSuccess: (data) => console.log(data),
+  });
+
   return <>
   <t s="text-#990000 bg-#009900">dfwfdwdw</t>
 <br></br>

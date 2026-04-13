@@ -1,34 +1,97 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
 
+export type RpcSettledResult<O> =
+	| { readonly ok: true; readonly data: O }
+	| { readonly ok: false; readonly error: unknown };
+
+export type RpcCallbacks<O = unknown> = {
+	onSuccess?: (data: O) => void;
+	onError?: (error: unknown) => void;
+	/** Dopo `onSuccess` / `onError` (sempre, successo o fallimento). */
+	onSettled?: (result: RpcSettledResult<O>) => void;
+};
+
 function serverRpcBase(): string {
 	if (import.meta.env.DEV) return "";
 	const t = (import.meta.env.VITE_SERVER_RPC_ORIGIN as string | undefined)?.trim() ?? "";
 	return t.replace(/\/$/, "");
 }
 
-async function rpcFetch(pathDots: string, input?: unknown): Promise<unknown> {
+function isRpcCallbacks(x: unknown): x is RpcCallbacks<unknown> {
+	if (x === null || typeof x !== "object") return false;
+	const o = x as Record<string, unknown>;
+	const fnOrU = (v: unknown) => v === undefined || typeof v === "function";
+	return (
+		("onSuccess" in o && fnOrU(o.onSuccess)) ||
+		("onError" in o && fnOrU(o.onError)) ||
+		("onSettled" in o && fnOrU(o.onSettled))
+	);
+}
+
+/** `(input?, opts?)` oppure solo `(opts)` se il primo argomento è un blocco callbacks. */
+export function extractRpcArgs(first: unknown, second: unknown): {
+	input: unknown;
+	opts?: RpcCallbacks<unknown>;
+} {
+	if (second !== undefined) {
+		return {
+			input: first,
+			opts: isRpcCallbacks(second) ? second : undefined,
+		};
+	}
+	if (first !== undefined && isRpcCallbacks(first)) {
+		return { input: undefined, opts: first };
+	}
+	return { input: first };
+}
+
+async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallbacks<O>): Promise<O> {
 	const pathSeg = pathDots.replace(/\./g, "/");
 	const base = serverRpcBase();
-	const res = await fetch(`${base}/_server/${pathSeg}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ input }),
-	});
-	const data = (await res.json()) as unknown;
+	let res: Response;
+	try {
+		res = await fetch(`${base}/_server/${pathSeg}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ input }),
+		});
+	} catch (e) {
+		opts?.onError?.(e);
+		opts?.onSettled?.({ ok: false, error: e });
+		throw e;
+	}
+
+	let data: unknown;
+	try {
+		data = await res.json();
+	} catch (e) {
+		opts?.onError?.(e);
+		opts?.onSettled?.({ ok: false, error: e });
+		throw e;
+	}
+
 	if (data && typeof data === "object" && "error" in data) {
 		const e = (data as { error: { type?: string; message?: string } }).error;
-		throw Object.assign(new Error(e.message ?? "Server error"), {
+		const err = Object.assign(new Error(e.message ?? "Server error"), {
 			type: e.type,
 			status: res.status,
 		});
+		opts?.onError?.(err);
+		opts?.onSettled?.({ ok: false, error: err });
+		throw err;
 	}
-	return data;
+
+	const out = data as O;
+	opts?.onSuccess?.(out);
+	opts?.onSettled?.({ ok: true, data: out });
+	return out;
 }
 
 function createLink(parts: string[]): unknown {
-	const run = async (input?: unknown) => {
+	const run = async (first?: unknown, second?: unknown) => {
 		const pathDots = parts.join(".");
-		return rpcFetch(pathDots, input);
+		const { input, opts } = extractRpcArgs(first, second);
+		return rpcFetch(pathDots, input, opts);
 	};
 	return new Proxy(run, {
 		get(_target, seg: string | symbol) {
@@ -38,11 +101,22 @@ function createLink(parts: string[]): unknown {
 	});
 }
 
+type RpcCb<O> = RpcCallbacks<O>;
+
 type ApiForPath<P extends ServerPath> = [ServerRoutes[P]["in"]] extends [void]
-	? () => Promise<ServerRoutes[P]["out"]>
+	? {
+			(): Promise<ServerRoutes[P]["out"]>;
+			(opts: RpcCb<ServerRoutes[P]["out"]>): Promise<ServerRoutes[P]["out"]>;
+		}
 	: [Extract<ServerRoutes[P]["in"], undefined>] extends [never]
-		? (input: ServerRoutes[P]["in"]) => Promise<ServerRoutes[P]["out"]>
-		: (input?: ServerRoutes[P]["in"]) => Promise<ServerRoutes[P]["out"]>;
+		? (
+				input: ServerRoutes[P]["in"],
+				opts?: RpcCb<ServerRoutes[P]["out"]>,
+			) => Promise<ServerRoutes[P]["out"]>
+		: (
+				input?: ServerRoutes[P]["in"],
+				opts?: RpcCb<ServerRoutes[P]["out"]>,
+			) => Promise<ServerRoutes[P]["out"]>;
 
 type PathToObject<P extends string, V> = P extends `${infer K}.${infer Rest}`
 	? { readonly [key in K]: PathToObject<Rest, V> }
@@ -71,7 +145,11 @@ export const server = new Proxy({} as Record<string, unknown>, {
 
 export async function serverRpc<P extends ServerPath>(
 	path: P,
-	input: ServerRoutes[P]["in"],
+	first?: ServerRoutes[P]["in"] | RpcCallbacks<ServerRoutes[P]["out"]>,
+	second?: RpcCallbacks<ServerRoutes[P]["out"]>,
 ): Promise<ServerRoutes[P]["out"]> {
-	return rpcFetch(path, input) as Promise<ServerRoutes[P]["out"]>;
+	const { input, opts } = extractRpcArgs(first, second);
+	return rpcFetch(path, input, opts as RpcCallbacks<ServerRoutes[P]["out"]> | undefined) as Promise<
+		ServerRoutes[P]["out"]
+	>;
 }

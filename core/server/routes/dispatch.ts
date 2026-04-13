@@ -6,16 +6,8 @@ import { routeCors, routeRegistry, routesState } from "./state";
 
 const RPC_PREFIX = "/_server/";
 
-function healthResponse(): Response {
-	return new Response(null, { status: 204 });
-}
-
 export async function dispatchServerRequest(req: Request, projectRoot: string): Promise<Response | null> {
 	const path = new URL(req.url).pathname;
-
-	if (path === "/_server/health" && req.method === "GET") {
-		return healthResponse();
-	}
 
 	if (!path.startsWith("/_server")) return null;
 

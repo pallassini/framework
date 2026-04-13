@@ -10,6 +10,6 @@ export * from "./client/router";
 // VALIDATOR
 export { v } from "./client/validator";
 
-// SERVER RPC (client)
-export { server } from "./client/server/server";
+// SERVER
+export { server } from "./client/server";
 

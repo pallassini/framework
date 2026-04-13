@@ -25,10 +25,6 @@ async function main(): Promise<void> {
 		},
 	});
 
-	console.log(
-		`[rpc] http://${serverConfig.host}:${serverConfig.port}/_server/… (health: GET /_server/health)`,
-	);
-
 	watchServerRoutes(root);
 }
 

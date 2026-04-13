@@ -3,7 +3,7 @@
  * Non modificare a mano.
  */
 
-import { default as ping, meta as ping_meta } from "../../../server/routes/ping";
+import { brooo as ping_brooo, default as ping } from "../../../server/routes/ping";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
@@ -11,7 +11,7 @@ type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 
 export type ServerRoutes = {
 	ping: InferRoute<typeof ping>;
-	"ping.meta": InferRoute<typeof ping_meta>;
+	"ping.brooo": InferRoute<typeof ping_brooo>;
 };
 
 export type ServerPath = keyof ServerRoutes & string;

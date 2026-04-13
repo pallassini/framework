@@ -8,17 +8,19 @@ import { serverConfig } from "../../server/routes/config";
 
 let child: ReturnType<typeof Bun.spawn> | undefined;
 
-async function waitForHealth(url: string): Promise<void> {
+/** Attende che Bun.serve sia in ascolto (qualsiasi risposta HTTP, es. 404 sulla root). */
+async function waitForRpcListen(baseUrl: string): Promise<void> {
 	for (let i = 0; i < 200; i++) {
 		try {
-			const r = await fetch(url, { method: "GET" });
-			if (r.status === 204) return;
+			const r = await fetch(baseUrl, { method: "GET" });
+			r.body?.cancel().catch(() => {});
+			return;
 		} catch {
-			/* */
+			/* connessione rifiutata / server non ancora su */
 		}
 		await Bun.sleep(25);
 	}
-	throw new Error(`RPC non risponde su ${url}`);
+	throw new Error(`RPC non risponde su ${baseUrl}`);
 }
 
 export async function startRpcServer(projectRoot: string): Promise<void> {
@@ -34,9 +36,9 @@ export async function startRpcServer(projectRoot: string): Promise<void> {
 		env: { ...process.env, FRAMEWORK_PROJECT_ROOT: projectRoot },
 	});
 
-	const health = `http://${serverConfig.host}:${serverConfig.port}/_server/health`;
+	const base = `http://${serverConfig.host}:${serverConfig.port}/`;
 	await Promise.race([
-		waitForHealth(health),
+		waitForRpcListen(base),
 		child.exited.then((code) => {
 			throw new Error(`RPC processo terminato (${code ?? "n/d"})`);
 		}),

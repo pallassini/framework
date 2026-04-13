@@ -8,7 +8,7 @@ export default s({
 });
 
 /** RPC `ping.meta` → `await server.ping.meta()` */
-export const meta = s({
+export const brooo = s({
 	run() {
 		return { name: "ping" as const };
 	},
