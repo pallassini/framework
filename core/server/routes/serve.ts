@@ -7,6 +7,7 @@ import { dispatchServerRequest } from "./dispatch";
 import { loadServerRoutes } from "./load";
 import { tryServeBuiltWeb } from "../../cli/build/static-web";
 import { watchServerRoutes } from "./watch";
+import { routeRegistry } from "./state";
 
 const prod = process.env.NODE_ENV === "production";
 
@@ -17,6 +18,12 @@ function projectRoot(): string {
 async function main(): Promise<void> {
 	const root = projectRoot();
 	await loadServerRoutes(root);
+
+	if (prod) {
+		console.log(
+			`[server/routes] caricate ${routeRegistry.size} RPC: ${[...routeRegistry.keys()].sort().join(", ")}`,
+		);
+	}
 
 	Bun.serve({
 		port: serverConfig.port,
