@@ -20,10 +20,10 @@ RUN apt-get update \
 		arm64) ZIG_ARCH=aarch64 ;; \
 		*) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
 	esac \
-	&& curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz \
+	&& curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz \
 	&& tar -xJf /tmp/zig.tar.xz -C /opt \
 	&& rm /tmp/zig.tar.xz \
-	&& ln -sf "/opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig" /usr/local/bin/zig
+	&& ln -sf "/opt/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}/zig" /usr/local/bin/zig
 
 COPY core/db/zig/ ./
 RUN zig build -Doptimize=ReleaseSafe
