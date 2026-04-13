@@ -10,8 +10,14 @@ import { genServerRoutes } from "./server-routes-gen";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-/** Singola fonte: `desktop/config.ts` → `server.url` */
-const serverRpcOrigin = (desktopConfig.server?.url ?? "").trim().replace(/\/$/, "");
+/**
+ * Base URL per `fetch` RPC in prod (`/_server/...`).
+ * Override build: `VITE_SERVER_RPC_ORIGIN=https://api.example.com bun run build`
+ * (utile se il sito statico è su un host e l’API su un altro).
+ */
+const serverRpcOrigin = (process.env.VITE_SERVER_RPC_ORIGIN ?? desktopConfig.server?.url ?? "")
+	.trim()
+	.replace(/\/$/, "");
 
 /** Dev: nessun `error` / `warn` Vite in terminale (import-analysis, oxc, HMR, ecc.). */
 function muteIssueLogger(): Logger {

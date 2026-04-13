@@ -3,15 +3,16 @@ import type { LogConfig } from "../server/config";
 export type DesktopConfig = {
 	log: LogConfig;
 	/**
-	 * Base URL RPC (senza slash finale). Usata in build da `core/client/vite.config.ts` → `import.meta.env.VITE_SERVER_RPC_ORIGIN`.
-	 * In dev il client usa il proxy `/_server`; in prod (web + Electrobun) le fetch vanno qui.
+	 * Base URL RPC in prod (senza slash finale) → `import.meta.env.VITE_SERVER_RPC_ORIGIN`.
+	 * Deve essere l’host dove gira `bun core/server/routes/serve.ts` (stesso che logga `[server/routes]`).
+	 * In dev il client usa il proxy Vite `/_server`. Override in CI: `VITE_SERVER_RPC_ORIGIN=…`.
 	 */
 	server?: { url: string };
 };
 
 export const desktopConfig: DesktopConfig = {
 	server: {
-		url: "https://test.pallassini.com",
+		url: "https://customdb.pallassini.com",
 	},
 	log: {
 		enabled: true,

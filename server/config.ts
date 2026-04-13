@@ -20,7 +20,8 @@ export interface ServerConfig {
 }
 
 export const serverConfig: ServerConfig = {
-	cors: "same-origin",
+	/** Se il frontend è su un altro sottodominio dell’API, aggiungi l’origin qui (o `all`). */
+	cors: ["https://test.pallassini.com", "https://customdb.pallassini.com"],
 	log: {
 		enabled: true,
 		detail: "full",
