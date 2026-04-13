@@ -1,13 +1,15 @@
-import { For, server, state } from "client";
+import { For, server, state, type ServerRouteOut } from "client";
 
 export default function DbCustomRoute() {
 	const res = state<server<"zigDb">>();
+	const zigBench = state<ServerRouteOut<"zigDb.bench"> | null>(null);
+	const pgBench = state<ServerRouteOut<"db.bench"> | null>(null);
 
 	return (
-		<div s="col gap-3 p-4 max-w-2xl">
+		<div s="col gap-4 p-4 max-w-2xl">
 			<t s="text-18 font-bold text-#fff">dbCustom (Zig engine)</t>
 			<t s="text-14 text-#aaa">
-				Con `zig build` in `core/dbCustom/zig` carica la DLL/.so; altrimenti fallback in-memory. RPC: server.zigDb → POST /_server/zigDb.
+				Motore attuale: map id→blob (non relazionale). Benchmark = molti put/get in-process vs molti `select` su Postgres.
 			</t>
 			<t
 				s="text-#ffffff bg-#7c3aed px-3 py-2 rounded pointer inline-block"
@@ -30,6 +32,55 @@ export default function DbCustomRoute() {
 					</div>
 				)}
 			</For>
+
+			<div s="col gap-2 border-t-1 border-#333 pt-3">
+				<t s="text-16 font-bold text-#fff">Benchmark</t>
+				<div s="row gap-2 flex-wrap">
+					<t
+						s="text-#fff bg-#6d28d9 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.zigDb.bench(
+								{ iterations: 20_000, payloadBytes: 64 },
+								{
+									onSuccess: (d) => zigBench(d),
+									onError: (e) => console.error("[zigDb.bench]", e),
+								},
+							)
+						}
+					>
+						Zig ~20k put+get (64 B)
+					</t>
+					<t
+						s="text-#fff bg-#0d9488 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.db.bench(
+								{ iterations: 300 },
+								{
+									onSuccess: (d) => pgBench(d),
+									onError: (e) => console.error("[db.bench]", e),
+								},
+							)
+						}
+					>
+						Postgres 300× select
+					</t>
+				</div>
+				<For each={zigBench} pick={(r) => (r ? [r] : [])}>
+					{(d) => (
+						<t s="text-12 font-mono text-#a7f3d0">
+							zig: engine={d.engine} iter={d.iterations} payload={d.payloadBytes}B totalMs={d.totalMs}{" "}
+							pairs/s={d.pairsPerSec}
+						</t>
+					)}
+				</For>
+				<For each={pgBench} pick={(r) => (r ? [r] : [])}>
+					{(d) => (
+						<t s="text-12 font-mono text-#99f6e4">
+							postgres: iter={d.iterations} totalMs={d.totalMs} q/s={d.queriesPerSec}
+						</t>
+					)}
+				</For>
+			</div>
 		</div>
 	);
 }

@@ -16,6 +16,7 @@ export * from "./client/validator";
 // SERVER
 export { server } from "./client/server";
 import type { ServerPath, ServerRouteOut } from "./client/server";
+export type { ServerPath, ServerRouteOut, ServerRoutes } from "./client/server";
 export type server<P extends ServerPath> = ServerRouteOut<P>;
 
 // DESKTOP

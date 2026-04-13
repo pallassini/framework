@@ -8,6 +8,16 @@ export type DbCustomSmokeResult = {
 	roundtrip: string;
 };
 
+export type DbCustomBenchResult = {
+	ok: true;
+	engine: "zig" | "memory";
+	iterations: number;
+	payloadBytes: number;
+	totalMs: number;
+	/** Put+get completati al secondo (ogni iterazione = 1 put e 1 get). */
+	pairsPerSec: number;
+};
+
 /** Fallback in-memory se la DLL/.so Zig non c’è (dev senza `zig build`). */
 const mem = {
 	nextId: 1 as number,
@@ -67,5 +77,58 @@ export function smokeTest(): DbCustomSmokeResult {
 		ping,
 		putId: String(putId),
 		roundtrip: new TextDecoder().decode(got),
+	};
+}
+
+function clampInt(n: number, lo: number, hi: number): number {
+	if (!Number.isFinite(n)) return lo;
+	return Math.min(hi, Math.max(lo, Math.trunc(n)));
+}
+
+/**
+ * Stress put/get in-process (non è SQL relazionale: misura throughput del motore blob attuale).
+ */
+export function benchPutGet(opts: { iterations: number; payloadBytes?: number }): DbCustomBenchResult {
+	const iterations = clampInt(opts.iterations, 1, 200_000);
+	const payloadBytes = clampInt(opts.payloadBytes ?? 64, 16, 4096);
+	const payload = new Uint8Array(payloadBytes);
+	crypto.getRandomValues(payload);
+
+	const zig = getZigApi();
+	const t0 = performance.now();
+
+	if (zig) {
+		const h = ensureZigHandle(zig);
+		for (let i = 0; i < iterations; i++) {
+			payload[0] = i & 0xff;
+			payload[1] = (i >> 8) & 0xff;
+			const id = zig.put(h, payload);
+			if (id <= 0n) throw new Error("[dbCustom] bench zig put failed");
+			const len = zig.getLen(h, id);
+			if (len !== payload.byteLength) throw new Error("[dbCustom] bench zig len mismatch");
+			const out = new Uint8Array(len);
+			const n = zig.get(h, id, out);
+			if (n !== len) throw new Error("[dbCustom] bench zig get mismatch");
+		}
+	} else {
+		for (let i = 0; i < iterations; i++) {
+			payload[0] = i & 0xff;
+			payload[1] = (i >> 8) & 0xff;
+			const id = mem.put(payload);
+			const got = mem.get(id);
+			if (!got || got.byteLength !== payload.byteLength) throw new Error("[dbCustom] bench memory get failed");
+		}
+	}
+
+	const totalMs = performance.now() - t0;
+	const pairsPerSec = totalMs > 0 ? (iterations * 1000) / totalMs : 0;
+
+	return {
+		ok: true,
+		engine: zig ? "zig" : "memory",
+		iterations,
+		payloadBytes,
+		totalMs: Math.round(totalMs * 100) / 100,
+		pairsPerSec: Math.round(pairsPerSec),
 	};
 }
