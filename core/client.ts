@@ -1,4 +1,4 @@
-import { clientConfig } from "../desktop/config";
+import { clientConfig } from "../client/config";
 
 // STATE
 import { createState } from "./client/state";
