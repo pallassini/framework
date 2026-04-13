@@ -25,124 +25,124 @@ export async function seedPgDashboard(sql: Sql, plan: SeedPlan): Promise<void> {
 		await tx`
 			INSERT INTO fw_dash_orgs (id, name, plan)
 			SELECT
-				'o' || (g.generate_series - 1)::text,
-				'Org ' || (g.generate_series - 1)::text,
-				CASE WHEN (g.generate_series - 1) % 3 = 0 THEN 'enterprise' ELSE 'pro' END
-			FROM generate_series(1, ${p.orgs}) AS g;
+				'o' || g.i::text,
+				'Org ' || g.i::text,
+				CASE WHEN g.i % 3 = 0 THEN 'enterprise' ELSE 'pro' END
+			FROM generate_series(0, ${p.orgs - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_users (id, org_id, email, role, score)
 			SELECT
-				'u' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'user' || (g.generate_series - 1)::text || '@ex.test',
-				CASE WHEN (g.generate_series - 1) % 7 = 0 THEN 'admin' ELSE 'member' END,
-				((g.generate_series - 1) % 100)::int
-			FROM generate_series(1, ${p.users}) AS g;
+				'u' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'user' || g.i::text || '@ex.test',
+				CASE WHEN g.i % 7 = 0 THEN 'admin' ELSE 'member' END,
+				(g.i % 100)::int
+			FROM generate_series(0, ${p.users - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_teams (id, org_id, name)
 			SELECT
-				't' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'Team ' || (g.generate_series - 1)::text
-			FROM generate_series(1, ${p.teams}) AS g;
+				't' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'Team ' || g.i::text
+			FROM generate_series(0, ${p.teams - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_team_members (id, team_id, user_id, role)
 			SELECT
-				'tm' || (g.generate_series - 1)::text,
-				't' || ((g.generate_series - 1) % ${p.teams})::text,
-				'u' || ((g.generate_series - 1) % ${p.users})::text,
-				CASE WHEN (g.generate_series - 1) % 2 = 0 THEN 'lead' ELSE 'dev' END
-			FROM generate_series(1, ${p.team_members}) AS g;
+				'tm' || g.i::text,
+				't' || (g.i % ${p.teams})::text,
+				'u' || (g.i % ${p.users})::text,
+				CASE WHEN g.i % 2 = 0 THEN 'lead' ELSE 'dev' END
+			FROM generate_series(0, ${p.team_members - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_projects (id, org_id, owner_user_id, name, status)
 			SELECT
-				'p' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'u' || ((g.generate_series - 1) % ${p.users})::text,
-				'Project ' || (g.generate_series - 1)::text,
-				CASE WHEN (g.generate_series - 1) % 5 = 0 THEN 'archived' ELSE 'active' END
-			FROM generate_series(1, ${p.projects}) AS g;
+				'p' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'u' || (g.i % ${p.users})::text,
+				'Project ' || g.i::text,
+				CASE WHEN g.i % 5 = 0 THEN 'archived' ELSE 'active' END
+			FROM generate_series(0, ${p.projects - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_tasks (id, project_id, assignee_user_id, title, priority, done)
 			SELECT
-				'tk' || (g.generate_series - 1)::text,
-				'p' || ((g.generate_series - 1) % ${p.projects})::text,
-				'u' || ((g.generate_series - 1) % ${p.users})::text,
-				'Task ' || (g.generate_series - 1)::text,
-				((g.generate_series - 1) % 4)::int,
-				((g.generate_series - 1) % 11 = 0)
-			FROM generate_series(1, ${p.tasks}) AS g;
+				'tk' || g.i::text,
+				'p' || (g.i % ${p.projects})::text,
+				'u' || (g.i % ${p.users})::text,
+				'Task ' || g.i::text,
+				(g.i % 4)::int,
+				(g.i % 11 = 0)
+			FROM generate_series(0, ${p.tasks - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_comments (id, task_id, author_user_id, body)
 			SELECT
-				'c' || (g.generate_series - 1)::text,
-				'tk' || ((g.generate_series - 1) % ${p.tasks})::text,
-				'u' || ((g.generate_series - 1) % ${p.users})::text,
-				'Comment body ' || (g.generate_series - 1)::text
-			FROM generate_series(1, ${p.comments}) AS g;
+				'c' || g.i::text,
+				'tk' || (g.i % ${p.tasks})::text,
+				'u' || (g.i % ${p.users})::text,
+				'Comment body ' || g.i::text
+			FROM generate_series(0, ${p.comments - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_tags (id, org_id, label)
 			SELECT
-				'g' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'tag-' || (g.generate_series - 1)::text
-			FROM generate_series(1, ${p.tags}) AS g;
+				'g' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'tag-' || g.i::text
+			FROM generate_series(0, ${p.tags - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_taggings (id, tag_id, task_id)
 			SELECT
-				'tg' || (g.generate_series - 1)::text,
-				'g' || ((g.generate_series - 1) % ${p.tags})::text,
-				'tk' || ((g.generate_series - 1) % ${p.tasks})::text
-			FROM generate_series(1, ${p.taggings}) AS g;
+				'tg' || g.i::text,
+				'g' || (g.i % ${p.tags})::text,
+				'tk' || (g.i % ${p.tasks})::text
+			FROM generate_series(0, ${p.taggings - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_invoices (id, org_id, user_id, total_cents, paid)
 			SELECT
-				'inv' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'u' || ((g.generate_series - 1) % ${p.users})::text,
-				(((g.generate_series - 1) % 5000) * 100)::int,
-				((g.generate_series - 1) % 4 = 0)
-			FROM generate_series(1, ${p.invoices}) AS g;
+				'inv' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'u' || (g.i % ${p.users})::text,
+				((g.i % 5000) * 100)::int,
+				(g.i % 4 = 0)
+			FROM generate_series(0, ${p.invoices - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_line_items (id, invoice_id, project_id, qty, amount_cents)
 			SELECT
-				'li' || (g.generate_series - 1)::text,
-				'inv' || ((g.generate_series - 1) % ${p.invoices})::text,
-				'p' || ((g.generate_series - 1) % ${p.projects})::text,
-				(((g.generate_series - 1) % 9) + 1)::int,
-				(((g.generate_series - 1) % 200) * 50)::int
-			FROM generate_series(1, ${p.line_items}) AS g;
+				'li' || g.i::text,
+				'inv' || (g.i % ${p.invoices})::text,
+				'p' || (g.i % ${p.projects})::text,
+				((g.i % 9) + 1)::int,
+				((g.i % 200) * 50)::int
+			FROM generate_series(0, ${p.line_items - 1}) AS g(i);
 		`;
 
 		await tx`
 			INSERT INTO fw_dash_metrics_events (id, org_id, project_id, bucket, value)
 			SELECT
-				'm' || (g.generate_series - 1)::text,
-				'o' || ((g.generate_series - 1) % ${p.orgs})::text,
-				'p' || ((g.generate_series - 1) % ${p.projects})::text,
-				((g.generate_series - 1) % 96)::int,
-				(((g.generate_series - 1) % 50) + 1)::int
-			FROM generate_series(1, ${p.metrics}) AS g;
+				'm' || g.i::text,
+				'o' || (g.i % ${p.orgs})::text,
+				'p' || (g.i % ${p.projects})::text,
+				(g.i % 96)::int,
+				((g.i % 50) + 1)::int
+			FROM generate_series(0, ${p.metrics - 1}) AS g(i);
 		`;
 	});
 }
