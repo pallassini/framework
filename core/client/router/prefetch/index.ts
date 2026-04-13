@@ -1,5 +1,5 @@
 import { runWithPrefetchWatchCleanup } from "../../state/effect";
-import { getRouteLoader, loadRouteModuleCached, toPathname, type RouteModule } from "../app/routes";
+import { getRouteLoader, loadRouteModuleCached, toPathname, type RouteModule } from "../App/routes";
 
 export type PrefetchMode = "module" | "all" | "no-assets" | "no-fetch";
 

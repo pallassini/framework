@@ -1,4 +1,4 @@
-import { toPathname } from "../router/app/routes";
+import { toPathname } from "../router/App/routes";
 import { signal, type Signal } from "./state/signal";
 
 function normalizePathnameForRoutes(pathname: string): string {
