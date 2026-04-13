@@ -29,3 +29,6 @@ export { For } from "./client/runtime/tag";
 
 // FORM
 export * from "./client/form";
+
+// ORM (namespace ∞ / tabelle / engine memory | zig mirror)
+export * from "./client/db/orm";

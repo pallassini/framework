@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun ./core/cli/dev/index.ts",
-    "build": "bun ./core/cli/build/index.ts"
+    "build": "bun ./core/cli/build/index.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "electrobun": "1.16.0",
