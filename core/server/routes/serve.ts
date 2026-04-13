@@ -5,7 +5,10 @@
 import { serverConfig } from "./config";
 import { dispatchServerRequest } from "./dispatch";
 import { loadServerRoutes } from "./load";
+import { tryServeBuiltWeb } from "../../cli/build/static-web";
 import { watchServerRoutes } from "./watch";
+
+const prod = process.env.NODE_ENV === "production";
 
 function projectRoot(): string {
 	return process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
@@ -21,11 +24,13 @@ async function main(): Promise<void> {
 		async fetch(req) {
 			const r = await dispatchServerRequest(req, root);
 			if (r != null) return r;
+			const web = await tryServeBuiltWeb(req, root);
+			if (web != null) return web;
 			return new Response("Not Found", { status: 404 });
 		},
 	});
 
-	watchServerRoutes(root);
+	if (!prod) watchServerRoutes(root);
 }
 
 if (import.meta.main) {
