@@ -1,5 +1,6 @@
 export {
 	benchPutGet,
+	runCustomDbSerialized,
 	smokeTest,
 	type DbCustomBenchResult,
 	type DbCustomSmokeResult,

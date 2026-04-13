@@ -35,6 +35,20 @@ const mem = {
 
 let zigHandle: number | null = null;
 
+/**
+ * Esegue una funzione che usa il motore custom (Zig o `mem`) in serie.
+ * Serve se più “utenti virtuali” chiamano in parallelo: il fallback JS `mem` non è thread-safe tra fiber.
+ */
+let customDbChain: Promise<unknown> = Promise.resolve();
+export function runCustomDbSerialized<T>(fn: () => T): Promise<T> {
+	const next = customDbChain.then(() => fn()) as Promise<T>;
+	customDbChain = next.then(
+		() => {},
+		() => {},
+	);
+	return next;
+}
+
 function ensureZigHandle(api: NonNullable<ReturnType<typeof getZigApi>>): number {
 	if (zigHandle == null || zigHandle === 0) {
 		zigHandle = api.create();

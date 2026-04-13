@@ -4,6 +4,7 @@
  */
 
 import { bench as db_bench, default as db } from "../../../server/routes/db";
+import { default as loadSim } from "../../../server/routes/loadSim";
 import { brooo as ping_brooo, default as ping } from "../../../server/routes/ping";
 import { bench as zigDb_bench, default as zigDb } from "../../../server/routes/zigDb";
 
@@ -14,6 +15,7 @@ type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 export type ServerRoutes = {
 	db: InferRoute<typeof db>;
 	"db.bench": InferRoute<typeof db_bench>;
+	loadSim: InferRoute<typeof loadSim>;
 	ping: InferRoute<typeof ping>;
 	"ping.brooo": InferRoute<typeof ping_brooo>;
 	zigDb: InferRoute<typeof zigDb>;
