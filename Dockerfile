@@ -39,11 +39,9 @@ COPY --from=builder /app/core ./core
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/desktop ./desktop
 COPY --from=builder /app/client ./client
+COPY --from=builder /app/db ./db
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-	CMD ["bun", "core/cli/docker-health.ts"]
 
 CMD ["bun", "core/server/routes/serve.ts"]

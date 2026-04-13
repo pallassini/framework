@@ -1,6 +1,6 @@
+import path from "node:path";
 import { ptr } from "bun:ffi";
-import { tryLoadFwdb, u8, type FwdbEnginePtr } from "../native/load";
-import { IndexedTable } from "./table";
+import { tryLoadFwdb, u8, type FwdbEnginePtr, type FwdbNative } from "../native/load";
 import type {
 	DeleteResult,
 	DbRow,
@@ -15,14 +15,22 @@ import { ZigTable } from "./zigTable";
 
 export type TablesMap = Record<string, DbRow>;
 
-type Store = IndexedTable<DbRow> | ZigTable<DbRow>;
-
 export type CustomDbOpenOptions = {
-	/** Directory dati (catalog, snapshot, WAL). Se omessa si usa `process.env.FWDB_DATA`. */
+	/**
+	 * Directory dati (catalog, snapshot, WAL).
+	 * Se omessa: `FWDB_DATA` oppure `<cwd>/data` (o `<FRAMEWORK_PROJECT_ROOT>/data` se cwd non adatto).
+	 */
 	dataDir?: string | null;
-	/** Nome campo PK nel JSON per tabella (default `id`). Deve coincidere con `pk` nello schema. */
 	pkByTable?: Readonly<Record<string, string>>;
 };
+
+function defaultDataDir(): string {
+	const env = process.env.FWDB_DATA?.trim();
+	if (env) return env;
+	const root = process.env.FRAMEWORK_PROJECT_ROOT?.trim();
+	if (root) return path.join(root, "data");
+	return path.join(process.cwd(), "data");
+}
 
 function toCreateRows<T extends DbRow>(input: OneOrMany<Omit<T, "id"> & Partial<Pick<T, "id">>>): T[] {
 	const list = Array.isArray(input) ? input : [input];
@@ -38,71 +46,65 @@ function normalizeEnginePtr(raw: FwdbEnginePtr | undefined | null): FwdbEnginePt
 	return raw;
 }
 
+/** Solo motore Zig su disco: nessun fallback in-memory. */
 export class CustomDb<Tables extends TablesMap> {
-	private readonly tables = new Map<string, Store>();
-	private readonly native = tryLoadFwdb();
+	private readonly tables = new Map<string, ZigTable<DbRow>>();
+	private readonly native: FwdbNative;
 	private engine: FwdbEnginePtr | null;
-	readonly mode: "zig" | "memory";
-	/** Directory usata da `fwdb_engine_open`, se attiva. */
-	readonly dataDir: string | null;
+	readonly mode = "zig" as const;
+	readonly dataDir: string;
 
 	constructor(tableNames: readonly (keyof Tables & string)[], options?: CustomDbOpenOptions) {
-		const envDir = process.env.FWDB_DATA?.trim();
 		const dataDirOpt =
 			options?.dataDir !== undefined && options?.dataDir !== null
-				? options.dataDir.trim() || null
-				: envDir || null;
+				? options.dataDir.trim() || defaultDataDir()
+				: defaultDataDir();
 
-		this.engine = null;
-		if (this.native) {
-			if (dataDirOpt) {
-				const dir = u8(dataDirOpt);
-				const raw = this.native.symbols.fwdb_engine_open(
-					ptr(dir) as FwdbEnginePtr,
-					BigInt(dir.length),
-				);
-				const eng = normalizeEnginePtr(raw);
-				if (!eng) {
-					throw new Error(`[fwdb] engine_open failed for directory: ${dataDirOpt}`);
-				}
-				this.engine = eng;
-			} else {
-				const raw = this.native.symbols.fwdb_engine_create();
-				this.engine = normalizeEnginePtr(raw);
-			}
+		if (!dataDirOpt) {
+			throw new Error(
+				"[fwdb] directory dati obbligatoria: imposta FWDB_DATA, CustomDb({ dataDir }), o usa <project>/data.",
+			);
 		}
 
-		this.dataDir = dataDirOpt && this.engine != null ? dataDirOpt : null;
-		this.mode = this.native && this.engine != null ? "zig" : "memory";
+		const loaded = tryLoadFwdb();
+		if (!loaded) {
+			throw new Error(
+				"[fwdb] libreria nativa obbligatoria (nessun fallback RAM). Compila Zig (libfwdb.so / fwdb.dll), imposta FWDB_LIB se serve, verifica zig-out/bin.",
+			);
+		}
+		this.native = loaded;
+
+		const dir = u8(dataDirOpt);
+		const raw = this.native.symbols.fwdb_engine_open(ptr(dir) as FwdbEnginePtr, BigInt(dir.length));
+		const eng = normalizeEnginePtr(raw);
+		if (!eng) {
+			throw new Error(`[fwdb] engine_open fallito per: ${dataDirOpt}`);
+		}
+		this.engine = eng;
+		this.dataDir = dataDirOpt;
 
 		const pkMap = options?.pkByTable ?? {};
 		for (const t of tableNames) {
-			if (this.mode === "zig" && this.native && this.engine != null) {
-				this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkMap[t] ?? "id"));
-			} else {
-				this.tables.set(t, new IndexedTable<DbRow>());
-			}
+			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkMap[t] ?? "id"));
 		}
 	}
 
-	/** Snapshot su disco + svuota WAL (no-op se non Zig o senza directory). */
 	checkpoint(): void {
-		if (!this.native || this.engine == null || !this.dataDir) return;
+		if (!this.native || this.engine == null) return;
 		const rc = this.native.symbols.fwdb_checkpoint(this.engine);
 		if (rc !== 0) throw new Error(`[fwdb] checkpoint -> ${rc}`);
 	}
 
-	/** Chiude il motore nativo; non usare più questa istanza. */
 	close(): void {
 		if (!this.native || this.engine == null) return;
 		this.native.symbols.fwdb_engine_destroy(this.engine);
 		this.engine = null;
 	}
 
-	private tableImpl<K extends keyof Tables & string>(name: K): IndexedTable<Tables[K]> | ZigTable<Tables[K]> {
+	private tableImpl<K extends keyof Tables & string>(name: K): ZigTable<Tables[K]> {
 		const table = this.tables.get(name);
 		if (!table) throw new Error(`[db] unknown table "${name}"`);
-		return table as IndexedTable<Tables[K]> | ZigTable<Tables[K]>;
+		return table as ZigTable<Tables[K]>;
 	}
 
 	table<K extends keyof Tables & string>(name: K): TableAccessor<Tables[K]> {

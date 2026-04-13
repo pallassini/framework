@@ -1,16 +1,25 @@
+import appSchema, { type ServerTables } from "../../db/index";
 import { CustomDb } from "./core";
-import { createServerDbUtilities, type ServerDbUtilities, type ServerTables } from "./server";
+import { createServerDbUtilities, type ServerDbUtilities } from "./server";
 
-const customCore = new CustomDb<ServerTables>(["users"]);
-const customUtils = createServerDbUtilities(customCore, ["users"]);
+const customCore = new CustomDb<ServerTables>(
+	appSchema.tableNames as readonly (keyof ServerTables & string)[],
+	{
+		dataDir: process.env.FWDB_DATA?.trim() || undefined,
+		pkByTable: appSchema.pkByTable,
+	},
+);
 
-/** `zig` se `zig-out/bin/fwdb` è caricato, altrimenti `memory`. */
+/** Sempre `zig` (nessun fallback RAM). */
 export const dbCustomBackend = customCore.mode;
 
 export type Db = ServerDbUtilities<ServerTables>;
 
-/** API tabellare custom (fwdb / RAM): `db.users.*`, ecc. Nessun Postgres. */
-export const db: Db = customUtils;
+/** API tabellare su fwdb (Zig + persistenza in `FWDB_DATA` / `./data`). */
+export const db: Db = createServerDbUtilities(
+	customCore,
+	appSchema.tableNames as readonly (keyof ServerTables & string)[],
+);
 
 export type {
 	CustomDbOpenOptions,
@@ -26,12 +35,22 @@ export type {
 	WhereOps,
 	WhereValue,
 } from "./core";
-export type { DbUser, ServerDbUtilities, ServerTables } from "./server";
+export type { ServerDbUtilities } from "./server";
+export type { ServerTables, User as DbUser, Work } from "../../db/index";
 export {
+	bundleTables,
+	defineDb,
 	defineSchema,
+	defineTable,
+	isFwTable,
+	t,
 	table,
 	type CatalogJson,
+	type Field,
 	type FkDef,
+	type FkField,
+	type FwTable,
 	type IndexDef,
+	type StrField,
 	type TableSchemaInput,
 } from "./schema";

@@ -1,4 +1,5 @@
 node_modules
 /build
+data
 core/db/zig/zig-out
 core/db/zig/.zig-cache

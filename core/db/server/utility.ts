@@ -1,17 +1,8 @@
 import { CustomDb, type TablesMap } from "../core/customDb";
-import type { DbRow, TableAccessor } from "../core/types";
+import type { TableAccessor } from "../core/types";
+import type { ServerTables } from "../../../db/index";
 
-export type DbUser = DbRow & {
-	email?: string;
-	name?: string;
-	role?: string;
-	createdAt?: number;
-	updatedAt?: number;
-};
-
-export type ServerTables = {
-	users: DbUser;
-};
+export type { ServerTables };
 
 type Accessors<Tables extends TablesMap> = {
 	[K in keyof Tables & string]: TableAccessor<Tables[K]>;
