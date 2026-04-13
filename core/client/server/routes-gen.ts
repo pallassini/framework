@@ -3,8 +3,9 @@
  * Non modificare a mano.
  */
 
-import { custom as db_custom, default as db } from "../../../server/routes/db";
+import { default as db } from "../../../server/routes/db";
 import { brooo as ping_brooo, default as ping } from "../../../server/routes/ping";
+import { default as zigDb } from "../../../server/routes/zigDb";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
@@ -12,9 +13,9 @@ type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 
 export type ServerRoutes = {
 	db: InferRoute<typeof db>;
-	"db.custom": InferRoute<typeof db_custom>;
 	ping: InferRoute<typeof ping>;
 	"ping.brooo": InferRoute<typeof ping_brooo>;
+	zigDb: InferRoute<typeof zigDb>;
 };
 
 export type ServerPath = keyof ServerRoutes & string;

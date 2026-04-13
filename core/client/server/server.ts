@@ -47,7 +47,8 @@ export function extractRpcArgs(first: unknown, second: unknown): {
 }
 
 async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallbacks<O>): Promise<O> {
-	const pathSeg = pathDots.replace(/\./g, "/");
+	/** Un solo segmento dopo `/_server/` (es. `db.custom`, `zigDb`) — alcuni proxy gestiscono male path con più `/`. */
+	const pathSeg = encodeURIComponent(pathDots);
 	const base = serverRpcBase();
 	let res: Response;
 	try {
