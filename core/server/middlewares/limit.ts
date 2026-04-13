@@ -38,5 +38,5 @@ export function limit(opts: RateLimitOpts): Middleware {
 export function serverRpcLogPart(ctx: ServerContext): string | undefined {
 	if (!ctx.rateLimitState) return undefined;
 	const r = ctx.rateLimitState;
-	return `rl ${r.remaining}/${r.max}`;
+	return `ratelimit ${r.used}/${r.max}`;
 }

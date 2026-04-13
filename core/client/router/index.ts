@@ -1,3 +1,7 @@
+import { initDesktopRpc } from "../desktop/electroview";
+
+initDesktopRpc();
+
 export { App } from "./app";
 export { go } from "./go";
 export { prefetch } from "./prefetch";

@@ -64,11 +64,11 @@ export function serverRpcLogPart(ctx: ServerContext): string | undefined {
 	const p: string[] = [];
 	if (ctx.concurrencyState) {
 		const c = ctx.concurrencyState;
-		p.push(c.waited ? `conc ${c.active}/${c.max} (wait)` : `conc ${c.active}/${c.max}`);
+		p.push(c.waited ? `concurrency ${c.active}/${c.max} wait` : `concurrency ${c.active}/${c.max}`);
 	}
 	if (ctx.concurrencySameClient) {
 		const c = ctx.concurrencySameClient;
-		p.push(c.waited ? `per-ip ${c.active}/${c.max} (wait)` : `per-ip ${c.active}/${c.max}`);
+		p.push(c.waited ? `sameclient ${c.active}/${c.max} wait` : `sameclient ${c.active}/${c.max}`);
 	}
 	if (p.length === 0) return undefined;
 	return p.join(" · ");

@@ -33,6 +33,8 @@ export interface ServerContext {
 	rpcLogParts: string[];
 	/** Dimensioni payload in/out (JSON UTF-8) per il log RPC. */
 	rpcPayloadSizes?: { in: number; out: number };
+	/** Impostato da middleware `timeout` (ms) per hint in log errore. */
+	rpcTimeoutMs?: number;
 }
 
 export function createContext(req: Request, routeName: string): ServerContext {

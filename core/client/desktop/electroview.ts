@@ -14,7 +14,7 @@ function isElectrobunWebview(): boolean {
 	return w.__electrobunWebviewId != null && String(w.__electrobunWebviewId) !== "";
 }
 
-/** Chiama una volta all’avvio client (es. in `client/index.tsx`). No-op nel browser (Vite) senza Electrobun. */
+/** Side-effect: `core/client/router` (import da `client`). No-op nel browser (Vite) senza Electrobun. */
 export function initDesktopRpc(): void {
 	if (initAttempted) return;
 	initAttempted = true;

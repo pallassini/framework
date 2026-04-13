@@ -1,7 +1,5 @@
-import { App, initDesktopRpc } from "client";
+import { App } from "client";
 import "./index.css";
-
-initDesktopRpc();
 
 App((Page) => (
   <>

@@ -1,3 +1,2 @@
 export { d } from "./desktop/routes";
-export { desktopMw } from "./desktop/middlewares";
-export { desktopError } from "./desktop/error";
+export { desktopError as error } from "./desktop/error";
