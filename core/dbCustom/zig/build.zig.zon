@@ -1,0 +1,8 @@
+.{
+	.name = .fw_custom_db,
+	.version = "0.1.0",
+	.minimum_zig_version = "0.15.0",
+	.fingerprint = 0xf8323adecd9d5a79,
+	.dependencies = .{},
+	.paths = .{ "build.zig", "build.zig.zon", "src" },
+}

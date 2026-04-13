@@ -1,2 +1,4 @@
 node_modules
 /build
+core/dbCustom/zig/.zig-cache
+core/dbCustom/zig/zig-out
