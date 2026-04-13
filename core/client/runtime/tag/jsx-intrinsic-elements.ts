@@ -9,6 +9,7 @@ import type { ShowProps } from "./tags/show";
 import type { SwitchProps } from "./tags/switch";
 import type { CaseProps } from "./tags/switch/case";
 import type { ImgProps } from "./tags/img";
+import type { InputProps } from "./tags/input";
 import type { IconProps } from "./tags/icon";
 
 export interface FrameworkIntrinsicElements {
@@ -21,4 +22,5 @@ export interface FrameworkIntrinsicElements {
 	case: CaseProps;
 	icon: IconProps;
 	img: ImgProps;
+	input: InputProps;
 }

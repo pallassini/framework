@@ -14,4 +14,6 @@ export { clientCase as case } from "./tags/switch/case";
 
 export { img } from "./tags/img";
 
+export { input } from "./tags/input";
+
 export { icon } from "./tags/icon";

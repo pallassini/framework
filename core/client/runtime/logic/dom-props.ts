@@ -10,6 +10,7 @@ const SKIP = new Set([
 	"each",
 	"key",
 	"pick",
+	"bind",
 ]);
 
 export function applyDomProps(el: DomEl, propsObj: DomProps): void {
