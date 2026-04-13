@@ -1,14 +1,11 @@
 import { v } from "../../core/client/validator";
 import type { ServerContext } from "../../core/server/routes/context";
-import {
-	DASH_PREFIX,
-	type SeedStats,
-	seedDashboard,
-} from "../../core/server/orm/dashboardSeed";
-import { DASHBOARD_QUERY_VARIANTS, runDashboardQueryVariant } from "../../core/server/orm/dashboardQueries";
+import { db } from "../../core/db";
 import { seedPlanForTier, type DashTier } from "../../core/server/orm/dashboardTier";
-import { ormDocStore } from "../../core/server/orm/docStore";
-import { IndexedMemoryEngine } from "../../core/server/orm/indexedEngine";
+import { ensurePgDashboardSchema } from "../../core/server/orm/pgDashboardSchema";
+import { seedPgDashboard } from "../../core/server/orm/pgDashboardSeed";
+import { runPgDashboardVariant } from "../../core/server/orm/pgDashboardQueries";
+import { DASHBOARD_QUERY_VARIANTS } from "../../core/server/orm/dashboardQueries";
 import { s } from "server";
 
 function clampInt(n: number, lo: number, hi: number): number {
@@ -27,13 +24,12 @@ function asTier(raw: string | undefined): DashTier {
 	return "10k";
 }
 
-let dashDataSeeded = false;
-let lastSeedStats: SeedStats | undefined;
 let lastTier: DashTier | undefined;
+let lastPlanRows = 0;
 
 /**
- * Simulazione dashboard: **12 tabelle** (`/app/dash/…`), tier **10k / 100k / 1M** righe (piano da `seedPlanForTier`),
- * **N utenti virtuali** × **R round** di query cross-table + **update/delete** (stesso mix di Postgres).
+ * Stesso carico logico di `ormDashboardSim` su Postgres: tabelle `fw_dash_*`, seed bulk SQL,
+ * N utenti × R round, varianti read/write allineate (indici espliciti nello schema).
  */
 export default s({
 	input: v.object({
@@ -48,21 +44,29 @@ export default s({
 		inp: { tier?: string; virtualUsers?: number; roundsPerUser?: number; forceReseed?: boolean },
 		_ctx: ServerContext,
 	) => {
-		const store = ormDocStore;
-		if (!(store instanceof IndexedMemoryEngine)) {
-			throw new Error("[ormDashboardSim] ormDocStore deve essere IndexedMemoryEngine");
-		}
-
 		const tier = asTier(inp.tier);
 		const plan = seedPlanForTier(tier);
 		const virtualUsers = clampInt(inp.virtualUsers ?? 120, 1, 2000);
 		const roundsPerUser = clampInt(inp.roundsPerUser ?? 6, 1, 20);
 
-		if (!dashDataSeeded || inp.forceReseed || lastTier !== tier) {
-			store.clearTablePrefix(DASH_PREFIX);
-			lastSeedStats = await seedDashboard(store, plan);
-			dashDataSeeded = true;
+		await ensurePgDashboardSchema(db);
+
+		if (lastTier !== tier || inp.forceReseed) {
+			await seedPgDashboard(db, plan);
 			lastTier = tier;
+			lastPlanRows =
+				plan.orgs +
+				plan.users +
+				plan.teams +
+				plan.team_members +
+				plan.projects +
+				plan.tasks +
+				plan.comments +
+				plan.tags +
+				plan.taggings +
+				plan.invoices +
+				plan.line_items +
+				plan.metrics;
 		}
 
 		const wall0 = performance.now();
@@ -74,7 +78,7 @@ export default s({
 					const variant = Math.abs(Math.imul(uid, 13) ^ Math.imul(r, 17)) % DASHBOARD_QUERY_VARIANTS;
 					const t0 = performance.now();
 					try {
-						await runDashboardQueryVariant(store, uid, variant);
+						await runPgDashboardVariant(db, uid, variant, plan);
 						lat.push(performance.now() - t0);
 					} catch {
 						err++;
@@ -89,11 +93,10 @@ export default s({
 		const totalOps = virtualUsers * roundsPerUser;
 		const totalErr = userResults.reduce((a, u) => a + u.err, 0);
 		const sum = allLat.reduce((a, b) => a + b, 0);
-		const approxRowsSeeded = (lastSeedStats ?? []).reduce((a, s) => a + s.rows, 0);
 
 		return {
 			ok: true as const,
-			note: "Store IndexedMemoryEngine: indici automatici su scalari; query = join manuali TS + write ORM.",
+			note: "Postgres `fw_dash_*`: stesso piano righe del tier ORM; query SQL + indici; mix read/write.",
 			config: {
 				tier,
 				virtualUsers,
@@ -101,9 +104,8 @@ export default s({
 				totalOps,
 				queryVariants: DASHBOARD_QUERY_VARIANTS,
 				forceReseed: inp.forceReseed ?? false,
-				approxRowsSeeded,
+				approxRowsSeeded: lastPlanRows,
 			},
-			seed: lastSeedStats ?? [],
 			wallMs: Math.round(wallMs * 100) / 100,
 			opsPerSecWall: Math.round(wallMs > 0 ? (totalOps * 1000) / wallMs : 0),
 			errors: totalErr,

@@ -12,6 +12,7 @@ export default function DbCustomRoute() {
 	const pgBench = state<ServerRouteOut<"db.bench"> | null>(null);
 	const loadSim = state<ServerRouteOut<"loadSim"> | null>(null);
 	const dashSim = state<ServerRouteOut<"ormDashboardSim"> | null>(null);
+	const pgDashSim = state<ServerRouteOut<"pgDashboardSim"> | null>(null);
 	const ormRows = state<OrmDemoUser[]>([]);
 
 	return (
@@ -206,18 +207,19 @@ export default function DbCustomRoute() {
 			</div>
 
 			<div s="col gap-2 border-t-1 border-#333 pt-3">
-				<t s="text-16 font-bold text-#fff">Dashboard ORM (12 tabelle, ~52k righe, indici auto)</t>
+				<t s="text-16 font-bold text-#fff">Dashboard: ORM in-memory vs Postgres (stesso tier, stesse varianti)</t>
 				<t s="text-13 text-#888 leading-relaxed">
-					Seed sotto `/app/dash/…` (isolato da `/app/customdb`). Motore: IndexedMemoryEngine (indici invertiti su
-					ogni campo scalare). N utenti virtuali × R query cross-table (join in TS). Attenzione: 1000×8 può
-					bloccare il tab per decine di secondi.
+					Tier ~10k / ~100k / ~1M righe totali (vedi seed server). Mix: 8 letture cross-table + update task + delete
+					comment + update fattura + lettura righe. Indici: auto su ORM, espliciti su PG (`fw_dash_*`). Primo run
+					per tier fa seed (PG bulk SQL; ORM loop + batch metriche). 1000×8 su 1M può richiedere minuti in seedORM.
 				</t>
+				<t s="text-12 text-#94a3b8 font-bold">IndexedMemoryEngine (TS)</t>
 				<div s="row gap-2 flex-wrap">
 					<t
 						s="text-#fff bg-#1d4ed8 px-3 py-2 rounded pointer"
 						click={() =>
 							void server.ormDashboardSim(
-								{ virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{ tier: "10k", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
 								{
 									onSuccess: (d) => dashSim(d),
 									onError: (e) => console.error("[ormDashboardSim]", e),
@@ -225,13 +227,69 @@ export default function DbCustomRoute() {
 							)
 						}
 					>
-						Dash 100×8
+						ORM 10k 100×8
+					</t>
+					<t
+						s="text-#fff bg-#1e40af px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ tier: "100k", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						ORM 100k 100×8
+					</t>
+					<t
+						s="text-#fff bg-#172554 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ tier: "1m", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						ORM 1M 100×8
+					</t>
+					<t
+						s="text-#fff bg-#2563eb px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ tier: "10k", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						ORM 10k 1000×8
+					</t>
+					<t
+						s="text-#fff bg-#1d4ed8 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ tier: "100k", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						ORM 100k 1000×8
 					</t>
 					<t
 						s="text-#fff bg-#1e3a8a px-3 py-2 rounded pointer"
 						click={() =>
 							void server.ormDashboardSim(
-								{ virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{ tier: "1m", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
 								{
 									onSuccess: (d) => dashSim(d),
 									onError: (e) => console.error("[ormDashboardSim]", e),
@@ -239,16 +297,118 @@ export default function DbCustomRoute() {
 							)
 						}
 					>
-						Dash 1000×8 (pesante)
+						ORM 1M 1000×8
+					</t>
+				</div>
+				<t s="text-12 text-#94a3b8 font-bold mt-2">Postgres (stesso piano righe)</t>
+				<div s="row gap-2 flex-wrap">
+					<t
+						s="text-#fff bg-#0d9488 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "10k", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 10k 100×8
+					</t>
+					<t
+						s="text-#fff bg-#0f766e px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "100k", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 100k 100×8
+					</t>
+					<t
+						s="text-#fff bg-#134e4a px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "1m", virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 1M 100×8
+					</t>
+					<t
+						s="text-#fff bg-#14b8a6 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "10k", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 10k 1000×8
+					</t>
+					<t
+						s="text-#fff bg-#0d9488 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "100k", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 100k 1000×8
+					</t>
+					<t
+						s="text-#fff bg-#115e59 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.pgDashboardSim(
+								{ tier: "1m", virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => pgDashSim(d),
+									onError: (e) => console.error("[pgDashboardSim]", e),
+								},
+							)
+						}
+					>
+						PG 1M 1000×8
 					</t>
 				</div>
 				<For each={dashSim} pick={(r) => (r ? [r] : [])}>
 					{(d) => (
 						<div s="col gap-1 font-mono text-11 text-#93c5fd">
 							<t s="text-#bfdbfe">
-								wall={d.wallMs}ms ops/s(wall)={d.opsPerSecWall} err={d.errors} totOps={d.config.totalOps}
+								ORM tier={d.config.tier} approxRows={d.config.approxRowsSeeded} wall={d.wallMs}ms ops/s=
+								{d.opsPerSecWall} err={d.errors} totOps={d.config.totalOps} variants={d.config.queryVariants}
 							</t>
 							<t s="text-#a5b4fc">
+								lat ms: p50={d.latencyMs.p50} p95={d.latencyMs.p95} p99={d.latencyMs.p99} avg=
+								{d.latencyMs.avg}
+							</t>
+						</div>
+					)}
+				</For>
+				<For each={pgDashSim} pick={(r) => (r ? [r] : [])}>
+					{(d) => (
+						<div s="col gap-1 font-mono text-11 text-#5eead4">
+							<t s="text-#ccfbf1">
+								PG tier={d.config.tier} approxRows={d.config.approxRowsSeeded} wall={d.wallMs}ms ops/s=
+								{d.opsPerSecWall} err={d.errors} totOps={d.config.totalOps} variants={d.config.queryVariants}
+							</t>
+							<t s="text-#99f6e4">
 								lat ms: p50={d.latencyMs.p50} p95={d.latencyMs.p95} p99={d.latencyMs.p99} avg=
 								{d.latencyMs.avg}
 							</t>

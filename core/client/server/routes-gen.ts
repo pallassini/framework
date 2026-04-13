@@ -7,6 +7,7 @@ import { bench as db_bench, default as db } from "../../../server/routes/db";
 import { default as loadSim } from "../../../server/routes/loadSim";
 import { default as ormDashboardSim } from "../../../server/routes/ormDashboardSim";
 import { default as ormDoc } from "../../../server/routes/ormDoc";
+import { default as pgDashboardSim } from "../../../server/routes/pgDashboardSim";
 import { brooo as ping_brooo, default as ping } from "../../../server/routes/ping";
 import { bench as zigDb_bench, default as zigDb } from "../../../server/routes/zigDb";
 
@@ -20,6 +21,7 @@ export type ServerRoutes = {
 	loadSim: InferRoute<typeof loadSim>;
 	ormDashboardSim: InferRoute<typeof ormDashboardSim>;
 	ormDoc: InferRoute<typeof ormDoc>;
+	pgDashboardSim: InferRoute<typeof pgDashboardSim>;
 	ping: InferRoute<typeof ping>;
 	"ping.brooo": InferRoute<typeof ping_brooo>;
 	zigDb: InferRoute<typeof zigDb>;

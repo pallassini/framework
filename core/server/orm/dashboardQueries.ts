@@ -1,24 +1,26 @@
 import type { Engine } from "../../client/db/orm/engine";
 import { f, w } from "../../client/db/orm/where";
 import { T } from "./dashboardSeed";
+import { getDashboardSeedPlan } from "./dashboardCtx";
 
 /** Join logici multi-tabella (no SQL): usano indici eq dove possibile. */
 
 export async function q_tasksWithProjectAndOrg(engine: Engine, uid: number): Promise<number> {
-	const userId = `u${uid % 400}`;
+	const p = getDashboardSeedPlan();
+	const userId = `u${uid % Math.max(1, p.users)}`;
 	const tasks = await engine.findMany(T.tasks, {
 		where: w(f("assignee_user_id").eq(userId)),
 		limit: 25,
 	});
 	let n = 0;
 	for (const t of tasks) {
-		const [p] = await engine.findMany(T.projects, {
+		const [pr] = await engine.findMany(T.projects, {
 			where: w(f("id").eq(t.project_id)),
 			limit: 1,
 		});
-		if (!p) continue;
+		if (!pr) continue;
 		const [o] = await engine.findMany(T.orgs, {
-			where: w(f("id").eq(p.org_id)),
+			where: w(f("id").eq(pr.org_id)),
 			limit: 1,
 		});
 		if (o) n++;
@@ -27,7 +29,8 @@ export async function q_tasksWithProjectAndOrg(engine: Engine, uid: number): Pro
 }
 
 export async function q_commentsThreadForTask(engine: Engine, uid: number): Promise<number> {
-	const taskId = `tk${(uid * 17) % 4000}`;
+	const p = getDashboardSeedPlan();
+	const taskId = `tk${(uid * 17) % Math.max(1, p.tasks)}`;
 	const comments = await engine.findMany(T.comments, {
 		where: w(f("task_id").eq(taskId)),
 		limit: 40,
@@ -44,14 +47,15 @@ export async function q_commentsThreadForTask(engine: Engine, uid: number): Prom
 }
 
 export async function q_invoiceLinesWithProjects(engine: Engine, uid: number): Promise<number> {
-	const invId = `inv${uid % 280}`;
+	const p = getDashboardSeedPlan();
+	const invId = `inv${uid % Math.max(1, p.invoices)}`;
 	const lines = await engine.findMany(T.line_items, {
 		where: w(f("invoice_id").eq(invId)),
 		limit: 30,
 	});
 	let n = 0;
 	for (const li of lines) {
-		const [p] = await engine.findMany(T.projects, {
+		const [pr] = await engine.findMany(T.projects, {
 			where: w(f("id").eq(li.project_id)),
 			limit: 1,
 		});
@@ -59,13 +63,14 @@ export async function q_invoiceLinesWithProjects(engine: Engine, uid: number): P
 			where: w(f("id").eq(li.invoice_id)),
 			limit: 1,
 		});
-		if (p && inv) n++;
+		if (pr && inv) n++;
 	}
 	return n;
 }
 
 export async function q_tagsForTasksOfUser(engine: Engine, uid: number): Promise<number> {
-	const userId = `u${uid % 400}`;
+	const p = getDashboardSeedPlan();
+	const userId = `u${uid % Math.max(1, p.users)}`;
 	const tasks = await engine.findMany(T.tasks, {
 		where: w(f("assignee_user_id").eq(userId)),
 		limit: 15,
@@ -88,7 +93,8 @@ export async function q_tagsForTasksOfUser(engine: Engine, uid: number): Promise
 }
 
 export async function q_metricsRollupByOrg(engine: Engine, uid: number): Promise<number> {
-	const orgId = `o${uid % 25}`;
+	const p = getDashboardSeedPlan();
+	const orgId = `o${uid % Math.max(1, p.orgs)}`;
 	const metrics = await engine.findMany(T.metrics_events, {
 		where: w(f("org_id").eq(orgId)),
 		limit: 500,
@@ -102,7 +108,8 @@ export async function q_metricsRollupByOrg(engine: Engine, uid: number): Promise
 }
 
 export async function q_teamRoster(engine: Engine, uid: number): Promise<number> {
-	const teamId = `t${uid % 80}`;
+	const p = getDashboardSeedPlan();
+	const teamId = `t${uid % Math.max(1, p.teams)}`;
 	const members = await engine.findMany(T.team_members, {
 		where: w(f("team_id").eq(teamId)),
 		limit: 40,
@@ -123,7 +130,8 @@ export async function q_teamRoster(engine: Engine, uid: number): Promise<number>
 }
 
 export async function q_projectTaskCommentDepth(engine: Engine, uid: number): Promise<number> {
-	const projId = `p${(uid * 31) % 800}`;
+	const p = getDashboardSeedPlan();
+	const projId = `p${(uid * 31) % Math.max(1, p.projects)}`;
 	const tasks = await engine.findMany(T.tasks, {
 		where: w(f("project_id").eq(projId)),
 		limit: 20,
@@ -140,7 +148,8 @@ export async function q_projectTaskCommentDepth(engine: Engine, uid: number): Pr
 }
 
 export async function q_crossOrgUserProjects(engine: Engine, uid: number): Promise<number> {
-	const userId = `u${uid % 400}`;
+	const p = getDashboardSeedPlan();
+	const userId = `u${uid % Math.max(1, p.users)}`;
 	const [user] = await engine.findMany(T.users, {
 		where: w(f("id").eq(userId)),
 		limit: 1,
@@ -152,13 +161,43 @@ export async function q_crossOrgUserProjects(engine: Engine, uid: number): Promi
 		limit: 30,
 	});
 	let n = 0;
-	for (const p of projects) {
+	for (const pr of projects) {
 		const tasks = await engine.findMany(T.tasks, {
-			where: w(f("project_id").eq(p.id), f("done").eq(false)),
+			where: w(f("project_id").eq(pr.id), f("done").eq(false)),
 			limit: 10,
 		});
 		n += tasks.length;
 	}
+	return n;
+}
+
+export async function q_write_updateTask(engine: Engine, uid: number): Promise<number> {
+	const p = getDashboardSeedPlan();
+	const taskId = `tk${(uid * 19) % Math.max(1, p.tasks)}`;
+	return engine.update(T.tasks, "id", w(f("id").eq(taskId)), {
+		priority: (uid % 4) + 1,
+		done: uid % 2 === 0,
+	});
+}
+
+export async function q_write_deleteComment(engine: Engine, uid: number): Promise<number> {
+	const p = getDashboardSeedPlan();
+	const cid = `c${(uid * 23) % Math.max(1, p.comments)}`;
+	return engine.delete(T.comments, "id", w(f("id").eq(cid)));
+}
+
+export async function q_write_invoiceToggle(engine: Engine, uid: number): Promise<number> {
+	const p = getDashboardSeedPlan();
+	const invId = `inv${uid % Math.max(1, p.invoices)}`;
+	let n = await engine.update(T.invoices, "id", w(f("id").eq(invId)), {
+		paid: true,
+		total_cents: 12345,
+	});
+	const lines = await engine.findMany(T.line_items, {
+		where: w(f("invoice_id").eq(invId)),
+		limit: 5,
+	});
+	n += lines.length;
 	return n;
 }
 
@@ -171,7 +210,12 @@ const RUNNERS = [
 	q_teamRoster,
 	q_projectTaskCommentDepth,
 	q_crossOrgUserProjects,
+	q_write_updateTask,
+	q_write_deleteComment,
+	q_write_invoiceToggle,
 ] as const;
+
+export const DASHBOARD_QUERY_VARIANTS = RUNNERS.length;
 
 export async function runDashboardQueryVariant(engine: Engine, uid: number, variant: number): Promise<number> {
 	const fn = RUNNERS[variant % RUNNERS.length]!;

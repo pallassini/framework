@@ -1,4 +1,7 @@
 import type { Engine } from "../../client/db/orm/engine";
+import type { SeedPlan } from "./dashboardTier";
+import { IndexedMemoryEngine } from "./indexedEngine";
+import { setDashboardSeedPlan } from "./dashboardCtx";
 
 /** Prefisso isolato dalla demo ORM client (`/app/customdb/…`). */
 export const DASH_PREFIX = "/app/dash";
@@ -20,20 +23,24 @@ export const T = {
 
 export type SeedStats = { table: string; rows: number }[];
 
-export async function seedDashboard(engine: Engine): Promise<SeedStats> {
+const METRIC_BATCH = 8192;
+
+export async function seedDashboard(engine: Engine, plan: SeedPlan): Promise<SeedStats> {
 	const stats: SeedStats = [];
-	const nOrg = 25;
-	const nUser = 400;
-	const nTeam = 80;
-	const nMember = 1200;
-	const nProject = 800;
-	const nTask = 4000;
-	const nComment = 10000;
-	const nTag = 150;
-	const nTagging = 5000;
-	const nInvoice = 280;
-	const nLine = 2400;
-	const nMetric = 20000;
+	const {
+		orgs: nOrg,
+		users: nUser,
+		teams: nTeam,
+		team_members: nMember,
+		projects: nProject,
+		tasks: nTask,
+		comments: nComment,
+		tags: nTag,
+		taggings: nTagging,
+		invoices: nInvoice,
+		line_items: nLine,
+		metrics: nMetric,
+	} = plan;
 
 	for (let i = 0; i < nOrg; i++) {
 		await engine.insert(T.orgs, "id", {
@@ -154,16 +161,29 @@ export async function seedDashboard(engine: Engine): Promise<SeedStats> {
 	}
 	stats.push({ table: "line_items", rows: nLine });
 
+	const buf: Record<string, unknown>[] = [];
+	const flushMetrics = async () => {
+		if (buf.length === 0) return;
+		if (engine instanceof IndexedMemoryEngine) {
+			engine.insertManySync(T.metrics_events, "id", buf);
+		} else {
+			for (const r of buf) await engine.insert(T.metrics_events, "id", r);
+		}
+		buf.length = 0;
+	};
 	for (let m = 0; m < nMetric; m++) {
-		await engine.insert(T.metrics_events, "id", {
+		buf.push({
 			id: `m${m}`,
 			org_id: `o${m % nOrg}`,
 			project_id: `p${m % nProject}`,
 			bucket: m % 96,
 			value: (m % 50) + 1,
 		});
+		if (buf.length >= METRIC_BATCH) await flushMetrics();
 	}
+	await flushMetrics();
 	stats.push({ table: "metrics_events", rows: nMetric });
 
+	setDashboardSeedPlan(plan);
 	return stats;
 }

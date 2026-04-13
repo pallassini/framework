@@ -130,6 +130,19 @@ export class IndexedMemoryEngine implements Engine {
 		return toDel.length;
 	}
 
+	/** Inserimento batch sincrono (seed massivi senza Promise per riga). */
+	insertManySync(tablePath: string, pkField: string, rows: readonly Record<string, unknown>[]): void {
+		const m = this.tableMap(tablePath);
+		for (const row of rows) {
+			let pk = row[pkField];
+			if (pk === undefined || pk === null) pk = crypto.randomUUID();
+			const pkStr = String(pk);
+			const copy = { ...row, [pkField]: pkStr };
+			m.set(pkStr, copy);
+			this.indexAdd(tablePath, pkStr, copy);
+		}
+	}
+
 	/** Rimuove tutte le tabelle il cui path inizia con `prefix` (es. `/app/dash`). */
 	clearTablePrefix(prefix: string): void {
 		for (const tp of [...this.tables.keys()]) {
