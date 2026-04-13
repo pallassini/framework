@@ -1,4 +1,4 @@
-import { isSignal, type Signal } from "../../state";
+import { isSignal, type Signal } from "../../state/state";
 
 export function readWhen(w: unknown): boolean {
 	if (isSignal(w)) return Boolean((w as Signal<unknown>)());

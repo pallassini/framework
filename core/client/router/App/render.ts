@@ -1,5 +1,6 @@
 import type { UiNode } from "../../runtime/tag/props";
 import { replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
+import { pruneRouteLocalsExcept } from "../../state/local";
 import { getRouteLoader, loadRouteModuleFresh } from "./routes";
 import {
 	emptyRoutePage,
@@ -38,6 +39,7 @@ export function createRenderer(
 	async function render(path: string, opts: RenderOptions = {}): Promise<void> {
 		const isHmr = opts.hmr === true;
 		const my = ++gen;
+		pruneRouteLocalsExcept(path);
 		if (!isHmr) {
 			routePhase("chunk");
 			setRoutePage(emptyRoutePage);

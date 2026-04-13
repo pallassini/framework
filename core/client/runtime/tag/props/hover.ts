@@ -1,4 +1,4 @@
-import { isSignal, type Signal } from "../../../state";
+import { isSignal, type Signal } from "../../../state/state";
 import { onNodeDispose } from "../../logic/lifecycle";
 
 type El = HTMLElement | SVGElement;

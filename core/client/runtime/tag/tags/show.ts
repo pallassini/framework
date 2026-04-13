@@ -1,4 +1,4 @@
-import { watch } from "../../../state";
+import { watch } from "../../../state/effect";
 import { toNodes } from "../../logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../logic/lifecycle";
 import { applyDomProps } from "../../logic/dom-props";

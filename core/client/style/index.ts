@@ -2,7 +2,7 @@ export { map, styleMap, type StyleGroup, type StyleResolver, type StyleVariantKe
 export { resolveClasses, resolveToken, parseStyleToken } from "./resolve";
 
 import type { Properties } from "csstype";
-import { watch } from "../state";
+import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
 import { map } from "./properties";

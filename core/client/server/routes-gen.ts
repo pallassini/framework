@@ -15,3 +15,6 @@ export type ServerRoutes = {
 };
 
 export type ServerPath = keyof ServerRoutes & string;
+
+/** Output RPC per path puntato (es. `ServerRouteOut<"ping.brooo">`). */
+export type ServerRouteOut<P extends ServerPath> = ServerRoutes[P]["out"];

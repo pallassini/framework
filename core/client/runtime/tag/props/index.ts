@@ -3,7 +3,7 @@
  * Tipi condivisi (per tag e JSX) derivati qui sotto.
  */
 
-import type { Signal } from "../../../state";
+import type { Signal } from "../../../state/state";
 import { id } from "./id";
 import { s, hover } from "./style";
 import { show } from "./show";

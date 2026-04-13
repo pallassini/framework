@@ -1,4 +1,5 @@
-import { desktop, persistState, server, sessionState, state } from "client";
+import { desktop as desktopRpc, For, persistState, server as serverRpc, sessionState, state } from "client";
+import { desktop, server } from "./signals";
 
 export default function Home() {
 	console.log(state.id(), sessionState.name(), persistState.email());
@@ -8,8 +9,8 @@ export default function Home() {
   <t
     s="text-#ffffff bg-#1a4d8c"
     click={() =>
-      void server.ping.brooo({
-        onSuccess: (data) => console.log("[server]", data),
+      void serverRpc.ping.brooo({
+        onSuccess: (data) => server(data),
       })
     }
   >
@@ -18,14 +19,15 @@ export default function Home() {
   <t
     s="text-#ffffff bg-#1a6b3a"
     click={() =>
-      void desktop.ping({
-        onSuccess: (data) => console.log("[desktop]", data),
+      void desktopRpc.ping({
+        onSuccess: (data) => desktop(data),
       })
     }
   >
     Chiama desktop
   </t>
-<br></br>
+  <For each={server}>{(item) => <t s="text-#009900 bg-#330000">{item.name}</t>}</For>
+  <For each={desktop}>{(item) => <t s="text-#990000 bg-#009900">{item.fromrom}</t>}</For>
   <t s="text-#990000 bg-#009900">dfwfdwdw</t>
 <br></br>
 <br></br>

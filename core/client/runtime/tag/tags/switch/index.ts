@@ -1,4 +1,5 @@
-import { isSignal, watch, type Signal } from "../../../../state";
+import { watch } from "../../../../state/effect";
+import { isSignal, type Signal } from "../../../../state/state";
 import { toNodes } from "../../../logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../../logic/lifecycle";
 import { applyDomProps } from "../../../logic/dom-props";

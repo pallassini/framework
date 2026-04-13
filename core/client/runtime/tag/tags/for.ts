@@ -1,4 +1,5 @@
-import { isSignal, watch, type Signal } from "../../../state";
+import { watch } from "../../../state/effect";
+import { isSignal, type Signal } from "../../../state/state";
 import { toNodes } from "../../logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../logic/lifecycle";
 import { applyDomProps } from "../../logic/dom-props";
@@ -18,7 +19,9 @@ type ListItemFromRoot<R> = R extends null | undefined
 					? I
 					: R extends { displays: (infer I)[] }
 						? I
-						: unknown;
+						: R extends object
+							? R
+							: unknown;
 
 export type ForEachItem<E> = ListItemFromRoot<NonNullable<UnwrapEachSource<E>>>;
 
@@ -26,20 +29,10 @@ type ForChildrenFn<E> = {
 	bivarianceHack(item: ForEachItem<E>, index: number): unknown;
 }["bivarianceHack"];
 
-/**
- * Props di `<for>` (intrinsic minuscolo). TypeScript non supporta elementi JSX generici:
- * il callback `children` non inferisce il tipo elemento da `each` come fa `<For>` con `ForProps<E>`.
- * Per massima type-safety su `item`, usa `<For each={…}>` (stesso runtime di `clientFor`).
- */
-export type ForIntrinsicProps = SharedProps & {
-	each?: unknown;
-	pick?: (root: unknown) => readonly unknown[] | null | undefined;
-	children?: (item: ForEachItem<unknown>, index: number) => unknown;
-};
-
 export type ForProps<E = unknown> = SharedProps & {
 	each?: E;
-	pick?: (root: unknown) => readonly unknown[] | null | undefined;
+	/** Opzionale: deriva la lista da `root` (valore corrente di `each`). Senza `pick`, array / `monitors` / `displays` / oggetto plain → una riga. */
+	pick?: (root: UnwrapEachSource<E> | null | undefined) => readonly unknown[] | null | undefined;
 	children?: ForChildrenFn<E>;
 };
 
@@ -48,6 +41,10 @@ function readRoot(each: unknown): unknown {
 	if (isSignal(each)) return (each as Signal<unknown>)();
 	if (typeof each === "function") return (each as () => unknown)();
 	return each;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+	return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
 }
 
 function toIterableList(v: unknown): readonly unknown[] {
@@ -62,6 +59,7 @@ function toIterableList(v: unknown): readonly unknown[] {
 			const m = (v as { monitors: unknown }).monitors;
 			if (Array.isArray(m)) return m;
 		}
+		if (isPlainObject(v)) return [v];
 	}
 	return [];
 }

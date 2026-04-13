@@ -69,6 +69,9 @@ export type DesktopRoutes = {
 ${typeLines.length ? `${typeLines.join("\n")}\n` : ""}};
 
 export type DesktopPath = keyof DesktopRoutes & string;
+
+/** Output RPC per path puntato (es. \`DesktopRouteOut<"ping">\`). */
+export type DesktopRouteOut<P extends DesktopPath> = DesktopRoutes[P]["out"];
 `;
 
 	writeFileSync(genPath, `${header}${body}`, "utf8");

@@ -1,5 +1,6 @@
 import type { UiNode } from "../../runtime/tag/props";
-import { watch } from "../../state";
+import { watch } from "../../state/effect";
+import { beginRouteLocalFrame } from "../../state/local";
 import { toNodes } from "../../runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
 import {
@@ -67,6 +68,7 @@ export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): U
 			ph.style.display = "none";
 			ch.style.display = "contents";
 			replaceChildrenWithDispose(ph);
+			beginRouteLocalFrame();
 			const pageRoot = routePage()({});
 			replaceChildrenWithDispose(ch, ...stripLoadingRoot(pageRoot));
 		}

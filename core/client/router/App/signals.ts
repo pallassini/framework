@@ -1,5 +1,5 @@
 import type { UiNode } from "../../runtime/tag/props";
-import { signal } from "../../state";
+import { signal } from "../../state/state";
 
 export type ClientPage = (props: Record<string, unknown>) => UiNode;
 

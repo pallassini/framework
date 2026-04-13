@@ -1,4 +1,4 @@
-import { watch } from "../../../state";
+import { watch } from "../../../state/effect";
 import { onNodeDispose } from "../../logic/lifecycle";
 import { readWhen } from "../../logic/read-when";
 

@@ -1,5 +1,6 @@
 import { existsSync, watch } from "node:fs";
 import { join } from "node:path";
+import { serverConfig } from "../../../server/config";
 import { loadServerRoutes } from "./load";
 import { routesState } from "./state";
 
@@ -12,7 +13,9 @@ export function watchServerRoutes(projectRoot: string): void {
 		if (t != null) clearTimeout(t);
 		t = setTimeout(() => {
 			void loadServerRoutes(projectRoot).then(() => {
-				console.log("[server/routes] registry ricaricato");
+				if (serverConfig.log.registryReload !== false) {
+					console.log("[server/routes] registry ricaricato");
+				}
 			});
 		}, 150);
 	};

@@ -8,5 +8,8 @@ export const desktopConfig: DesktopConfig = {
 	log: {
 		enabled: true,
 		detail: "full",
+		registryReload: false,
+		electrbunDevOutput: false,
+		devDesktopSpawnLog: false,
 	},
 };

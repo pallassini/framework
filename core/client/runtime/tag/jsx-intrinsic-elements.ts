@@ -5,7 +5,6 @@
 import type { SharedProps } from "./props";
 import type { DivProps } from "./tags/div";
 import type { TProps } from "./tags/t";
-import type { ForIntrinsicProps } from "./tags/for";
 import type { ShowProps } from "./tags/show";
 import type { SwitchProps } from "./tags/switch";
 import type { CaseProps } from "./tags/switch/case";
@@ -22,5 +21,4 @@ export interface FrameworkIntrinsicElements {
 	case: CaseProps;
 	icon: IconProps;
 	img: ImgProps;
-	["for"]: ForIntrinsicProps;
 }

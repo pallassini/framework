@@ -1,20 +1,22 @@
 export const clientConfig = {
-	state: {
-		id: 20,
-		role: "",
-	},
+  state: {
+    id: 20,
+    role: {
+      admin: false,
+    },
+  },
 
-	sessionState: {
-		id: 0,
-		name: "",
-	},
+  sessionState: {
+    id: 0,
+    name: "",
+  },
 
-	persistState: {
-		id: 0,
-		email: "",
-	},
+  persistState: {
+    id: 0,
+    email: "",
+  },
 } as const satisfies {
-	state: Record<string, unknown>;
-	sessionState: Record<string, unknown>;
-	persistState: Record<string, unknown>;
+  state: Record<string, unknown>;
+  sessionState: Record<string, unknown>;
+  persistState: Record<string, unknown>;
 };

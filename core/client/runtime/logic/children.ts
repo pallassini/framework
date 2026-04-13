@@ -1,4 +1,5 @@
-import { isSignal, watch, type Signal } from "../../state";
+import { watch } from "../../state/effect";
+import { isSignal, type Signal } from "../../state/state";
 import { onNodeDispose } from "./lifecycle";
 
 export type DOMChildNode = HTMLElement | SVGElement | Text | DocumentFragment;

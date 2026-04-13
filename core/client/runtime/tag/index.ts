@@ -7,7 +7,7 @@ export { t } from "./tags/t";
 
 export { show } from "./tags/show";
 
-export { clientFor as for, For } from "./tags/for";
+export { For } from "./tags/for";
 
 export { clientSwitch as switch } from "./tags/switch";
 export { clientCase as case } from "./tags/switch/case";

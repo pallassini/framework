@@ -15,3 +15,6 @@ export type DesktopRoutes = {
 };
 
 export type DesktopPath = keyof DesktopRoutes & string;
+
+/** Output RPC per path puntato (es. `DesktopRouteOut<"ping">`). */
+export type DesktopRouteOut<P extends DesktopPath> = DesktopRoutes[P]["out"];

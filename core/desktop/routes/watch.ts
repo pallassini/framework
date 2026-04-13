@@ -1,5 +1,6 @@
 import { existsSync, watch } from "node:fs";
 import { join } from "node:path";
+import { desktopConfig } from "../../../desktop/config";
 import { loadDesktopRoutes } from "./load";
 import { desktopRoutesState } from "./state";
 import { writeDesktopRoutesGen } from "./write-client-routes-gen";
@@ -14,7 +15,9 @@ export function watchDesktopRoutes(projectRoot: string): void {
 		t = setTimeout(() => {
 			writeDesktopRoutesGen(projectRoot);
 			void loadDesktopRoutes(projectRoot).then(() => {
-				console.log("[desktop/routes] registry ricaricato");
+				if (desktopConfig.log.registryReload !== false) {
+					console.log("[desktop/routes] registry ricaricato");
+				}
 			});
 		}, 150);
 	};
