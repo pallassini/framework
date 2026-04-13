@@ -1,12 +1,27 @@
 export { map, styleMap, type StyleGroup, type StyleResolver, type StyleVariantKey } from "./properties";
 export { resolveClasses, resolveToken, parseStyleToken } from "./resolve";
+export {
+	resolveStyleInput,
+	resolveStyleString,
+	activeTokensFromString,
+	tokenizeStyleString,
+	unwrapConditional,
+	type StyleInput,
+	type StyleLayerInput,
+	type Conditional,
+	type AnimateInput,
+	type ResolvedStyle,
+} from "./layer-resolve";
+export type { StyleViewport } from "./viewport";
+export { mob, tab, des, getViewportSize, BREAKPOINTS, styleViewport } from "./viewport";
+export type { AnimateConfig, AnimatePreset, KeyframeStep, AnimationResult, TransitionConfig } from "./animation";
 
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
-import { map } from "./properties";
-import { resolveClasses, parseStyleToken } from "./resolve";
+import { resolveStyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
+import { styleViewport } from "./viewport";
 
 type El = HTMLElement | SVGElement;
 
@@ -38,67 +53,77 @@ function applyMapStyles(el: El, props: Properties): void {
 	managedStyleKeys.set(el, next);
 }
 
-/** Token il cui `base` è nel `map` → risolti in `style`; gli altri restano su `class`. */
-function applyResolvedTokens(el: El, classNames: string): void {
-	const tokens = classNames.trim().split(/\s+/).filter(Boolean);
-	const known: string[] = [];
-	const passthrough: string[] = [];
-	for (const t of tokens) {
-		if (parseStyleToken(t).base in map) known.push(t);
-		else passthrough.push(t);
-	}
+function applyReducedMotion(style: Record<string, string>): void {
+	if (typeof window === "undefined") return;
+	if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	const a = style.animation;
+	if (a) style.animation = a.replace(/\d+ms/g, "1ms");
+}
 
-	if (known.length) {
-		applyMapStyles(el, resolveClasses(map, known.join(" ")));
-	} else {
-		clearMapStyles(el);
-	}
+function clearS(el: El): void {
+	clearMapStyles(el);
+	el.removeAttribute("class");
+	el.removeAttribute("data-fw-layers");
+}
 
-	const cls = passthrough.join(" ");
+function applyFromResolved(el: El, resolved: ResolvedStyle): void {
+	const style = { ...resolved.style };
+	applyReducedMotion(style);
+
+	if (resolved.layers) el.setAttribute("data-fw-layers", "");
+	else el.removeAttribute("data-fw-layers");
+
+	applyMapStyles(el, style as Properties);
+
+	const cls = resolved.classes.filter(Boolean).join(" ");
 	if (cls) el.setAttribute("class", cls);
 	else el.removeAttribute("class");
 }
 
-export function applyClass(el: El, v: unknown): void {
-	if (v == null || v === false) return;
+/** Applica `s` (stringa, layer oggetto, numero) al viewport corrente. */
+export function applyStyleImmediate(el: El, v: unknown): void {
+	if (v == null || v === false) {
+		clearS(el);
+		return;
+	}
+
+	const vp = styleViewport();
 
 	if (typeof v === "string" || typeof v === "number") {
-		applyResolvedTokens(el, String(v));
+		applyFromResolved(el, resolveStyleInput(String(v), vp));
 		return;
 	}
 
-	if (typeof v === "function") {
-		const fn = v as () => unknown;
-		const stop = watch(() => {
-			const out = fn();
-			if (out == null || out === false) {
-				clearMapStyles(el);
-				el.removeAttribute("class");
-				return;
-			}
-			applyResolvedTokens(el, String(out));
-		});
-		onNodeDispose(el, () => {
-			stop();
-			clearMapStyles(el);
-		});
+	if (typeof v === "object" && !Array.isArray(v)) {
+		applyFromResolved(el, resolveStyleInput(v as StyleLayerInput, vp));
 		return;
 	}
 
-	if (isSignal(v)) {
-		const sig = v as Signal<unknown>;
-		const stop = watch(() => {
-			const out = sig();
-			if (out == null || out === false) {
-				clearMapStyles(el);
-				el.removeAttribute("class");
-				return;
-			}
-			applyResolvedTokens(el, String(out));
-		});
-		onNodeDispose(el, () => {
-			stop();
-			clearMapStyles(el);
-		});
-	}
+	clearS(el);
 }
+
+/**
+ * Applica `s` e si aggiorna su resize (viewport) e su Signal / funzione.
+ */
+export function applyStyle(el: El, v: unknown): void {
+	if (v == null || v === false) return;
+
+	const read = (): unknown => {
+		if (typeof v === "function") return (v as () => unknown)();
+		if (isSignal(v)) return (v as Signal<unknown>)();
+		return v;
+	};
+
+	const stop = watch(() => {
+		const out = read();
+		if (out == null || out === false) clearS(el);
+		else applyStyleImmediate(el, out);
+	});
+	onNodeDispose(el, () => {
+		stop();
+		clearS(el);
+	});
+}
+
+/** @deprecated Usare `applyStyle`; mantenuto come alias. */
+export const applyClass = applyStyle;

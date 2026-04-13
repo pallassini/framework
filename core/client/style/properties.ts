@@ -35,6 +35,9 @@ export const map = styleMap({
   z: zIndex,
   round: round,
 
+  /** Marcatore per figli di `layers`: abilita varianti `layer` su left/right/top/bottom/center*. */
+  layer: {},
+
   // POSITION
   absolute: { position: "absolute" },
   relative: { position: "relative" },
@@ -45,6 +48,15 @@ export const map = styleMap({
   row: { display: "flex", flexDirection: "row" },
   col: { display: "flex", flexDirection: "column" },
 
+  /** Impila i figli nella stessa cella a griglia, centrati (serve regola CSS su `[data-fw-layers] > *`). */
+  layers: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gridTemplateRows: "1fr",
+    placeItems: "center",
+    position: "relative",
+  },
+
   // ALIGNMENT
   left: {
     default: { justifyContent: "flex-start" },
@@ -52,6 +64,7 @@ export const map = styleMap({
       row: { justifyContent: "flex-start" },
       col: { alignItems: "flex-start" },
       "absolute,fixed,sticky": { left: 0 },
+      layer: { justifySelf: "start" },
     },
   },
   right: {
@@ -60,6 +73,25 @@ export const map = styleMap({
       row: { justifyContent: "flex-end" },
       col: { alignItems: "flex-end" },
       "absolute,fixed,sticky": { right: 0 },
+      layer: { justifySelf: "end" },
+    },
+  },
+  top: {
+    default: { alignItems: "flex-start" },
+    variants: {
+      row: { alignItems: "flex-start" },
+      col: { justifyContent: "flex-start" },
+      "absolute,fixed,sticky": { top: 0 },
+      layer: { alignSelf: "start" },
+    },
+  },
+  bottom: {
+    default: { alignItems: "flex-end" },
+    variants: {
+      row: { alignItems: "flex-end" },
+      col: { justifyContent: "flex-end" },
+      "absolute,fixed,sticky": { bottom: 0 },
+      layer: { alignSelf: "end" },
     },
   },
   centerX: {
@@ -68,6 +100,7 @@ export const map = styleMap({
       row: { justifyContent: "center" },
       col: { alignItems: "center" },
       "absolute,fixed,sticky": { left: "50%", transform: "translateX(-50%)" },
+      layer: { justifySelf: "center" },
     },
   },
   centerY: {
@@ -76,6 +109,7 @@ export const map = styleMap({
       row: { alignItems: "center" },
       col: { justifyContent: "center" },
       "absolute,fixed,sticky": { top: "50%", transform: "translateY(-50%)" },
+      layer: { alignSelf: "center" },
     },
   },
   center: {
@@ -84,6 +118,7 @@ export const map = styleMap({
       row: { justifyContent: "center", alignItems: "center" },
       col: { justifyContent: "center", alignItems: "center" },
       "absolute,fixed,sticky": { left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
+      layer: { justifySelf: "center", alignSelf: "center" },
     },
   },
 });

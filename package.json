@@ -9,8 +9,7 @@
     "build": "bun ./core/cli/build/index.ts"
   },
   "dependencies": {
-    "electrobun": "1.16.0",
-    "postgres": "^3.4.9"
+    "electrobun": "1.16.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

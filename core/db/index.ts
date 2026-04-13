@@ -1,17 +1,37 @@
-import postgres, { type Sql } from "postgres";
-import { dbConfig } from "./config";
+import { CustomDb } from "./core";
+import { createServerDbUtilities, type ServerDbUtilities, type ServerTables } from "./server";
 
-export const db: Sql = postgres(dbConfig.url, {
-	max: dbConfig.max,
-	idle_timeout: dbConfig.idleTimeoutSeconds,
-	connect_timeout: dbConfig.connectTimeoutSeconds,
-	ssl: dbConfig.ssl,
-});
+const customCore = new CustomDb<ServerTables>(["users"]);
+const customUtils = createServerDbUtilities(customCore, ["users"]);
 
-export async function checkDb(): Promise<void> {
-	await db`select 1`;
-}
+/** `zig` se `zig-out/bin/fwdb` è caricato, altrimenti `memory`. */
+export const dbCustomBackend = customCore.mode;
 
-export async function closeDb(options?: { timeout?: number }): Promise<void> {
-	await db.end({ timeout: options?.timeout });
-}
+export type Db = ServerDbUtilities<ServerTables>;
+
+/** API tabellare custom (fwdb / RAM): `db.users.*`, ecc. Nessun Postgres. */
+export const db: Db = customUtils;
+
+export type {
+	CustomDbOpenOptions,
+	DbRow,
+	DbScalar,
+	DeleteResult,
+	FindOptions,
+	OneOrMany,
+	TableAccessor,
+	UpdatePatch,
+	UpdateResult,
+	Where,
+	WhereOps,
+	WhereValue,
+} from "./core";
+export type { DbUser, ServerDbUtilities, ServerTables } from "./server";
+export {
+	defineSchema,
+	table,
+	type CatalogJson,
+	type FkDef,
+	type IndexDef,
+	type TableSchemaInput,
+} from "./schema";

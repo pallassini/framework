@@ -1,1 +1,1 @@
-export { db, checkDb, closeDb } from "./db/index";
+export { db, dbCustomBackend } from "./db/index";

@@ -10,8 +10,18 @@ import { genServerRoutes } from "./server-routes-gen";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-/** Singola fonte: `desktop/config.ts` → `server.url` */
-const serverRpcOrigin = (desktopConfig.server?.url ?? "").trim().replace(/\/$/, "");
+/**
+ * Base URL RPC nel bundle (senza slash finale).
+ * - `VITE_SERVER_RPC_ORIGIN` in build (es. Docker `ARG`): `""` = stesso origin del sito (consigliato container unico).
+ * - Se non impostata, fallback a `desktop/config.ts` (es. app desktop che punta a un host fisso).
+ */
+const serverRpcOrigin = (
+	process.env.VITE_SERVER_RPC_ORIGIN !== undefined
+		? process.env.VITE_SERVER_RPC_ORIGIN
+		: (desktopConfig.server?.url ?? "")
+)
+	.trim()
+	.replace(/\/$/, "");
 
 /** Dev: nessun `error` / `warn` Vite in terminale (import-analysis, oxc, HMR, ecc.). */
 function muteIssueLogger(): Logger {

@@ -11,3 +11,8 @@ body,
 	padding: 0;
 }
 
+/* Stack: tutti i figli nella stessa cella (inline map applica `layers` sul contenitore). */
+[data-fw-layers] > * {
+	grid-area: 1 / 1;
+}
+

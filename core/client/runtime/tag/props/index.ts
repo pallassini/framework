@@ -4,6 +4,7 @@
  */
 
 import type { Signal } from "../../../state/state";
+import type { StyleInput } from "../../../style";
 import { id } from "./id";
 import { s, hover } from "./style";
 import { show } from "./show";
@@ -29,8 +30,11 @@ export type ClientEvents = {
 export type SharedProps = ClientEvents & {
 	children?: unknown;
 	hover?: HoverProp;
-	/** Token design system + classi CSS; reattivo con accessor o `Signal`. */
-	s?: string | number | false | null | (() => unknown) | Signal<unknown>;
+	/**
+	 * Token design system, `mob:(...) tab:(...) des:(...)`, layer `{ base, mob, tab, des, bg, animate, … }`;
+	 * reattivo con accessor o `Signal`.
+	 */
+	s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
 	/** Visibilità reattiva (prop su qualsiasi elemento). */
 	show?: unknown;
 	[key: string]: unknown;

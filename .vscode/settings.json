@@ -7,6 +7,6 @@
         "package.json": true,
         ".dockerignore": true,
         "Dockerfile": true,
-        ".gitignore": true,
+      
     }
 }

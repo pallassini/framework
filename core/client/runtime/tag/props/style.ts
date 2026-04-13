@@ -1,11 +1,11 @@
-import { applyClass } from "../../../style";
+import { applyStyle } from "../../../style";
 import { applyHover } from "./hover";
 
 type El = HTMLElement | SVGElement;
 
-/** Token design system (`m-2`, `row`, …) + class CSS; token not in map restano su `class`. */
+/** Token design system, layer responsive, shorthand (`bg`, …), `animate`; vedi `StyleInput`. */
 export function s(el: El, v: unknown): void {
-	applyClass(el, v);
+	applyStyle(el, v);
 }
 
 export const hover = applyHover;
