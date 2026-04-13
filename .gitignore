@@ -1,2 +1,4 @@
 node_modules
 /build
+core/db/zig/zig-out
+core/db/zig/zig-cache
