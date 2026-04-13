@@ -1,7 +1,7 @@
 import { matchRow, type WhereClause } from "./where";
 
 export interface Engine {
-	readonly kind: "memory" | "zig_mirror" | "rpc";
+	readonly kind: "memory" | "zig_mirror" | "rpc" | "indexed";
 
 	insert(tablePath: string, pkField: string, row: Record<string, unknown>): Promise<Record<string, unknown>>;
 	update(

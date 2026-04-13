@@ -11,6 +11,7 @@ export default function DbCustomRoute() {
 	const zigBench = state<ServerRouteOut<"zigDb.bench"> | null>(null);
 	const pgBench = state<ServerRouteOut<"db.bench"> | null>(null);
 	const loadSim = state<ServerRouteOut<"loadSim"> | null>(null);
+	const dashSim = state<ServerRouteOut<"ormDashboardSim"> | null>(null);
 	const ormRows = state<OrmDemoUser[]>([]);
 
 	return (
@@ -199,6 +200,58 @@ export default function DbCustomRoute() {
 								{d.byKind.pg_small_agg.errors}
 							</t>
 							<t s="text-#fca5a5">{d.errorSamples.length ? `errors: ${d.errorSamples.join(" | ")}` : ""}</t>
+						</div>
+					)}
+				</For>
+			</div>
+
+			<div s="col gap-2 border-t-1 border-#333 pt-3">
+				<t s="text-16 font-bold text-#fff">Dashboard ORM (12 tabelle, ~52k righe, indici auto)</t>
+				<t s="text-13 text-#888 leading-relaxed">
+					Seed sotto `/app/dash/…` (isolato da `/app/customdb`). Motore: IndexedMemoryEngine (indici invertiti su
+					ogni campo scalare). N utenti virtuali × R query cross-table (join in TS). Attenzione: 1000×8 può
+					bloccare il tab per decine di secondi.
+				</t>
+				<div s="row gap-2 flex-wrap">
+					<t
+						s="text-#fff bg-#1d4ed8 px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ virtualUsers: 100, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						Dash 100×8
+					</t>
+					<t
+						s="text-#fff bg-#1e3a8a px-3 py-2 rounded pointer"
+						click={() =>
+							void server.ormDashboardSim(
+								{ virtualUsers: 1000, roundsPerUser: 8, forceReseed: false },
+								{
+									onSuccess: (d) => dashSim(d),
+									onError: (e) => console.error("[ormDashboardSim]", e),
+								},
+							)
+						}
+					>
+						Dash 1000×8 (pesante)
+					</t>
+				</div>
+				<For each={dashSim} pick={(r) => (r ? [r] : [])}>
+					{(d) => (
+						<div s="col gap-1 font-mono text-11 text-#93c5fd">
+							<t s="text-#bfdbfe">
+								wall={d.wallMs}ms ops/s(wall)={d.opsPerSecWall} err={d.errors} totOps={d.config.totalOps}
+							</t>
+							<t s="text-#a5b4fc">
+								lat ms: p50={d.latencyMs.p50} p95={d.latencyMs.p95} p99={d.latencyMs.p99} avg=
+								{d.latencyMs.avg}
+							</t>
 						</div>
 					)}
 				</For>
