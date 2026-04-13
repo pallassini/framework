@@ -8,4 +8,8 @@ export const state = createState(clientConfig.state);
 export * from "./client/router";
 
 // VALIDATOR
-export { v, ValidationError, type InputSchema, type InferSchema } from "./client/validator";
+export { v } from "./client/validator";
+
+// SERVER RPC (client)
+export { server } from "./client/server/server";
+
