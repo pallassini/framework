@@ -5,7 +5,11 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pathFromExport, walkRouteFiles } from "../../server/routes/route-fs";
+import {
+	excludeDevtoolsFromRouteWalk,
+	pathFromExport,
+	walkRouteFiles,
+} from "../../server/routes/route-fs";
 
 const EXPORT_CONST_RE = /export const (\w+)(?::[^=]+)?\s*=\s*d\s*\(/g;
 const EXPORT_DEFAULT_RE = /export\s+default\s+d\s*\(/;
@@ -94,7 +98,10 @@ export function writeDesktopRoutesGen(projectRoot?: string): void {
 
 	const byPath = new Map<string, string>();
 
-	for (const file of walkRouteFiles(routesDir)) {
+	for (const file of walkRouteFiles(routesDir, {
+		skipLeadingUnderscoreDirs: false,
+		excludeDevtools: excludeDevtoolsFromRouteWalk(),
+	})) {
 		let src: string;
 		try {
 			src = readFileSync(file, "utf8");

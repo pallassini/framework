@@ -7,7 +7,12 @@ export type RouteLoader = () => Promise<RouteModule>;
 type RouteMap = Record<string, RouteLoader>;
 type RouteKeyMap = Record<string, string>;
 
-const ROUTE_GLOB = import.meta.glob<RouteModule>("../../../../client/routes/**/*.{ts,tsx}");
+const ROUTE_GLOB = import.meta.env.DEV
+	? import.meta.glob<RouteModule>("../../../../client/routes/**/*.{ts,tsx}")
+	: import.meta.glob<RouteModule>([
+			"../../../../client/routes/**/*.{ts,tsx}",
+			"!../../../../client/routes/_devtools/**",
+		]);
 
 if (import.meta.hot) {
 	const routeDeps = Object.keys(ROUTE_GLOB);

@@ -126,6 +126,6 @@ function box(c: ViteClient): void {
 			"\u2500".repeat(W) +
 			"\u256f" +
 			R +
-			`\n ${B}[d]${R} Desktop\n\n`,
+			`\n ${B}[d]${R} Desktop  ·  ${B}[e]${R} finestra ${M}/_devtools${R} (desktop attivo)\n\n`,
 	);
 }

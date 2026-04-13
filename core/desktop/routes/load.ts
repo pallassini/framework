@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { uncacheModulesUnderDir } from "../../server/routes/module-cache";
-import { pathFromExport, walkRouteFiles } from "../../server/routes/route-fs";
+import { excludeDevtoolsFromRouteWalk, pathFromExport, walkRouteFiles } from "../../server/routes/route-fs";
 import { getDesktopFn } from "./registry";
 import { desktopRouteRegistry, desktopRoutesState } from "./state";
 import { isDesktopRoute, type DesktopRouteDesc } from "./types";
@@ -24,7 +24,10 @@ export async function loadDesktopRoutes(root: string): Promise<void> {
 
 	const byPath = new Map<string, string>();
 
-	for (const file of walkRouteFiles(ROUTES_DIR)) {
+	for (const file of walkRouteFiles(ROUTES_DIR, {
+		skipLeadingUnderscoreDirs: false,
+		excludeDevtools: excludeDevtoolsFromRouteWalk(),
+	})) {
 		let mod: Record<string, unknown>;
 		try {
 			const href = Bun.pathToFileURL(file).href;

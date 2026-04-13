@@ -6,7 +6,7 @@ import { resetRateLimitBuckets } from "../middlewares/limit";
 import { getServerFn } from "./rpc/registry";
 import { isServerRoute, type ServerFn, type ServerRouteDesc } from "./rpc/types";
 import { uncacheModulesUnderDir } from "./module-cache";
-import { pathFromExport, walkRouteFiles } from "./route-fs";
+import { excludeDevtoolsFromRouteWalk, pathFromExport, walkRouteFiles } from "./route-fs";
 import { routeCors, routeMeta, routeRegistry, routesState } from "./state";
 import { writeServerRoutesGen } from "./generate";
 
@@ -51,7 +51,10 @@ export async function loadServerRoutes(root: string): Promise<void> {
 	let importFailed = false;
 
 	try {
-		for (const file of walkRouteFiles(ROUTES_DIR)) {
+		for (const file of walkRouteFiles(ROUTES_DIR, {
+			skipLeadingUnderscoreDirs: false,
+			excludeDevtools: excludeDevtoolsFromRouteWalk(),
+		})) {
 			let mod: Record<string, unknown>;
 			try {
 				const href = Bun.pathToFileURL(file).href;

@@ -5,6 +5,9 @@ import { buildElectrobun } from "./desktop";
 import { parseBuildTarget, parseElectrobunEnv } from "./targets";
 import { generateServerClientTypes } from "./server";
 
+// Esclude cartelle routes/_devtools dal codegen server/desktop in build release.
+process.env.FRAMEWORK_PROD_BUILD = "1";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const target = parseBuildTarget(process.argv);
 

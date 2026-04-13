@@ -1,4 +1,5 @@
 import { BrowserView, BrowserWindow } from "electrobun/bun";
+import { registerOpenDesktopWebWindow, setupDevDesktopExtraWindowSignal } from "./dev-windows";
 import { loadBundledDesktopRoutes } from "./routes/bundled.generated";
 import { buildElectrobunRequestHandlers, loadDesktopRoutes } from "./routes";
 import { watchDesktopRoutes } from "./routes/watch";
@@ -30,9 +31,29 @@ const desktopRpc = BrowserView.defineRPC({
 	},
 });
 
+function clientSurfaceUrl(path: string): string {
+	const dev = process.env.CLIENT_DEV_SERVER_URL?.trim();
+	const p = path.startsWith("/") ? path : `/${path}`;
+	if (dev) return `${dev.replace(/\/$/, "")}${p}`;
+	return "views://main/index.html";
+}
+
+registerOpenDesktopWebWindow((path) => {
+	new BrowserWindow({
+		title: "App",
+		titleBarStyle: "default",
+		url: clientSurfaceUrl(path),
+		rpc: desktopRpc,
+	});
+});
+
 export const mainWindow = new BrowserWindow({
 	title: "App",
 	titleBarStyle: "default",
 	url: process.env.CLIENT_DEV_SERVER_URL || "views://main/index.html",
 	rpc: desktopRpc,
 });
+
+if (devFromRepo) {
+	setupDevDesktopExtraWindowSignal(root);
+}

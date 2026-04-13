@@ -1,15 +1,34 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
-export function walkRouteFiles(dir: string): string[] {
+export type WalkRouteFilesOpts = {
+	/**
+	 * Se true (default), ignora directory il cui nome inizia con `_` (convenzione “private”).
+	 * Desktop/server possono impostare false per includere anche path tipo routes/_devtools in dev.
+	 */
+	skipLeadingUnderscoreDirs?: boolean;
+	/**
+	 * Se true, non attraversa né include file sotto una cartella `_devtools` (tooling solo dev, escluso da build).
+	 */
+	excludeDevtools?: boolean;
+};
+
+/** True in build release (`FRAMEWORK_PROD_BUILD`) o runtime con `NODE_ENV=production`. */
+export function excludeDevtoolsFromRouteWalk(): boolean {
+	return process.env.FRAMEWORK_PROD_BUILD === "1" || process.env.NODE_ENV === "production";
+}
+
+export function walkRouteFiles(dir: string, opts?: WalkRouteFilesOpts): string[] {
+	const skipUnderscoreDirs = opts?.skipLeadingUnderscoreDirs !== false;
 	if (!existsSync(dir)) return [];
 	const out: string[] = [];
 	for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
 		a.name.localeCompare(b.name),
 	)) {
-		if (e.name.startsWith("_")) continue;
+		if (skipUnderscoreDirs && e.name.startsWith("_")) continue;
+		if (opts?.excludeDevtools && e.name === "_devtools") continue;
 		const full = join(dir, e.name);
-		if (e.isDirectory()) out.push(...walkRouteFiles(full));
+		if (e.isDirectory()) out.push(...walkRouteFiles(full, opts));
 		else if (/\.(tsx?|jsx?)$/.test(e.name)) out.push(full);
 	}
 	return out;

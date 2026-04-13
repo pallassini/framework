@@ -26,7 +26,10 @@ export async function loadBundledDesktopRoutes(): Promise<void> {
 		return;
 	}
 
-	const files = walkRouteFiles(routesDir);
+	const files = walkRouteFiles(routesDir, {
+		skipLeadingUnderscoreDirs: false,
+		excludeDevtools: true,
+	});
 	const importLines: string[] = [];
 	const entryLines: string[] = [];
 	for (let i = 0; i < files.length; i++) {

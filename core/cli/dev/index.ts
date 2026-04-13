@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -61,5 +62,10 @@ if (process.stdin.isTTY) {
 	process.stdin.on("keypress", (ch, k) => {
 		if (k?.ctrl && k?.name === "c") void stop();
 		else if (ch === "d" || ch === "D") void startDesktop(root, client.url);
+		else if (ch === "e" || ch === "E") {
+			const dir = path.join(root, "core", ".dev");
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(path.join(dir, "open-webview"), "/_devtools\n", "utf8");
+		}
 	});
 }
