@@ -3,6 +3,7 @@
  * createState(value) → Signal (Promise risolte automaticamente).
  */
 
+import { isRpcRunRef } from "../../rpc-ref";
 import { signal, type Signal } from "./signal";
 import { buildStore, isPlainObject, type StateMap } from "../utils/store";
 import { withCallableStore } from "../utils/withCallableStore";
@@ -12,6 +13,8 @@ export type CreateStateFn = {
 	<T>(initial: Promise<T>): Signal<T | undefined>;
 	<T>(initial: PromiseLike<T>): Signal<T | undefined>;
 	<R>(initial: () => Promise<R>): Signal<R | undefined>;
+	/** Solo tipo: `fn` è un metodo RPC marcato; non viene chiamato. */
+	<F extends (...args: never[]) => Promise<unknown>>(ref: F): Signal<Awaited<ReturnType<F>>>;
 	<U extends Record<string, unknown>>(shape: U): StateMap<U>;
 	<V>(value: V): Signal<V>;
 };
@@ -20,6 +23,9 @@ export type CallableStateMap<T extends Record<string, unknown>> = StateMap<T> & 
 
 function createStateImpl(shapeOrValue?: unknown): StateMap<Record<string, unknown>> | Signal<unknown> {
 	if (arguments.length === 0 || shapeOrValue === undefined) {
+		return signal(undefined) as Signal<unknown>;
+	}
+	if (isRpcRunRef(shapeOrValue)) {
 		return signal(undefined) as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue)) {

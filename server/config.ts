@@ -4,7 +4,11 @@ export type LogConfig = {
 	detail: "minimal" | "full";
 	/** Log quando il watcher ricarica `server/routes` (o `desktop/routes` sul config desktop). Default true. */
 	registryReload?: boolean;
-	/** Solo CLI `electrobun dev`: mostra LAUNCHER / WebView2 / Bridge in terminale. Default true. */
+	/**
+	 * CLI `electrobun dev`: se `false`, nasconde WebView2/Bridge/ecc.
+	 * Con `log.enabled` le righe RPC `[desktop] …` passano comunque (filtrate); con `log.enabled: false` lo stdio del child è ignorato del tutto.
+	 * Omesso o `true`: tutto lo stdio ereditato (comportamento rumoroso).
+	 */
 	electrbunDevOutput?: boolean;
 	/** CLI: una riga su ogni `d` (pid, conteggio spawn). Default true. Indipendente da `electrbunDevOutput`. */
 	devDesktopSpawnLog?: boolean;

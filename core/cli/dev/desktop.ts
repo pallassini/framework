@@ -7,6 +7,44 @@ import { desktopConfig } from "../../../desktop/config";
 
 type Proc = ReturnType<typeof Bun.spawn>;
 
+const ANSI_SGR_RE = /\x1b\[[0-9;]*m/g;
+
+function stripAnsi(s: string): string {
+	return s.replace(ANSI_SGR_RE, "");
+}
+
+/** Solo output del middleware RPC desktop (`logRpcSuccess` / `logRpcError`), non WebView2/Bridge. */
+function isDesktopRpcLogLine(line: string): boolean {
+	return stripAnsi(line).includes("[desktop]");
+}
+
+async function forwardFilteredLines(
+	src: ReadableStream<Uint8Array>,
+	dest: NodeJS.WriteStream,
+): Promise<void> {
+	const reader = src.getReader();
+	const decoder = new TextDecoder();
+	let pending = "";
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			if (value?.length) pending += decoder.decode(value, { stream: true });
+			const parts = pending.split(/\r?\n/);
+			pending = parts.pop() ?? "";
+			for (const line of parts) {
+				if (isDesktopRpcLogLine(line)) dest.write(`${line}\n`);
+			}
+		}
+		pending += decoder.decode();
+		if (pending.length && isDesktopRpcLogLine(pending)) {
+			dest.write(`${pending}\n`);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+}
+
 /** Una sessione `electrobun dev` per ogni pressione di `d` (come più terminali). */
 const procs = new Set<Proc>();
 let busy = false;
@@ -41,16 +79,32 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			await build({ configFile: path.join(root, "core/client/vite.config.ts") });
 			if (!existsSync(assetsDir)) mkdirSync(assetsDir, { recursive: true });
 		}
-		const noisy = desktopConfig.log.electrbunDevOutput !== false;
 		const spawnLog = desktopConfig.log.devDesktopSpawnLog !== false;
-		const io = noisy ? ("inherit" as const) : ("ignore" as const);
+		const loud = desktopConfig.log.electrbunDevOutput !== false;
+		const logRpc = desktopConfig.log.enabled;
+		let stdin: "inherit" | "ignore";
+		let stdout: "inherit" | "ignore" | "pipe";
+		let stderr: "inherit" | "ignore" | "pipe";
+		if (loud) {
+			stdin = "inherit";
+			stdout = "inherit";
+			stderr = "inherit";
+		} else if (!logRpc) {
+			stdin = "ignore";
+			stdout = "ignore";
+			stderr = "ignore";
+		} else {
+			stdin = "inherit";
+			stdout = "pipe";
+			stderr = "pipe";
+		}
 		const instanceId = randomUUID();
 		const proc = Bun.spawn({
 			cmd: ["bun", "x", "electrobun", "dev", "--watch"],
 			cwd: root,
-			stdin: io,
-			stdout: io,
-			stderr: io,
+			stdin,
+			stdout,
+			stderr,
 			env: {
 				...process.env,
 				CLIENT_DEV_SERVER_URL: url,
@@ -59,6 +113,18 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			},
 		});
 		procs.add(proc);
+		if (stdout === "pipe" && stderr === "pipe") {
+			void (async () => {
+				try {
+					await Promise.all([
+						forwardFilteredLines(proc.stdout!, process.stdout),
+						forwardFilteredLines(proc.stderr!, process.stderr),
+					]);
+				} catch {
+					/* stream chiuso o processo terminato */
+				}
+			})();
+		}
 		void proc.exited.then(() => {
 			procs.delete(proc);
 			if (spawnLog) {

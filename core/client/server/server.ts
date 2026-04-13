@@ -1,4 +1,5 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
+import { markRpcRun } from "../rpc-ref";
 
 export type RpcSettledResult<O> =
 	| { readonly ok: true; readonly data: O }
@@ -88,11 +89,11 @@ async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallback
 }
 
 function createLink(parts: string[]): unknown {
-	const run = async (first?: unknown, second?: unknown) => {
+	const run = markRpcRun(async (first?: unknown, second?: unknown) => {
 		const pathDots = parts.join(".");
 		const { input, opts } = extractRpcArgs(first, second);
 		return rpcFetch(pathDots, input, opts);
-	};
+	});
 	return new Proxy(run, {
 		get(_target, seg: string | symbol) {
 			if (typeof seg !== "string" || seg === "then") return undefined;

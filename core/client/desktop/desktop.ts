@@ -1,4 +1,5 @@
 import type { DesktopPath, DesktopRoutes } from "./routes-gen";
+import { markRpcRun } from "../rpc-ref";
 import { getDesktopElectroview } from "./electroview";
 
 export type DesktopRpcSettledResult<O> =
@@ -65,11 +66,11 @@ async function desktopInvoke<O>(pathDots: string, input?: unknown, opts?: Deskto
 }
 
 function createLink(parts: string[]): unknown {
-	const run = async (first?: unknown, second?: unknown) => {
+	const run = markRpcRun(async (first?: unknown, second?: unknown) => {
 		const pathDots = parts.join(".");
 		const { input, opts } = extractDesktopRpcArgs(first, second);
 		return desktopInvoke(pathDots, input, opts);
-	};
+	});
 	return new Proxy(run, {
 		get(_target, seg: string | symbol) {
 			if (typeof seg !== "string" || seg === "then") return undefined;
