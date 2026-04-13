@@ -6,3 +6,6 @@ export const state = createState(clientConfig.state);
 
 // ROUTER
 export * from "./client/router";
+
+// VALIDATOR
+export { v, ValidationError, type InputSchema, type InferSchema } from "./client/validator";

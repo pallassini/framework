@@ -3,6 +3,7 @@
  * Tipi condivisi (per tag e JSX) derivati qui sotto.
  */
 
+import type { Signal } from "../../../state";
 import { id } from "./id";
 import { s, hover } from "./style";
 import { show } from "./show";
@@ -28,8 +29,8 @@ export type ClientEvents = {
 export type SharedProps = ClientEvents & {
 	children?: unknown;
 	hover?: HoverProp;
-	/** Classe CSS (shorthand compat IDE). */
-	s?: string | number | false | null;
+	/** Token design system + classi CSS; reattivo con accessor o `Signal`. */
+	s?: string | number | false | null | (() => unknown) | Signal<unknown>;
 	/** Visibilità reattiva (prop su qualsiasi elemento). */
 	show?: unknown;
 	[key: string]: unknown;

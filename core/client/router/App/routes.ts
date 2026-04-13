@@ -9,6 +9,14 @@ type RouteKeyMap = Record<string, string>;
 
 const ROUTE_GLOB = import.meta.glob<RouteModule>("../../../../client/routes/**/*.{ts,tsx}");
 
+if (import.meta.hot) {
+	const routeDeps = Object.keys(ROUTE_GLOB);
+	if (routeDeps.length > 0) {
+		// Keep updates for route modules inside the HMR graph.
+		import.meta.hot.accept(routeDeps, () => {});
+	}
+}
+
 const ROUTES: RouteMap = Object.fromEntries(
 	Object.entries(ROUTE_GLOB).flatMap(([key, loader]) => {
 		const route = patternFromFile(key);
