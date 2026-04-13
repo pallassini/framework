@@ -1,4 +1,4 @@
-import { desktop, logWithRpcTag, persistState, server, sessionState, state } from "client";
+import { desktop, persistState, server, sessionState, state } from "client";
 
 export default function Home() {
 	console.log(state.id(), sessionState.name(), persistState.email());
@@ -9,7 +9,7 @@ export default function Home() {
     s="text-#ffffff bg-#1a4d8c"
     click={() =>
       void server.ping.brooo({
-        onSuccess: (data) => logWithRpcTag("server", data),
+        onSuccess: (data) => console.log("[server]", data),
       })
     }
   >
@@ -19,7 +19,7 @@ export default function Home() {
     s="text-#ffffff bg-#1a6b3a"
     click={() =>
       void desktop.ping({
-        onSuccess: (data) => logWithRpcTag("desktop", data),
+        onSuccess: (data) => console.log("[desktop]", data),
       })
     }
   >

@@ -24,3 +24,5 @@ export const routeMw = {
 export type { Middleware, Next } from "./logic/types";
 export type { RateLimitOpts, ConcurrencyOpts, ConcurrencySameClientOpts, SizeLimitOpts } from "./logic/opts";
 export type { RouteInputConfig, RouteNoInputConfig } from "./logic/route-config";
+
+export { collectServerRpcMiddlewareLogParts } from "./rpc-log-collect";

@@ -1,3 +1,4 @@
+import type { ServerContext } from "../routes/context";
 import type { ServerFn } from "../routes/rpc/types";
 import type { ConcurrencyOpts } from "./logic/opts";
 import { createGate, type Gate } from "./logic/gate";
@@ -57,4 +58,18 @@ export function createConcurrencyWrapper(opts: ConcurrencyOpts): (handler: Serve
 			}
 		};
 	};
+}
+
+export function serverRpcLogPart(ctx: ServerContext): string | undefined {
+	const p: string[] = [];
+	if (ctx.concurrencyState) {
+		const c = ctx.concurrencyState;
+		p.push(c.waited ? `conc ${c.active}/${c.max} (wait)` : `conc ${c.active}/${c.max}`);
+	}
+	if (ctx.concurrencySameClient) {
+		const c = ctx.concurrencySameClient;
+		p.push(c.waited ? `per-ip ${c.active}/${c.max} (wait)` : `per-ip ${c.active}/${c.max}`);
+	}
+	if (p.length === 0) return undefined;
+	return p.join(" · ");
 }

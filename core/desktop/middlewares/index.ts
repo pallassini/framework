@@ -12,3 +12,5 @@ export const desktopMw = {
 
 export type { DesktopMiddleware, Next } from "./logic/types";
 export type { DesktopRouteInputConfig, DesktopRouteNoInputConfig } from "./logic/route-config";
+
+export { collectDesktopRpcMiddlewareLogParts } from "./rpc-log-collect";

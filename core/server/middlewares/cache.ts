@@ -34,3 +34,8 @@ export function createCacheWrapper(ttlMs: number): (handler: ServerFn) => Server
 		};
 	};
 }
+
+export function serverRpcLogPart(ctx: ServerContext): string | undefined {
+	if (ctx.cacheHit === undefined) return undefined;
+	return ctx.cacheHit ? "cache hit" : "cache miss";
+}

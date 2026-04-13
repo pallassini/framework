@@ -1,5 +1,7 @@
 import type { InputSchema } from "../../client/validator/properties/defs";
 import { v } from "../../client/validator";
+import { desktopConfig } from "../../../desktop/config";
+import { rpcJsonUtf8Length } from "../../server/perf/payload-metrics";
 import { desktopError } from "../error";
 import { compose } from "../middlewares/logic/compose";
 import { timeoutMs } from "../middlewares/logic/route-config";
@@ -43,7 +45,15 @@ function buildFn(
 			}
 			input = undefined;
 		}
-		return Promise.resolve(run(input, ctx));
+		const rpc = desktopConfig.log;
+		const out = await Promise.resolve(run(input, ctx));
+		if (rpc.enabled && rpc.detail === "full") {
+			ctx.rpcPayloadSizes = {
+				in: rpcJsonUtf8Length(input),
+				out: rpcJsonUtf8Length(out),
+			};
+		}
+		return out;
 	};
 
 	const inner: DesktopFn =

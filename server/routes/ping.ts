@@ -10,6 +10,6 @@ export default s({
 /** RPC `ping.meta` → `await server.ping.meta()` */
 export const brooo = s({
 	run() {
-		return { name: "ping" as const };
+		return { name: "pingddddwdw" as const };
 	},
 });

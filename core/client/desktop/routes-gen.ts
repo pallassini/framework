@@ -3,7 +3,7 @@
  * Non modificare a mano.
  */
 
-import { default as ping } from "../../../desktop/routes/ping";
+import { default as ping, prova2 as ping_prova2 } from "../../../desktop/routes/ping";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
@@ -11,6 +11,7 @@ type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 
 export type DesktopRoutes = {
 	ping: InferRoute<typeof ping>;
+	"ping.prova2": InferRoute<typeof ping_prova2>;
 };
 
 export type DesktopPath = keyof DesktopRoutes & string;

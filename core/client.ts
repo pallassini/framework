@@ -18,6 +18,3 @@ export { server } from "./client/server";
 // DESKTOP (RPC webview ↔ Bun; in `client/index.tsx` chiama `initDesktopRpc()`)
 export { desktop, initDesktopRpc } from "./client/desktop";
 
-// DEV — log risposte RPC nel renderer con prefisso attenuato
-export { logWithRpcTag } from "./client/dev/rpc-log";
-

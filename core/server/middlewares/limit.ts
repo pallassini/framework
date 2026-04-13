@@ -1,4 +1,5 @@
 import { error } from "../error";
+import type { ServerContext } from "../routes/context";
 import type { RateLimitOpts } from "./logic/opts";
 import type { Middleware } from "./logic/types";
 
@@ -32,4 +33,10 @@ export function limit(opts: RateLimitOpts): Middleware {
 		if (bucket.count > opts.max) error("RATE_LIMIT", "Too many requests");
 		return next();
 	};
+}
+
+export function serverRpcLogPart(ctx: ServerContext): string | undefined {
+	if (!ctx.rateLimitState) return undefined;
+	const r = ctx.rateLimitState;
+	return `rl ${r.remaining}/${r.max}`;
 }

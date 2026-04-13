@@ -11,6 +11,8 @@ import {
 } from "../../middlewares";
 import { compose } from "../../middlewares/logic/compose";
 import { timeoutMs } from "../../middlewares/logic/route-config";
+import { serverConfig } from "../../../../server/config";
+import { rpcJsonUtf8Length } from "../../perf/payload-metrics";
 import { error } from "../../error";
 import type { ServerContext } from "../context";
 import { SERVER_ROUTE, type ServerFn, type ServerRouteDesc, type ServerRouteDescTyped } from "./types";
@@ -53,7 +55,14 @@ function buildFn(
 			}
 			input = undefined;
 		}
+		const rpc = serverConfig.log;
 		const out = await Promise.resolve(run(input, ctx));
+		if (rpc.enabled && rpc.detail === "full") {
+			ctx.rpcPayloadSizes = {
+				in: rpcJsonUtf8Length(input),
+				out: rpcJsonUtf8Length(out),
+			};
+		}
 		if (sizeOut != null) {
 			const json = JSON.stringify(out ?? null);
 			const outBytes = new TextEncoder().encode(json).byteLength;

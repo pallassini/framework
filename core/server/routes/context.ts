@@ -29,6 +29,10 @@ export interface ServerContext {
 		queued: number;
 		waited: boolean;
 	};
+	/** Frammenti per la riga RPC (eventuali `push` dai middleware). */
+	rpcLogParts: string[];
+	/** Dimensioni payload in/out (JSON UTF-8) per il log RPC. */
+	rpcPayloadSizes?: { in: number; out: number };
 }
 
 export function createContext(req: Request, routeName: string): ServerContext {
@@ -41,5 +45,6 @@ export function createContext(req: Request, routeName: string): ServerContext {
 		ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown",
 		json: <T = unknown>() => req.json() as Promise<T>,
 		text: () => req.text(),
+		rpcLogParts: [],
 	};
 }

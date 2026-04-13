@@ -53,7 +53,7 @@ export async function loadDesktopRoutes(root: string): Promise<void> {
 
 			const desc = value as DesktopRouteDesc;
 			const fn = getDesktopFn(desc);
-			desktopRouteRegistry.set(path, (raw) => fn(raw, { routeName: path }));
+			desktopRouteRegistry.set(path, (raw) => fn(raw, { routeName: path, rpcLogParts: [] }));
 		}
 	}
 

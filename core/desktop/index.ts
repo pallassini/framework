@@ -1,10 +1,12 @@
 import { BrowserView, BrowserWindow } from "electrobun/bun";
 import { buildElectrobunRequestHandlers, loadDesktopRoutes } from "./routes";
+import { watchDesktopRoutes } from "./routes/watch";
 import { writeDesktopRoutesGen } from "./routes/write-client-routes-gen";
 
 const root = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
 writeDesktopRoutesGen(root);
 await loadDesktopRoutes(root);
+watchDesktopRoutes(root);
 
 const requests = buildElectrobunRequestHandlers();
 
