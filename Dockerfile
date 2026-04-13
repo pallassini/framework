@@ -4,10 +4,15 @@
 # Motore `core/dbCustom` (Zig): compilato in stage dedicato → `zig-out/lib/libcustom_db.so`.
 
 FROM debian:bookworm-slim AS zigbuild
-RUN apt-get update && apt-get install -y wget xz-utils ca-certificates \
-	&& wget -q https://ziglang.org/download/0.15.2/zig-linux-x86_64-0.15.2.tar.xz \
-	&& tar -xf zig-linux-x86_64-0.15.2.tar.xz -C /opt \
-	&& mv /opt/zig-linux-x86_64-0.15.2 /opt/zig
+ARG ZIG_VERSION=0.15.2
+# Nome ufficiale tarball: zig-x86_64-linux-VERSION (non zig-linux-x86_64-…).
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends wget xz-utils ca-certificates \
+	&& wget -q "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
+	&& tar -xf "zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -C /opt \
+	&& mv "/opt/zig-x86_64-linux-${ZIG_VERSION}" /opt/zig \
+	&& rm -f "zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
+	&& rm -rf /var/lib/apt/lists/*
 ENV PATH="/opt/zig:${PATH}"
 WORKDIR /src
 COPY core/dbCustom/zig .
