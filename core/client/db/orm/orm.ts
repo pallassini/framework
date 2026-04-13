@@ -1,5 +1,6 @@
 import type { Engine } from "./engine";
 import { MemoryEngine } from "./engine";
+import { RpcOrmEngine } from "./rpcEngine";
 import { ZigMirrorEngine } from "./zigMirrorEngine";
 import { f, shallowWhere, type WhereClause, w } from "./where";
 
@@ -103,11 +104,14 @@ export type CreateDbOptions = {
 	engine?: Engine;
 	/** Se true e la .so è presente, ogni scrittura viene anche serializzata su Zig KV (sperimentale). */
 	zigMirror?: boolean;
+	/** Tutte le operazioni via RPC `ormDoc` (consigliato in produzione). */
+	rpc?: boolean;
 };
 
 export function createDb(opts: CreateDbOptions = {}): Namespace {
 	let engine: Engine;
 	if (opts.engine) engine = opts.engine;
+	else if (opts.rpc) engine = new RpcOrmEngine();
 	else if (opts.zigMirror) engine = new ZigMirrorEngine();
 	else engine = new MemoryEngine();
 	return new Namespace(engine, []);

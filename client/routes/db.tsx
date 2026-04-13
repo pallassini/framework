@@ -2,8 +2,8 @@ import { createDb, For, server, state, type ServerRouteOut } from "client";
 
 type OrmDemoUser = { id: string; name: string; score: number };
 
-/** Istanza condivisa nella sessione pagina: ORM in RAM nel browser (non passa dal server). */
-const ormDemo = createDb();
+/** ORM via RPC `ormDoc`: storage e validazione sul server (path effettivo `/app/customdb/demo/users`). */
+const ormDemo = createDb({ rpc: true });
 const ormUsers = ormDemo.folder("customdb").folder("demo").table<OrmDemoUser>("users");
 
 export default function DbCustomRoute() {
@@ -21,9 +21,9 @@ export default function DbCustomRoute() {
 			</t>
 
 			<div s="col gap-2 border-1 border-#444 rounded p-3 bg-#1a1a1e">
-				<t s="text-16 font-bold text-#e9d5ff">ORM (client, `core/client/db/orm`)</t>
+				<t s="text-16 font-bold text-#e9d5ff">ORM via server (`ormDoc`)</t>
 				<t s="text-13 text-#a1a1aa">
-					Dati solo in memoria in questa tab: path `/customdb/demo/users`. Dopo deploy vedi questa sezione; Zig/Postgres sopra restano invariati.
+					Ogni insert/list/delete passa da `POST /_server/ormDoc`: logica e store in Bun (`MemoryEngine` process-wide, prefisso `/app/…`). Zig/Postgres sopra restano separati.
 				</t>
 				<div s="row gap-2 flex-wrap">
 					<t

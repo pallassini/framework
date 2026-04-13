@@ -1,5 +1,7 @@
 export type { Engine } from "./engine";
 export { MemoryEngine } from "./engine";
+export { RpcOrmEngine } from "./rpcEngine";
+export type { OrmDocInput, OrmDocOutput } from "./rpcTypes";
 export { ZigMirrorEngine } from "./zigMirrorEngine";
 export {
 	createDb,
