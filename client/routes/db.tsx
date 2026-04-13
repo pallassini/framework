@@ -1,18 +1,18 @@
 import { For, server, state } from "client";
 
 export default function DbCustomRoute() {
-	const res = state<server<"dbCustom">>();
+	const res = state<server<"db.custom">>();
 
 	return (
 		<div s="col gap-3 p-4 max-w-2xl">
 			<t s="text-18 font-bold text-#fff">dbCustom (Zig engine)</t>
 			<t s="text-14 text-#aaa">
-				Con `zig build` in `core/dbCustom/zig` carica la DLL/.so; altrimenti fallback in-memory. RPC: server.dbCustom.
+				Con `zig build` in `core/dbCustom/zig` carica la DLL/.so; altrimenti fallback in-memory. RPC: server.db.custom → POST /_server/db/custom.
 			</t>
 			<t
 				s="text-#ffffff bg-#7c3aed px-3 py-2 rounded pointer inline-block"
 				click={() =>
-					void server.dbCustom({
+					void server.db.custom({
 						onSuccess: (data) => res(data),
 						onError: (e) => console.error("[dbCustom]", e),
 					})
