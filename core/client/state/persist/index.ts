@@ -1,2 +1,5 @@
-/** Persistenza (storage / IDB) — condividi `utils/store` per snapshot e idratazione. */
-export {};
+/**
+ * Persistenza — modello reattivo come `state`; idratazione/snapshot via `utils/store` quando servirà.
+ */
+export { createState as createPersistRoot } from "..";
+export type { Signal, StateMap } from "..";

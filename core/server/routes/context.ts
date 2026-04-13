@@ -1,4 +1,6 @@
 export interface ServerContext {
+	/** Nome route RPC (`ping`, `api.foo`, …). */
+	readonly routeName: string;
 	readonly request: Request;
 	readonly url: URL;
 	readonly method: string;
@@ -29,8 +31,9 @@ export interface ServerContext {
 	};
 }
 
-export function createContext(req: Request): ServerContext {
+export function createContext(req: Request, routeName: string): ServerContext {
 	return {
+		routeName,
 		request: req,
 		url: new URL(req.url),
 		method: req.method.toUpperCase(),

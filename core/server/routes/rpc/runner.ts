@@ -72,7 +72,7 @@ export async function runRpc(name: string, registry: ReadonlyMap<string, ServerF
 		rawInput = undefined;
 	}
 
-	const ctx = createContext(req);
+	const ctx = createContext(req, name);
 
 	try {
 		const value = await fn(rawInput, ctx);

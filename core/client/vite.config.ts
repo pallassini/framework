@@ -4,6 +4,7 @@ import type { PluginOption } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { defineConfig } from "vite-plus";
 import { SERVER_RPC_HOST, SERVER_RPC_PORT } from "../server/routes/config";
+import { genDesktopRoutes } from "./desktop-routes-gen";
 import { genServerRoutes } from "./server-routes-gen";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -12,7 +13,7 @@ export default defineConfig({
 	root: root,
 	base: "./",
 	logLevel: "warn",
-	plugins: [genServerRoutes(root), mkcert()] as PluginOption[],
+	plugins: [genServerRoutes(root), genDesktopRoutes(root), mkcert()] as PluginOption[],
 	lint: {
 		ignorePatterns: ["build/**", "node_modules/**"],
 	},

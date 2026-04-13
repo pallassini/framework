@@ -23,7 +23,7 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			stdin: "inherit",
 			stdout: "inherit",
 			stderr: "inherit",
-			env: { ...process.env, CLIENT_DEV_SERVER_URL: url },
+			env: { ...process.env, CLIENT_DEV_SERVER_URL: url, FRAMEWORK_PROJECT_ROOT: root },
 		});
 		child = proc;
 		void proc.exited.then(() => {

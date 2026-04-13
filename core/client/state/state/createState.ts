@@ -26,15 +26,17 @@ function createStateImpl(shapeOrValue?: unknown): StateMap<Record<string, unknow
 	return signal(shapeOrValue) as Signal<unknown>;
 }
 
-export function createState<T extends Record<string, unknown>>(shape: T): StateMap<T> & CreateStateFn;
+export function createState(): Signal<undefined>;
+export function createState<T extends Record<string, unknown>>(shape: T): StateMap<T>;
 export function createState<T>(value: T): Signal<T>;
-export function createState<T>(
-	shapeOrValue: T,
-): (StateMap<T> & CreateStateFn) | Signal<T> {
+export function createState(shapeOrValue?: unknown): StateMap<Record<string, unknown>> | Signal<unknown> {
+	if (arguments.length === 0 || shapeOrValue === undefined) {
+		return signal(undefined) as Signal<undefined>;
+	}
 	if (isPlainObject(shapeOrValue as object)) {
 		const store = buildStore(shapeOrValue as Record<string, unknown>);
 		const fn = ((other?: unknown) => createStateImpl(other)) as CreateStateFn;
-		return withCallableStore(fn, store as Record<string, unknown>) as StateMap<T> & CreateStateFn;
+		return withCallableStore(fn, store as Record<string, unknown>) as StateMap<Record<string, unknown>>;
 	}
-	return signal(shapeOrValue) as Signal<T>;
+	return signal(shapeOrValue) as Signal<unknown>;
 }

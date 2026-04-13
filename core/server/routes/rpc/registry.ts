@@ -72,7 +72,8 @@ function buildFn(
 	if (concurrency) pipeline = routeMw.concurrency(concurrency)(pipeline);
 	if (cache != null) pipeline = routeMw.cache(cache)(pipeline);
 
-	return pipeline;
+	const logMw = routeMw.log();
+	return (rawInput, ctx) => logMw(ctx, () => pipeline(rawInput, ctx));
 }
 
 function sWithInput<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O> {
