@@ -7,6 +7,10 @@ import { resolveFieldBinding, type FieldBinding } from "../../../form/form";
 export type InputProps = SharedProps & {
 	bind?: FieldBinding;
 	type?: HTMLInputElement["type"];
+	/** Valore mostrato (imposta la proprietà `value` dell’elemento, non solo un attributo generico). */
+	value?: string | number;
+	/** Come HTML: valore iniziale se non usi `value` (utile per input non controllati). */
+	defaultValue?: string | number;
 	name?: string;
 	placeholder?: string;
 	autocomplete?: string;
@@ -17,6 +21,8 @@ export type InputProps = SharedProps & {
 	max?: string | number;
 	step?: string | number;
 	pattern?: string;
+	/** Dopo l’inserimento nel DOM mette il focus sull’input (anche se aggiunto dinamicamente). */
+	autofocus?: boolean;
 };
 
 export function input(props: InputProps): UiNode {
@@ -25,6 +31,8 @@ export function input(props: InputProps): UiNode {
 		bind,
 		type,
 		name,
+		value,
+		defaultValue,
 		placeholder,
 		autocomplete,
 		disabled,
@@ -34,6 +42,7 @@ export function input(props: InputProps): UiNode {
 		max,
 		step,
 		pattern,
+		autofocus,
 		children,
 		onInput,
 		...rest
@@ -65,6 +74,15 @@ export function input(props: InputProps): UiNode {
 		});
 	} else {
 		applyDomProps(el, { ...rest, children: undefined, onInput } as DomProps);
+		if (value !== undefined) el.value = String(value);
+		else if (defaultValue !== undefined) el.defaultValue = String(defaultValue);
+	}
+
+	if (autofocus) {
+		queueMicrotask(() => {
+			if (!el.isConnected) return;
+			el.focus();
+		});
 	}
 
 	const nodes = toNodes(children);

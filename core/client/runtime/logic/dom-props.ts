@@ -21,8 +21,12 @@ export function applyDomProps(el: DomEl, propsObj: DomProps): void {
 			handler(el, v);
 			continue;
 		}
-		if (k === "className") {
+			if (k === "className") {
 			if (v != null && v !== false) el.setAttribute("class", String(v));
+			continue;
+		}
+		if (k === "style" && v != null && typeof v === "object" && !Array.isArray(v)) {
+			Object.assign((el as HTMLElement).style, v as Record<string, string | number>);
 			continue;
 		}
 		if (v == null || v === false) continue;

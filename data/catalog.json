@@ -1,0 +1,1 @@
+{"tables":{"users":{"pk":"id","indexes":[],"foreignKeys":[]},"works":{"pk":"id","indexes":[{"name":"authorId","columns":["authorId"],"unique":false}],"foreignKeys":[{"columns":["authorId"],"references":{"table":"users","columns":["id"]},"onDelete":"cascade"}]}}}

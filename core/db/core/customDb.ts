@@ -18,18 +18,35 @@ export type TablesMap = Record<string, DbRow>;
 export type CustomDbOpenOptions = {
 	/**
 	 * Directory dati (catalog, snapshot, WAL).
-	 * Se omessa: `FWDB_DATA` oppure `<cwd>/data` (o `<FRAMEWORK_PROJECT_ROOT>/data` se cwd non adatto).
+	 * Se omessa: `FWDB_DATA` oppure `<root>/core/db/data` (`FRAMEWORK_PROJECT_ROOT` o `cwd`).
 	 */
 	dataDir?: string | null;
 	pkByTable?: Readonly<Record<string, string>>;
 };
 
+/** Path predefinito relativo alla root del repo (`core/db/data`). */
+export const FWDB_DEFAULT_DATA_REL_PATH = path.join("core", "db", "data");
+
 function defaultDataDir(): string {
 	const env = process.env.FWDB_DATA?.trim();
 	if (env) return env;
 	const root = process.env.FRAMEWORK_PROJECT_ROOT?.trim();
-	if (root) return path.join(root, "data");
-	return path.join(process.cwd(), "data");
+	if (root) return path.join(root, FWDB_DEFAULT_DATA_REL_PATH);
+	return path.join(process.cwd(), FWDB_DEFAULT_DATA_REL_PATH);
+}
+
+/** Stessa risoluzione di `CustomDb` per `dataDir` (per scrivere `catalog.json` prima di aprire Zig). */
+export function resolveFwdbDataDir(options?: Pick<CustomDbOpenOptions, "dataDir">): string {
+	const dataDirOpt =
+		options?.dataDir !== undefined && options?.dataDir !== null
+			? options.dataDir.trim() || defaultDataDir()
+			: defaultDataDir();
+	if (!dataDirOpt) {
+		throw new Error(
+			`[fwdb] directory dati obbligatoria: imposta FWDB_DATA, CustomDb({ dataDir }), o usa <root>/${FWDB_DEFAULT_DATA_REL_PATH.replace(/\\/g, "/")}.`,
+		);
+	}
+	return dataDirOpt;
 }
 
 function toCreateRows<T extends DbRow>(input: OneOrMany<Omit<T, "id"> & Partial<Pick<T, "id">>>): T[] {
@@ -55,16 +72,7 @@ export class CustomDb<Tables extends TablesMap> {
 	readonly dataDir: string;
 
 	constructor(tableNames: readonly (keyof Tables & string)[], options?: CustomDbOpenOptions) {
-		const dataDirOpt =
-			options?.dataDir !== undefined && options?.dataDir !== null
-				? options.dataDir.trim() || defaultDataDir()
-				: defaultDataDir();
-
-		if (!dataDirOpt) {
-			throw new Error(
-				"[fwdb] directory dati obbligatoria: imposta FWDB_DATA, CustomDb({ dataDir }), o usa <project>/data.",
-			);
-		}
+		const dataDirOpt = resolveFwdbDataDir(options);
 
 		const loaded = tryLoadFwdb();
 		if (!loaded) {
@@ -99,6 +107,31 @@ export class CustomDb<Tables extends TablesMap> {
 		if (!this.native || this.engine == null) return;
 		this.native.symbols.fwdb_engine_destroy(this.engine);
 		this.engine = null;
+	}
+
+	/**
+	 * Dopo aver scritto `catalog.json` in `dataDir`: chiude il motore e lo riapre (legge il nuovo catalog).
+	 * Usato in dev quando cambia `db/index.ts`.
+	 */
+	reloadAfterCatalogWrite(
+		tableNames: readonly string[],
+		pkByTable: Readonly<Record<string, string>>,
+	): void {
+		if (this.engine != null) {
+			this.native.symbols.fwdb_engine_destroy(this.engine);
+			this.engine = null;
+		}
+		const dir = u8(this.dataDir);
+		const raw = this.native.symbols.fwdb_engine_open(ptr(dir) as FwdbEnginePtr, BigInt(dir.length));
+		const eng = normalizeEnginePtr(raw);
+		if (!eng) {
+			throw new Error(`[fwdb] engine_open fallito dopo reload: ${this.dataDir}`);
+		}
+		this.engine = eng;
+		this.tables.clear();
+		for (const t of tableNames) {
+			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkByTable[t] ?? "id"));
+		}
 	}
 
 	private tableImpl<K extends keyof Tables & string>(name: K): ZigTable<Tables[K]> {

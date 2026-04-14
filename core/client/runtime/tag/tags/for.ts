@@ -59,6 +59,15 @@ function toIterableList(v: unknown): readonly unknown[] {
 			const m = (v as { monitors: unknown }).monitors;
 			if (Array.isArray(m)) return m;
 		}
+		if ("tables" in v) {
+			const t = (v as { tables: unknown }).tables;
+			if (Array.isArray(t)) return t;
+			if (isPlainObject(t)) {
+				return Object.keys(t)
+					.sort((a, b) => a.localeCompare(b))
+					.map((name) => ({ name, ...(t as Record<string, Record<string, unknown>>)[name]! }));
+			}
+		}
 		if (isPlainObject(v)) return [v];
 	}
 	return [];

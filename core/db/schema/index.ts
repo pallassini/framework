@@ -1,10 +1,30 @@
 export {
 	defineSchema,
-	table,
+	tableSchema,
 	type CatalogJson,
 	type FkDef,
 	type IndexDef,
 	type TableSchemaInput,
 } from "./defineSchema";
 export { defineDb, t, type Field, type FkField, type StrField } from "./dsl";
-export { bundleTables, defineTable, FW_TABLE, isFwTable, type FwTable, type TableMeta } from "./table";
+export {
+	bundle,
+	bundleTables,
+	defineTable,
+	FW_TABLE,
+	fk,
+	isFwTable,
+	isTableBuilder,
+	ref,
+	REF,
+	table,
+	TABLE_BUILDER,
+	type AppDbTableName,
+	type Bundled,
+	type DbBundleSchema,
+	type FullRow,
+	type FwTable,
+	type RefMeta,
+	type TableBuilder,
+	type TableMeta,
+} from "./table";

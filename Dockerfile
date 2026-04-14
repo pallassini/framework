@@ -2,7 +2,7 @@
 # Web static + server Bun + **libfwdb.so** (Zig) per FFI obbligatorio.
 #
 # RPC: `VITE_SERVER_RPC_ORIGIN=""` di default → stesso origin.
-# DB: `FWDB_LIB` punta alla .so in immagine; dati in `/app/data` (monta volume per persistenza).
+# DB: `FWDB_LIB` punta alla .so in immagine; dati in `/app/core/db/data` (monta volume per persistenza).
 # Zig: tarball ufficiale da ziglang.org (evita `ziglang/zig` su Hub, spesso assente o non pullabile).
 
 FROM debian:bookworm-slim AS zigbuild
@@ -64,7 +64,7 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/desktop ./desktop
 COPY --from=builder /app/client ./client
 COPY --from=builder /app/db ./db
-COPY --from=builder /app/data ./data
+COPY --from=builder /app/core/db/data ./core/db/data
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 EXPOSE 3000

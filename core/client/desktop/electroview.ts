@@ -1,8 +1,19 @@
 import {
 	Electroview,
 	type ElectrobunRPCConfig,
-	type ElectrobunRPCSchema,
 } from "electrobun/view";
+
+import { FW_DB_SCHEMA_RELOAD_EVENT } from "../../fw-db-schema-reload-event";
+
+export { FW_DB_SCHEMA_RELOAD_EVENT };
+
+type DesktopWebviewRpcSchema = {
+	bun: { requests: Record<string, never>; messages: Record<string, never> };
+	webview: {
+		requests: Record<string, never>;
+		messages: { fwDbSchemaReloaded: void };
+	};
+};
 
 let instance: Electroview<any> | undefined;
 let rpcUnavailable = false;
@@ -24,8 +35,15 @@ export function initDesktopRpc(): void {
 	}
 	const rpc = Electroview.defineRPC({
 		maxRequestTime: 30_000,
-		handlers: { requests: {} },
-	} as ElectrobunRPCConfig<ElectrobunRPCSchema, "webview">);
+		handlers: {
+			requests: {},
+			messages: {
+				fwDbSchemaReloaded: () => {
+					globalThis.dispatchEvent(new Event(FW_DB_SCHEMA_RELOAD_EVENT));
+				},
+			},
+		},
+	} as ElectrobunRPCConfig<DesktopWebviewRpcSchema, "webview">);
 	instance = new Electroview({ rpc });
 }
 

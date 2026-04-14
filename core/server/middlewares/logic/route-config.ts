@@ -1,5 +1,4 @@
 import type { InputSchema } from "../../../client/validator/properties/defs";
-import type { ServerContext } from "../../routes/context";
 import type { CorsRule } from "../cors";
 import type { ConcurrencyOpts, RateLimitOpts, SizeLimitOpts } from "./opts";
 import type { Middleware } from "./types";
@@ -12,7 +11,8 @@ export function timeoutMs(timeout: number | { ms: number } | undefined): number 
 /** Opzioni `s({ ... })` con body in ingresso. */
 export type RouteInputConfig<I, O> = {
 	input: InputSchema<I>;
-	run: (input: I, ctx: ServerContext) => O | Promise<O>;
+	/** Stesso `I` di `input: v.object(…)` → `run: (input) =>` tipizzato senza annotazioni. */
+	run: (input: I) => O | Promise<O>;
 	middlewares?: Middleware[];
 	rateLimit?: RateLimitOpts;
 	timeout?: number | { ms: number };
@@ -22,9 +22,9 @@ export type RouteInputConfig<I, O> = {
 	concurrency?: ConcurrencyOpts;
 };
 
-/** Opzioni `s({ ... })` senza input (solo `ctx`). */
+/** Opzioni `s({ ... })` senza body RPC. */
 export type RouteNoInputConfig<O> = {
-	run: (ctx: ServerContext) => O | Promise<O>;
+	run: () => O | Promise<O>;
 	middlewares?: Middleware[];
 	rateLimit?: RateLimitOpts;
 	timeout?: number | { ms: number };

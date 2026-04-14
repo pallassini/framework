@@ -1,17 +1,150 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { v } from "../../client/validator";
 import type { InputSchema } from "../../client/validator/properties/defs";
 import type { CatalogJson } from "./defineSchema";
 
 /** Brand per riconoscere gli export tabella in `db push`. */
 export const FW_TABLE = Symbol.for("framework.db.table");
 
+/** Metadati FK su uno schema creato con `ref()`. */
+export const REF = Symbol.for("framework.db.ref");
+
+export type RefMeta = { table: string; onDelete: "restrict" | "cascade" };
+
+type InferTableVal<V> = V extends InputSchema<infer U> ? U : V extends string ? string : never;
+
+type InferTableRow<S extends Record<string, InputSchema<unknown> | string>> = {
+	-readonly [K in keyof S]: InferTableVal<S[K]>;
+};
+
+/** Riga con `id` sempre presente (iniettato se non dichiarato nello shape). */
+export type FullRow<S extends Record<string, InputSchema<unknown> | string>> = { id: string } & InferTableRow<S>;
+
+function isFieldSchema(x: unknown): x is InputSchema<unknown> {
+	return (
+		typeof x === "object" &&
+		x !== null &&
+		"parse" in x &&
+		typeof (x as InputSchema<unknown>).parse === "function"
+	);
+}
+
+/** Oggetto `{ col: v.string() | "users" | ref(...) }` vs un solo `InputSchema` (es. `v.object({...})`). */
+function isTableShape(row: unknown): row is Record<string, InputSchema<unknown> | string> {
+	if (typeof row !== "object" || row === null) return false;
+	const o = row as Record<string, unknown>;
+	const keys = Object.keys(o);
+	if (keys.length === 0) return false;
+	if (keys.length === 1 && keys[0] === "parse") return false;
+	return keys.every((k) => typeof o[k] === "string" || isFieldSchema(o[k]));
+}
+
+function normalizeShapeFields(raw: Record<string, unknown>): Record<string, InputSchema<unknown>> {
+	const out: Record<string, InputSchema<unknown>> = {};
+	for (const [k, val] of Object.entries(raw)) {
+		if (typeof val === "string") {
+			out[k] = fk(val);
+		} else if (isFieldSchema(val)) {
+			out[k] = val;
+		} else {
+			throw new Error(`[db] campo "${k}": atteso v.*, ref/fk, o stringa nome tabella (FK → id)`);
+		}
+	}
+	return out;
+}
+
+function injectId(shape: Record<string, InputSchema<unknown>>): Record<string, InputSchema<unknown>> {
+	if ("id" in shape) return shape;
+	return { id: v.string(), ...shape };
+}
+
+function fkFromShape(shape: Record<string, InputSchema<unknown>>): TableMeta["fk"] | undefined {
+	const fk: NonNullable<TableMeta["fk"]> = {};
+	for (const [col, sch] of Object.entries(shape)) {
+		if (typeof sch !== "object" || sch === null || !(REF in sch)) continue;
+		const m = Reflect.get(sch, REF) as RefMeta;
+		fk[col] = { ref: m.table, onDelete: m.onDelete };
+	}
+	return Object.keys(fk).length ? fk : undefined;
+}
+
+function mergeTableMeta(shapeFk: TableMeta["fk"] | undefined, user: TableMeta): TableMeta {
+	const fk = { ...(user.fk ?? {}), ...(shapeFk ?? {}) };
+	return {
+		...user,
+		fk: Object.keys(fk).length ? fk : undefined,
+	};
+}
+
+/**
+ * FK verso la PK (`id`) di un’altra tabella: a runtime è `v.string()`, nel catalog Zig diventa FK.
+ * Con oggetti già creati: `ref(users)` o `users.ref({ onDelete: "cascade" })`.
+ */
+export function ref(
+	table: FwTable<unknown>,
+	opts?: { onDelete?: "restrict" | "cascade" },
+): InputSchema<string> {
+	const inner = v.string();
+	const onDelete = opts?.onDelete ?? "cascade";
+	return {
+		parse(raw: unknown) {
+			return inner.parse(raw);
+		},
+		[REF]: { table: table.name, onDelete },
+	} as InputSchema<string>;
+}
+
+/** FK per nome tabella (uso tipico dentro `bundle({ ... })` dove non hai ancora la const). */
+export function fk(
+	tableName: string,
+	opts?: { onDelete?: "restrict" | "cascade" },
+): InputSchema<string> {
+	const inner = v.string();
+	const onDelete = opts?.onDelete ?? "cascade";
+	return {
+		parse(raw: unknown) {
+			return inner.parse(raw);
+		},
+		[REF]: { table: tableName, onDelete },
+	} as InputSchema<string>;
+}
+
+export const TABLE_BUILDER = Symbol.for("framework.db.tableBuilder");
+
+export type TableBuilder<S extends Record<string, InputSchema<unknown> | string>> = {
+	readonly [TABLE_BUILDER]: true;
+	readonly shape: S;
+	readonly meta: TableMeta;
+};
+
+export function isTableBuilder(x: unknown): x is TableBuilder<Record<string, InputSchema<unknown> | string>> {
+	return (
+		typeof x === "object" &&
+		x !== null &&
+		(x as TableBuilder<Record<string, InputSchema<unknown> | string>>)[TABLE_BUILDER] === true
+	);
+}
+
 export type FwTable<R = unknown> = {
 	readonly [FW_TABLE]: true;
 	readonly name: string;
 	readonly row: InputSchema<R>;
 	parse(raw: unknown): R;
+	/** `ref(this)` — valore = id di questa tabella (per `authorId: users.id` quando `users` è già un `FwTable`). */
+	readonly id: InputSchema<string>;
+	/** `ref(this, opts)` se serve `onDelete` sul lato figlio. */
+	readonly ref: (opts?: { onDelete?: "restrict" | "cascade" }) => InputSchema<string>;
 };
+
+type AppDbExports = typeof import("../../../db/index");
+type AppDbTableKey<K> = K extends string ? (K extends "default" | `_${string}` ? never : K) : never;
+
+/**
+ * Nomi export in `db/index.ts` usabili come stringhe FK in `table({ ... })`.
+ * Solo `keyof` del modulo (senza filtrare per “è una tabella”) per evitare cicli con `works = table(...)`.
+ */
+export type AppDbTableName = AppDbTableKey<keyof AppDbExports>;
 
 export type TableMeta = {
 	/** Colonne con indice univoco Zig (es. `email`). */
@@ -28,7 +161,7 @@ function catalogRowForTable(name: string, meta: TableMeta): CatalogJson["tables"
 		indexes.push({ name: col, columns: [col], unique: true });
 	}
 	for (const [col, spec] of Object.entries(meta.fk ?? {})) {
-		const ond = spec.onDelete ?? "restrict";
+		const ond = spec.onDelete ?? "cascade";
 		foreignKeys.push({
 			columns: [col],
 			references: { table: spec.ref, columns: ["id"] },
@@ -41,25 +174,135 @@ function catalogRowForTable(name: string, meta: TableMeta): CatalogJson["tables"
 }
 
 /**
- * Una tabella: nome + schema riga `v.object` + meta indici/FK per il catalog Zig.
- * Esporta come `export const users = defineTable("users", v.object({...}), { unique: ["email"] })`.
+ * Definizione tabella.
+ * - `bundle({ users: table({ ... }, { unique }), ... })` — il **nome** è la chiave (`users`).
+ * - `table("users", { ... }, meta)` oppure `table("users", v.object(...), meta)` — nome esplicito.
+ * - In uno shape a campi: `"altraTabella"` → FK verso `altraTabella.id` (default `onDelete: cascade`); `id` è opzionale (altrimenti iniettato).
+ * - Le stringhe FK nello shape sono `AppDbTableName` (export tabella in `db/index.ts`), senza generic sull’app.
  */
-export function defineTable<const R, const Name extends string>(
+export function table<
+	const S extends {
+		readonly [K in keyof S]: S[K] extends InputSchema<unknown> ? InputSchema<unknown> : AppDbTableName;
+	},
+>(shape: S, meta?: TableMeta): TableBuilder<S>;
+export function table<const R, const Name extends string>(
 	name: Name,
 	row: InputSchema<R>,
-	meta: TableMeta = {},
+	meta?: TableMeta,
+): FwTable<R>;
+export function table<
+	const Name extends string,
+	const S extends {
+		readonly [K in keyof S]: S[K] extends InputSchema<unknown> ? InputSchema<unknown> : AppDbTableName;
+	},
+>(name: Name, shape: S, meta?: TableMeta): FwTable<FullRow<S>>;
+/** Uso interno (`collect`, shape già `Record<…>` senza chiavi letterali). */
+export function table<
+	const Name extends string,
+	const S extends Record<string, InputSchema<unknown> | string>,
+>(name: Name, shape: S, meta?: TableMeta): FwTable<FullRow<S>>;
+export function table(
+	a: unknown,
+	b?: unknown,
+	c?: unknown,
+): FwTable<unknown> | TableBuilder<Record<string, InputSchema<unknown> | string>> {
+	if (typeof a === "string") {
+		const name = a;
+		const rowOrShape = b;
+		const meta = (c ?? {}) as TableMeta;
+		if (isTableShape(rowOrShape)) {
+			const normalized = normalizeShapeFields(rowOrShape as Record<string, unknown>);
+			const withId = injectId(normalized);
+			const merged = mergeTableMeta(fkFromShape(withId), meta);
+			return defineTableCore(name, v.object(withId), merged);
+		}
+		return defineTableCore(name, rowOrShape as InputSchema<unknown>, meta);
+	}
+	const shape = a as Record<string, InputSchema<unknown> | string>;
+	const meta = (b ?? {}) as TableMeta;
+	return {
+		[TABLE_BUILDER]: true,
+		shape,
+		meta,
+	} as TableBuilder<typeof shape>;
+}
+
+/** @deprecated Usa `table`. */
+export const defineTable = table;
+
+function attachFkHelpers<R>(def: FwTable<R>): FwTable<R> {
+	const self = def as unknown as FwTable<unknown>;
+	Object.defineProperty(def, "id", {
+		value: ref(self),
+		enumerable: true,
+		configurable: true,
+	});
+	Object.defineProperty(def, "ref", {
+		value: (opts?: { onDelete?: "restrict" | "cascade" }) => ref(self, opts),
+		enumerable: true,
+		configurable: true,
+	});
+	return def;
+}
+
+function defineTableCore<const R, const Name extends string>(
+	name: Name,
+	row: InputSchema<R>,
+	meta: TableMeta,
 ): FwTable<R> {
 	const catalogRow = catalogRowForTable(name, meta);
-	const def: FwTable<R> = {
+	const def = {
 		[FW_TABLE]: true,
 		name,
 		row,
 		parse(raw: unknown): R {
 			return row.parse(raw);
 		},
-	};
+	} as unknown as FwTable<R>;
 	Object.defineProperty(def, "_catalogRow", { value: catalogRow, enumerable: false });
-	return def;
+	return attachFkHelpers(def);
+}
+
+export type Bundled<T extends Record<string, unknown> = Record<string, unknown>> = ReturnType<
+	typeof bundleTables
+> & {
+	readonly tables: {
+		-readonly [K in keyof T]: T[K] extends TableBuilder<infer S>
+			? FwTable<FullRow<S>>
+			: T[K] extends FwTable<infer R>
+				? FwTable<R>
+				: FwTable<unknown>;
+	};
+};
+
+/**
+ * Schema da un oggetto `{ nomeTabella: table({ campi }, meta) }`: il nome è la **chiave**.
+ */
+export function bundle<const T extends Record<string, unknown>>(defs: T): Bundled<T> {
+	const fw: FwTable<unknown>[] = [];
+	const tables = {} as { [K in keyof T]: FwTable<unknown> };
+	for (const name of Object.keys(defs).sort() as (keyof T & string)[]) {
+		const val = defs[name];
+		let t: FwTable<unknown>;
+		if (isTableBuilder(val)) {
+			const raw = val.shape as Record<string, unknown>;
+			const normalized = normalizeShapeFields(raw);
+			const withId = injectId(normalized);
+			const merged = mergeTableMeta(fkFromShape(withId), val.meta);
+			t = defineTableCore(name, v.object(withId), merged);
+		} else if (isFwTable(val)) {
+			if (val.name !== name) {
+				throw new Error(`[db] bundle: chiave "${name}" ≠ tabella.name "${val.name}"`);
+			}
+			t = val;
+		} else {
+			throw new Error(`[db] bundle("${String(name)}"): atteso table({ ... }, meta?) o FwTable`);
+		}
+		fw.push(t);
+		tables[name] = t;
+	}
+	const base = bundleTables(fw);
+	return Object.assign(base, { tables }) as Bundled<T>;
 }
 
 /** @internal */
@@ -118,3 +361,6 @@ export function bundleTables(tables: readonly FwTable<unknown>[]): {
 		},
 	};
 }
+
+/** Tipo del valore restituito da `bundleTables` (schema app lato server). */
+export type DbBundleSchema = ReturnType<typeof bundleTables>;

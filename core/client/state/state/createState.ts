@@ -26,7 +26,8 @@ function createStateImpl(shapeOrValue?: unknown): StateMap<Record<string, unknow
 		return signal(undefined) as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
-		return signal(undefined) as Signal<unknown>;
+		const run = shapeOrValue as () => Promise<unknown>;
+		return signal(run()) as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue)) {
 		return buildStore(shapeOrValue as Record<string, unknown>) as StateMap<Record<string, unknown>>;

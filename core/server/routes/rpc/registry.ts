@@ -17,6 +17,12 @@ import { error } from "../../error";
 import type { ServerContext } from "../context";
 import { SERVER_ROUTE, type ServerFn, type ServerRouteDesc, type ServerRouteDescTyped } from "./types";
 
+function isServerInputRoute(
+	def: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown>,
+): def is RouteInputConfig<unknown, unknown> {
+	return "input" in def;
+}
+
 function buildFn(
 	inputSchema: InputSchema<unknown> | undefined,
 	run: (input: unknown, ctx: ServerContext) => unknown | Promise<unknown>,
@@ -89,7 +95,7 @@ function sWithInput<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, 
 	const middlewares = def.middlewares ?? [];
 	const fn = buildFn(
 		def.input as InputSchema<unknown>,
-		(inp, ctx) => def.run(inp as I, ctx),
+		(inp, _ctx) => def.run(inp as I),
 		{
 			middlewares,
 			rateLimit: def.rateLimit,
@@ -113,7 +119,7 @@ function sNoInput<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O> 
 	const middlewares = def.middlewares ?? [];
 	const fn = buildFn(
 		undefined,
-		(_inp, ctx) => def.run(ctx),
+		(_inp, _ctx) => def.run(),
 		{
 			middlewares,
 			rateLimit: def.rateLimit,
@@ -133,12 +139,12 @@ function sNoInput<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O> 
 	};
 }
 
-export function s<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O>;
 export function s<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O>;
-export function s<I, O>(
-	def: RouteNoInputConfig<O> | RouteInputConfig<I, O>,
-): ServerRouteDescTyped<I | void, O> {
-	if ("input" in def && def.input !== undefined) return sWithInput(def);
+export function s<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O>;
+export function s(
+	def: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown>,
+): ServerRouteDescTyped<unknown, unknown> {
+	if (isServerInputRoute(def)) return sWithInput(def);
 	return sNoInput(def);
 }
 

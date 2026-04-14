@@ -1,1 +1,6 @@
-export { createServerDbUtilities, type ServerDbUtilities, type ServerTables } from "./utility";
+export {
+	createServerDbUtilities,
+	type DbTableNames,
+	type ServerDbUtilities,
+	type ServerTables,
+} from "./utility";

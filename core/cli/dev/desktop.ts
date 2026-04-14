@@ -72,6 +72,20 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 	if (busy) return;
 	busy = true;
 	try {
+		const fwdbDefaultPath = path.join(
+			root,
+			"core",
+			"db",
+			"zig",
+			"zig-out",
+			process.platform === "win32" ? "bin" : "lib",
+			process.platform === "win32"
+				? "fwdb.dll"
+				: process.platform === "darwin"
+					? "libfwdb.dylib"
+					: "libfwdb.so",
+		);
+		const fwdbLibPath = process.env.FWDB_LIB?.trim() || fwdbDefaultPath;
 		const webDir = path.join(root, "build/web");
 		const indexHtml = path.join(webDir, "index.html");
 		const assetsDir = path.join(webDir, "assets");
@@ -107,10 +121,13 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			stderr,
 			env: {
 				...process.env,
+				/** Non ereditare dal parent: solo il child RPC deve toccare `db-schema-reload`. */
+				FWDB_DEV_RPC_CHILD: "",
 				CLIENT_DEV_SERVER_URL: url,
 				FRAMEWORK_PROJECT_ROOT: root,
 				FRAMEWORK_DESKTOP_OUT: "dev",
 				FRAMEWORK_DESKTOP_DEV_INSTANCE: instanceId,
+				FWDB_LIB: fwdbLibPath,
 			},
 		});
 		procs.add(proc);
@@ -126,9 +143,13 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 				}
 			})();
 		}
-		void proc.exited.then(() => {
+		void proc.exited.then((code) => {
 			procs.delete(proc);
-			if (spawnLog) {
+			if (code !== 0 && code != null) {
+				console.error(
+					`[dev] electrodun dev terminato con errore (exit ${code}). pid ${proc.pid} · session ${instanceId.slice(0, 8)}…`,
+				);
+			} else if (spawnLog) {
 				console.log(`[d] electrbun dev terminato (pid ${proc.pid}, session ${instanceId.slice(0, 8)}…)`);
 			}
 		});
@@ -136,9 +157,12 @@ export async function startDesktop(root: string, url: string): Promise<void> {
 			console.log(
 				`[d] electrbun dev · spawn #${procs.size} · wrapper pid ${proc.pid} · session ${instanceId.slice(0, 8)}… — spesso una sola finestra per app (identifier electrobun.config); più UI = altro BrowserWindow nello stesso processo.`,
 			);
+			if (!existsSync(fwdbLibPath)) {
+				console.warn(`[d] FWDB_LIB non trovato: ${fwdbLibPath}`);
+			}
 		}
 	} catch (e) {
-		console.error(e);
+		console.error("[dev] desktop: spawn / build fallito:", e);
 	} finally {
 		busy = false;
 	}

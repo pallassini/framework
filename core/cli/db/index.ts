@@ -1,10 +1,12 @@
 /**
- * CLI: `bun run db push` — raccoglie tutti gli export `defineTable` da `db/index.ts` e scrive `catalog.json`.
+ * CLI: `bun run db push` — usa `export default bundle(...)` da `db/index.ts`, altrimenti raccoglie i `FwTable` esportati.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { bundleTables, isFwTable, type FwTable } from "../../db/schema/table";
+import { collectModuleTables } from "../../db/collect";
+import { FWDB_DEFAULT_DATA_REL_PATH } from "../../db/core/customDb";
+import { bundleTables } from "../../db/schema/table";
 
 const root = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
 
@@ -16,25 +18,34 @@ function normalizeJson(s: string): string {
 	}
 }
 
+type MergedCatalog = { toJSON: () => string; writeCatalogSync: (dir: string) => void };
+
 async function push(): Promise<void> {
 	const modUrl = pathToFileURL(path.join(root, "db", "index.ts")).href;
 	const dbMod = (await import(modUrl)) as Record<string, unknown>;
 
-	const tables: FwTable<unknown>[] = [];
-	for (const key of Object.keys(dbMod)) {
-		if (key === "default" || key.startsWith("_")) continue;
-		const val = dbMod[key];
-		if (isFwTable(val)) tables.push(val);
+	let merged: MergedCatalog;
+	const def = dbMod.default;
+	if (
+		def != null &&
+		typeof def === "object" &&
+		"writeCatalogSync" in def &&
+		typeof (def as MergedCatalog).writeCatalogSync === "function" &&
+		"catalog" in def
+	) {
+		merged = def as unknown as MergedCatalog;
+	} else {
+		const tables = collectModuleTables(dbMod);
+		if (tables.length === 0) {
+			console.error(
+				"[db push] nessuna tabella: esporta `FwTable` o shape plain (`export const users = { ... }`) in db/index.ts.",
+			);
+			process.exit(1);
+		}
+		merged = bundleTables(tables);
 	}
 
-	if (tables.length === 0) {
-		console.error("[db push] nessuna tabella: esporta `export const nome = defineTable(...)` in db/index.ts.");
-		process.exit(1);
-	}
-
-	const merged = bundleTables(tables);
-
-	const dataDir = process.env.FWDB_DATA?.trim() || path.join(root, "data");
+	const dataDir = process.env.FWDB_DATA?.trim() || path.join(root, FWDB_DEFAULT_DATA_REL_PATH);
 	const catPath = path.join(dataDir, "catalog.json");
 
 	let prev: string | null = null;

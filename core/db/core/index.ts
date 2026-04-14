@@ -1,4 +1,10 @@
-export { CustomDb, type CustomDbOpenOptions, type TablesMap } from "./customDb";
+export {
+	CustomDb,
+	FWDB_DEFAULT_DATA_REL_PATH,
+	resolveFwdbDataDir,
+	type CustomDbOpenOptions,
+	type TablesMap,
+} from "./customDb";
 export { ZigTable } from "./zigTable";
 export type {
 	DeleteResult,

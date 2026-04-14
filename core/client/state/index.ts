@@ -6,7 +6,8 @@ export {
 	persistLog,
 	persistShortJson,
 } from "./utils/persistDebug";
-export { createState } from "./state";
+export { createState, isSignal, signal } from "./state";
+export type { Signal } from "./state";
 export { createSessionState } from "./session";
 export { createPersistState } from "./persist";
 export type { PersistStateOptions } from "./persist";

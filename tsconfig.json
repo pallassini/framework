@@ -18,6 +18,7 @@
       "client": ["./core/client.ts"],
       "server": ["./core/server.ts"],
       "desktop": ["./core/desktop.ts"],
+      "db": ["./core/db.ts"],
       "jsx-runtime/jsx-runtime": ["./core/client/runtime/logic/jsx-runtime.ts"],
       "jsx-runtime/jsx-dev-runtime": ["./core/client/runtime/logic/jsx-dev-runtime.ts"],
       "svg-icon-jsx/jsx-runtime": ["./core/client/runtime/tag/tags/icon/svg-jsx-runtime.ts"],

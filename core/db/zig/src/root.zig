@@ -99,7 +99,9 @@ fn deinitSpec(s: *const TableSpec, al: std.mem.Allocator) void {
 
 const Engine = struct {
 	mut: std.Thread.Mutex = .{},
-	gpa: std.heap.GeneralPurposeAllocator(.{}) = .{},
+	// Dev hot-reload destroys/creates the engine very often; keep allocator safety off
+	// to avoid leak spam that floods logs during schema watch iterations.
+	gpa: std.heap.GeneralPurposeAllocator(.{ .safety = false }) = .{},
 	tables: std.StringHashMapUnmanaged(Table) = .{},
 	data_dir: ?[]u8 = null,
 	catalog_mode: bool = false,
@@ -163,9 +165,12 @@ fn pkFromJson(al: std.mem.Allocator, json: []const u8, pk_col: []const u8) !?[]u
 }
 
 fn indexAdd(table: *Table, al: std.mem.Allocator, iname: []const u8, col: []const u8, unique: bool, val: []const u8, pk: []const u8) !void {
-	const gop = try table.indexes.getOrPut(al, try dup(al, iname));
+	const iname_owned = try dup(al, iname);
+	const gop = try table.indexes.getOrPut(al, iname_owned);
 	if (!gop.found_existing) {
 		gop.value_ptr.* = .{ .unique = unique, .col = try dup(al, col) };
+	} else {
+		al.free(iname_owned);
 	}
 	const id = gop.value_ptr;
 	std.debug.assert(std.mem.eql(u8, id.col, col));
@@ -520,9 +525,12 @@ fn loadCatalogFile(e: *Engine, json: []const u8) !void {
 		}
 		gop.value_ptr.* = .{ .spec = spec };
 		for (gop.value_ptr.spec.indexes) |ix| {
-			const ig = try gop.value_ptr.indexes.getOrPut(al, try dup(al, ix.name));
+			const ixname = try dup(al, ix.name);
+			const ig = try gop.value_ptr.indexes.getOrPut(al, ixname);
 			if (!ig.found_existing) {
 				ig.value_ptr.* = .{ .unique = ix.unique, .col = try dup(al, ix.cols[0]) };
+			} else {
+				al.free(ixname);
 			}
 		}
 	}

@@ -15,6 +15,12 @@ import type { IconProps } from "./tags/icon";
 export interface FrameworkIntrinsicElements {
 	div: DivProps;
 	t: TProps;
+	table: SharedProps;
+	thead: SharedProps;
+	tbody: SharedProps;
+	tr: SharedProps;
+	th: SharedProps;
+	td: SharedProps;
 	/** Sottolineato HTML nativo (`createElement("u")`). */
 	u: SharedProps;
 	show: ShowProps;

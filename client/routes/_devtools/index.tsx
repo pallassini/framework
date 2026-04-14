@@ -11,7 +11,6 @@ export default function MenuDevtools() {
         <case when="db">{() => <DB />}</case>
         <case when="state">{() => <State />}</case>
       </switch>
-      <t s="text-6">DEVTOOLS</t>
     </>
   );
 }

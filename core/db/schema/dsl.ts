@@ -20,7 +20,7 @@ export const t = {
 		};
 	},
 	/** `t.fk("users")` → colonna corrente referenzia `users.id`. */
-	fk(table: string, onDelete: "restrict" | "cascade" = "restrict"): FkField {
+	fk(table: string, onDelete: "restrict" | "cascade" = "cascade"): FkField {
 		return { kind: "fk", table, onDelete };
 	},
 };

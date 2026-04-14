@@ -1,9 +1,7 @@
 import { clientConfig } from "../client/config";
 
 // STATE
-export {
-	watch
-} from "./client/state";
+export { watch } from "./client/state";
 import { createPersistState, createSessionState, createState } from "./client/state";
 export const state = createState(clientConfig.state);
 export const sessionState = createSessionState(clientConfig.sessionState);
@@ -22,6 +20,7 @@ export type server<P extends ServerPath> = ServerRouteOut<P>;
 
 // DESKTOP
 export { desktop } from "./client/desktop";
+export { FW_DB_SCHEMA_RELOAD_EVENT } from "./fw-db-schema-reload-event";
 import type { DesktopPath, DesktopRouteOut } from "./client/desktop";
 export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 

@@ -9,6 +9,12 @@ import { desktopMw, type DesktopMiddleware, type DesktopRouteInputConfig, type D
 import type { DesktopContext } from "./context";
 import { DESKTOP_ROUTE, type DesktopFn, type DesktopRouteDescTyped } from "./types";
 
+function isDesktopInputRoute(
+	def: DesktopRouteNoInputConfig<unknown> | DesktopRouteInputConfig<unknown, unknown>,
+): def is DesktopRouteInputConfig<unknown, unknown> {
+	return "input" in def;
+}
+
 function buildFn(
 	inputSchema: InputSchema<unknown> | undefined,
 	run: (input: unknown, ctx: DesktopContext) => unknown | Promise<unknown>,
@@ -69,7 +75,7 @@ function dWithInput<I, O>(def: DesktopRouteInputConfig<I, O>): DesktopRouteDescT
 	const middlewares = def.middlewares ?? [];
 	const fn = buildFn(
 		def.input as InputSchema<unknown>,
-		(inp, ctx) => def.run(inp as I, ctx),
+		(inp, _ctx) => def.run(inp as I),
 		{ middlewares, timeout: def.timeout },
 	);
 	return {
@@ -84,7 +90,7 @@ function dNoInput<O>(def: DesktopRouteNoInputConfig<O>): DesktopRouteDescTyped<v
 	const middlewares = def.middlewares ?? [];
 	const fn = buildFn(
 		undefined,
-		(_inp, ctx) => def.run(ctx),
+		(_inp, _ctx) => def.run(),
 		{ middlewares, timeout: def.timeout },
 	);
 	return {
@@ -95,12 +101,12 @@ function dNoInput<O>(def: DesktopRouteNoInputConfig<O>): DesktopRouteDescTyped<v
 	};
 }
 
-export function d<O>(def: DesktopRouteNoInputConfig<O>): DesktopRouteDescTyped<void, O>;
 export function d<I, O>(def: DesktopRouteInputConfig<I, O>): DesktopRouteDescTyped<I, O>;
-export function d<I, O>(
-	def: DesktopRouteNoInputConfig<O> | DesktopRouteInputConfig<I, O>,
-): DesktopRouteDescTyped<I | void, O> {
-	if ("input" in def && def.input !== undefined) return dWithInput(def);
+export function d<O>(def: DesktopRouteNoInputConfig<O>): DesktopRouteDescTyped<void, O>;
+export function d(
+	def: DesktopRouteNoInputConfig<unknown> | DesktopRouteInputConfig<unknown, unknown>,
+): DesktopRouteDescTyped<unknown, unknown> {
+	if (isDesktopInputRoute(def)) return dWithInput(def);
 	return dNoInput(def);
 }
 

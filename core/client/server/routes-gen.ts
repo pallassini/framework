@@ -3,7 +3,7 @@
  * Non modificare a mano.
  */
 
-import { default as db } from "../../../server/routes/db";
+import { default as db, rowDelete as db_rowDelete, rowUpdate as db_rowUpdate } from "../../../server/routes/db";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
@@ -11,6 +11,8 @@ type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 
 export type ServerRoutes = {
 	db: InferRoute<typeof db>;
+	"db.rowDelete": InferRoute<typeof db_rowDelete>;
+	"db.rowUpdate": InferRoute<typeof db_rowUpdate>;
 };
 
 export type ServerPath = keyof ServerRoutes & string;

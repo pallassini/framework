@@ -35,7 +35,7 @@ export type CatalogJson = {
 };
 
 /** Segna un blocco tabella nel DSL (stesso effetto di un letterale). */
-export function table(spec: TableSchemaInput): TableSchemaInput {
+export function tableSchema(spec: TableSchemaInput): TableSchemaInput {
 	return spec;
 }
 
