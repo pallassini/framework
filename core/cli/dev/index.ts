@@ -3,7 +3,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { killViteProc, startClient } from "./client";
-import { killDesktop, startDesktop } from "./desktop";
+import { isDesktopDevRunning, killDesktop, startDesktop } from "./desktop";
 import { killRpcServer, startRpcServer } from "./server";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -63,9 +63,14 @@ if (process.stdin.isTTY) {
 		if (k?.ctrl && k?.name === "c") void stop();
 		else if (ch === "d" || ch === "D") void startDesktop(root, client.url);
 		else if (ch === "e" || ch === "E") {
-			const dir = path.join(root, "core", ".dev");
-			mkdirSync(dir, { recursive: true });
-			writeFileSync(path.join(dir, "open-webview"), "/_devtools\n", "utf8");
+			void (async () => {
+				if (!isDesktopDevRunning()) {
+					await startDesktop(root, client.url);
+				}
+				const dir = path.join(root, "core", "desktop", ".dev");
+				mkdirSync(dir, { recursive: true });
+				writeFileSync(path.join(dir, "open-webview"), "/_devtools\n", "utf8");
+			})();
 		}
 	});
 }

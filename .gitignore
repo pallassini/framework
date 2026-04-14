@@ -1,6 +1,6 @@
 node_modules
 /build
-core/.dev
+core/desktop/.dev
 data
 core/db/zig/zig-out
 core/db/zig/.zig-cache

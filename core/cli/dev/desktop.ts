@@ -150,3 +150,8 @@ export function killDesktop(): void {
 	}
 	procs.clear();
 }
+
+/** True se è in esecuzione almeno un `electrobun dev` spawnato da questo CLI (tasto d). */
+export function isDesktopDevRunning(): boolean {
+	return procs.size > 0;
+}
