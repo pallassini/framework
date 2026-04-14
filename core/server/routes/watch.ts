@@ -28,7 +28,7 @@ export function watchServerRoutes(projectRoot: string): void {
 
 	if (!existsSync(routesDir)) return;
 
-	routesState.routesWatcher = watch(routesDir, { recursive: true }, (_event, filename) => {
-		if (filename == null || /\.(tsx?|jsx?)$/i.test(filename)) schedule();
+	routesState.routesWatcher = watch(routesDir, { recursive: true }, () => {
+		schedule();
 	});
 }

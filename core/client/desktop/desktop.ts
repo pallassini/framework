@@ -52,7 +52,14 @@ function getDesktopHandler(pathDots: string): DesktopRequestFn {
 }
 
 async function desktopInvoke<O>(pathDots: string, input?: unknown, opts?: DesktopRpcCallbacks<O>): Promise<O> {
-	const fn = getDesktopHandler(pathDots);
+	let fn: DesktopRequestFn;
+	try {
+		fn = getDesktopHandler(pathDots);
+	} catch (e) {
+		opts?.onError?.(e);
+		opts?.onSettled?.({ ok: false, error: e });
+		throw e;
+	}
 	try {
 		const raw = await fn(input);
 		opts?.onSuccess?.(raw as O);
@@ -72,9 +79,12 @@ function createLink(parts: string[]): unknown {
 		return desktopInvoke(pathDots, input, opts);
 	});
 	return new Proxy(run, {
-		get(_target, seg: string | symbol) {
-			if (typeof seg !== "string" || seg === "then") return undefined;
-			return createLink([...parts, seg]);
+		get(_target, seg: string | symbol, receiver) {
+			if (seg === "then") return undefined;
+			if (typeof seg === "string") {
+				return createLink([...parts, seg]);
+			}
+			return Reflect.get(_target, seg, receiver);
 		},
 	});
 }

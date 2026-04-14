@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
 import type { Plugin, ViteDevServer } from "vite";
 import { writeDesktopRoutesGen } from "../desktop/routes/write-client-routes-gen";
+import { isFileUnderDir } from "./is-file-under-dir";
 
 export function genDesktopRoutes(projectRoot: string): Plugin {
 	const rdir = normalize(join(projectRoot, "desktop", "routes"));
@@ -19,7 +20,9 @@ export function genDesktopRoutes(projectRoot: string): Plugin {
 			regen();
 			if (existsSync(rdir)) server.watcher.add(rdir);
 			const onFs = (file: string) => {
-				if (normalize(file).startsWith(rdir) && /\.(tsx?|jsx?)$/.test(file)) regen();
+				if (!isFileUnderDir(file, rdir) || !/\.(tsx?|jsx?)$/i.test(file)) return;
+				regen();
+				server.hot.send({ type: "full-reload" });
 			};
 			server.watcher.on("add", onFs);
 			server.watcher.on("change", onFs);

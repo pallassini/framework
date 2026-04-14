@@ -39,7 +39,10 @@ export async function loadDesktopRoutes(root: string): Promise<void> {
 			}
 			const url = `${href}?fwDesktopRouteGen=${gen}&t=${mtime}`;
 			mod = (await import(url)) as Record<string, unknown>;
-		} catch {
+		} catch (e) {
+			if (process.env.NODE_ENV !== "production" && process.env.FRAMEWORK_PROD_BUILD !== "1") {
+				console.warn(`[desktop/routes] import fallito (file escluso dal registry): ${file}`, e);
+			}
 			continue;
 		}
 

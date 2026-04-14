@@ -1,15 +1,17 @@
 import { desktop, For, state } from "client";
 
 export default function Home() {
-	const prova2 = state(desktop.ping);
+	// Cartella `desktop/routes/prova/index.ts` + `export const users` → RPC `desktop.prova.users`
+	const prova2 = state(desktop.prova.users);
 
 	return (
 		<>
 			<t
 				s="text-#ffffff bg-#1a6b3a"
 				click={() =>
-					void desktop.ping({
+					void desktop.prova.users({
 						onSuccess: (data) => prova2(data),
+						onError: (e) => console.error("[desktop.prova.users]", e),
 					})
 				}
 			>

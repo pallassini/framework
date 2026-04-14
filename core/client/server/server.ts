@@ -95,9 +95,12 @@ function createLink(parts: string[]): unknown {
 		return rpcFetch(pathDots, input, opts);
 	});
 	return new Proxy(run, {
-		get(_target, seg: string | symbol) {
-			if (typeof seg !== "string" || seg === "then") return undefined;
-			return createLink([...parts, seg]);
+		get(_target, seg: string | symbol, receiver) {
+			if (seg === "then") return undefined;
+			if (typeof seg === "string") {
+				return createLink([...parts, seg]);
+			}
+			return Reflect.get(_target, seg, receiver);
 		},
 	});
 }

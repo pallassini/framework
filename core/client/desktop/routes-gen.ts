@@ -3,18 +3,22 @@
  * Non modificare a mano.
  */
 
-import { default as _devtools, p as _devtools_p } from "../../../desktop/routes/_devtools/index";
+import { oioi as devtools_oioi } from "../../../desktop/routes/devtools/index";
+import { default as p, provaaaaa as p_provaaaaa } from "../../../desktop/routes/p";
 import { default as ping, prova2 as ping_prova2 } from "../../../desktop/routes/ping";
+import { users as prova_users } from "../../../desktop/routes/prova/index";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
 	: never;
 
 export type DesktopRoutes = {
-	_devtools: InferRoute<typeof _devtools>;
-	"_devtools.p": InferRoute<typeof _devtools_p>;
+	"devtools.oioi": InferRoute<typeof devtools_oioi>;
+	p: InferRoute<typeof p>;
+	"p.provaaaaa": InferRoute<typeof p_provaaaaa>;
 	ping: InferRoute<typeof ping>;
 	"ping.prova2": InferRoute<typeof ping_prova2>;
+	"prova.users": InferRoute<typeof prova_users>;
 };
 
 export type DesktopPath = keyof DesktopRoutes & string;

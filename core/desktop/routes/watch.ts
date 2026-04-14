@@ -30,7 +30,8 @@ export function watchDesktopRoutes(projectRoot: string): void {
 
 	if (!existsSync(routesDir)) return;
 
-	desktopRoutesState.routesWatcher = watch(routesDir, { recursive: true }, (_event, filename) => {
-		if (filename == null || /\.(tsx?|jsx?)$/i.test(filename)) schedule();
+	// Qualsiasi evento (anche cartelle nuove / rename): su Windows `filename` spesso non ha estensione.
+	desktopRoutesState.routesWatcher = watch(routesDir, { recursive: true }, () => {
+		schedule();
 	});
 }
