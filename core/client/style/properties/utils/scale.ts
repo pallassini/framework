@@ -3,7 +3,7 @@
  * - **x**: margini/padding orizzontali, `gapx`, `minw`
  * - **y**: margini/padding verticali, `gapy`
  * - **box**: `p`, `m`, `gap`, `b` (spessore)
- * - **radius**: `round-*`
+ * - **radius**: `round-*` (numeri se `clientConfig.style.round` assente)
  * - **icon**: lato icona (passi un po’ più generosi dello spacing)
  */
 export type SpacingScaleKind = "x" | "y" | "box" | "radius" | "icon";

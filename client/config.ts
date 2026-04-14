@@ -125,5 +125,37 @@ export const clientConfig = {
         des: "clamp(3.25rem, 2.35rem + 1vw, 4rem)",
       },
     },
+    round: {
+      "1": {
+        mob: "0.1875rem",
+        tab: "0.1875rem",
+        des: "0.1875rem",
+      },
+      "2": {
+        mob: "0.3125rem",
+        tab: "0.3125rem",
+        des: "0.3125rem",
+      },
+      "3": {
+        mob: "0.4375rem",
+        tab: "0.4375rem",
+        des: "0.4375rem",
+      },
+      "4": {
+        mob: "0.5625rem",
+        tab: "0.5625rem",
+        des: "0.5625rem",
+      },
+      "5": {
+        mob: "0.75rem",
+        tab: "0.75rem",
+        des: "0.75rem",
+      },
+      circle: {
+        mob: "50%",
+        tab: "50%",
+        des: "50%",
+      },
+    },
   },
 };
