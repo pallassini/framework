@@ -7,6 +7,7 @@ import { desktopConfig } from "../../desktop/config";
 import { SERVER_RPC_HOST, SERVER_RPC_PORT } from "../server/routes/config";
 import { genDesktopRoutes } from "./desktop-routes-gen";
 import { genServerRoutes } from "./server-routes-gen";
+import { routeAssetSrcPlugin } from "./vite-plugin-route-asset-src";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -45,7 +46,12 @@ export default defineConfig({
 	base: "./",
 	logLevel: "silent",
 	customLogger: muteIssueLogger(),
-	plugins: [genServerRoutes(root), genDesktopRoutes(root), mkcert()] as PluginOption[],
+	plugins: [
+		routeAssetSrcPlugin(root),
+		genServerRoutes(root),
+		genDesktopRoutes(root),
+		mkcert(),
+	] as PluginOption[],
 	lint: {
 		ignorePatterns: ["build/**", "node_modules/**"],
 	},

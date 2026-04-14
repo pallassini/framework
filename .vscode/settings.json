@@ -1,12 +1,21 @@
 {
-    "files.exclude": {
-        "bun.lock": true,
-        "node_modules": true,
-        "tsconfig.json": true,
-        "index.html": true,
-        "package.json": true,
-        ".dockerignore": true,
-        "Dockerfile": true,
-      
-    }
+	"files.exclude": {
+		"bun.lock": true,
+		"node_modules": true,
+		"tsconfig.json": true,
+		"index.html": true,
+		"package.json": true,
+		".dockerignore": true,
+		"Dockerfile": true
+	},
+	"typescript.suggest.paths": false,
+	"javascript.suggest.paths": false,
+	"path-autocomplete.extensionOnImport": true,
+	"path-autocomplete.enableFolderTrailingSlash": true,
+	"[typescriptreact]": {
+		"editor.quickSuggestions": {
+			"strings": "on"
+		},
+		"path-autocomplete.extensionOnImport": true
+	}
 }
