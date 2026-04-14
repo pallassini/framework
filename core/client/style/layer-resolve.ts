@@ -11,16 +11,37 @@ import {
 import type { StyleGroup } from "./properties";
 import { map } from "./properties";
 import { parseStyleToken, resolveClasses, resolveToken } from "./resolve";
+import { isSignal, type Signal } from "../state/state/signal";
+import { isStyleEqDescriptor } from "./styleEq";
 import type { StyleViewport } from "./viewport";
 
 // ─── Tipi `s` ───────────────────────────────────────────────────────────────
 
-export type Conditional<T> = T | readonly [T, boolean] | { value: T; when?: boolean };
+/** `when` può essere valutato prima del resolve da `unwrapStyleReactive` se è `() => boolean`. */
+export type Conditional<T> =
+	| T
+	| readonly [T, boolean | (() => boolean)]
+	| readonly [() => boolean, T]
+	| { value: T; when?: boolean };
 
 export type AnimateInput = AnimatePreset | AnimateConfig | Array<AnimatePreset | AnimateConfig>;
 
+/**
+ * Elemento di `base` quando è un array: stringa; `Conditional<string>`; oppure **mappa token → condizione**
+ * (`{ "bg-#fff": [persistState.foo, "x"] }` → include `"bg-#fff"` quando `persistState.foo() === "x"`).
+ */
+export type StyleBaseSegment = string | Conditional<string> | Readonly<Record<string, unknown>>;
+
+/**
+ * Oggetto `s` (oltre alla stringa pura):
+ * - **base** — stringa, layer annidato, **oggetto** mappa (`{ __: "token fissi", "…": [Signal, rhs] }` o `: true`), oppure **array** di segmenti; merge in ordine.
+ * - **Chiavi del map** (`bg`, `px`, …): suffisso statico; oppure **`[suffisso, () => boolean]`** / **`Signal`**;
+ *   oppure **`[() => boolean, suffisso]`** (condizione reattiva prima, valore dopo — niente `===` nella chiave).
+ *   Merge dopo `base`, sovrascrive le stesse proprietà CSS.
+ * - **mob** / **tab** / **des** — token o layer per quel viewport.
+ */
 export interface StyleLayerInput {
-	base?: string | StyleLayerInput;
+	base?: string | StyleLayerInput | readonly StyleBaseSegment[] | Readonly<Record<string, unknown>>;
 	mob?: string | StyleLayerInput;
 	tab?: string | StyleLayerInput;
 	des?: string | StyleLayerInput;
@@ -49,6 +70,62 @@ export const RESERVED_LAYER_KEYS = new Set([
 	"animate",
 	"transition",
 ]);
+
+/** Chiave riservata in una mappa token→condizione: token stringa sempre inclusi (equivalente a `: true` su ogni token). */
+export const STYLE_BASE_ALWAYS_KEY = "__";
+
+/**
+ * Mappa token → condizione (stessa forma di `unwrapStyleReactive` in `style/index.ts`).
+ * - Chiave **`__`**: valore = stringa di token sempre attivi (niente `: true` su ogni classe).
+ * - Altre chiavi: token inclusi se condizione vera; **`[Signal, rhs]`** o **`styleEq(signal, rhs)`** (stesso significato, senza `() =>`); oppure **`() => boolean`**.
+ * `readRhs` valuta rhs e valori di `__` se annidati reattivi.
+ */
+export function condenseConditionalTokenMap(
+	o: Record<string, unknown>,
+	readRhs?: (v: unknown) => unknown,
+): string | undefined | null {
+	const keys = Object.keys(o);
+	if (keys.length === 0) return null;
+	for (const k of keys) {
+		if (k === STYLE_BASE_ALWAYS_KEY) continue;
+		if (RESERVED_LAYER_KEYS.has(k) || VIEWPORT_KEYS.includes(k as StyleViewport)) return null;
+	}
+	const read = readRhs ?? ((v: unknown) => v);
+	const prefix: string[] = [];
+	const condKeys: string[] = [];
+
+	if (STYLE_BASE_ALWAYS_KEY in o) {
+		const raw = o[STYLE_BASE_ALWAYS_KEY];
+		if (raw != null && typeof raw === "object" && !Array.isArray(raw)) return null;
+		const s = String(read(raw)).trim();
+		if (s) prefix.push(...s.split(/\s+/).filter(Boolean));
+	}
+
+	for (const [k, val] of Object.entries(o)) {
+		if (k === STYLE_BASE_ALWAYS_KEY) continue;
+
+		let on = false;
+		if (isStyleEqDescriptor(val)) {
+			const right = read(val.rhs);
+			on = Object.is(val.signal(), right);
+		} else if (val != null && typeof val === "object" && !Array.isArray(val)) return null;
+		else if (Array.isArray(val) && val.length === 2 && isSignal(val[0])) {
+			const right = read(val[1]);
+			on = Object.is((val[0] as Signal<unknown>)(), right);
+		} else if (Array.isArray(val)) {
+			return null;
+		} else if (val === true) on = true;
+		else if (val === false || val == null) on = false;
+		else if (typeof val === "function") on = !!(val as () => unknown)();
+		else return null;
+
+		if (on) condKeys.push(k);
+	}
+
+	const out = [...prefix, ...condKeys].join(" ");
+	if (!out) return undefined;
+	return out;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -79,6 +156,7 @@ export function unwrapConditional<T>(v: unknown): T | undefined {
 	if (Array.isArray(v) && v.length === 2) {
 		const [a, cond] = v;
 		if (cond === false) return undefined;
+		if (typeof cond === "function" && !(cond as () => boolean)()) return undefined;
 		return a as T;
 	}
 	if (typeof v === "object" && v !== null && "value" in v) {
@@ -240,11 +318,24 @@ export function resolveStyleLayer(layer: StyleLayerInput, vp: StyleViewport): Re
 	const result = emptyResolved();
 
 	if (layer.base != null) {
-		const base =
-			typeof layer.base === "string"
-				? resolveStyleString(layer.base, vp)
-				: resolveStyleLayer(layer.base, vp);
-		mergeInto(result, base);
+		const b = layer.base;
+		if (typeof b === "string") {
+			mergeInto(result, resolveStyleString(b, vp));
+		} else if (Array.isArray(b)) {
+			for (const item of b) {
+				if (item == null || item === false) continue;
+				const u = unwrapConditional<string>(item);
+				if (u === undefined) continue;
+				mergeInto(result, resolveStyleString(u, vp));
+			}
+		} else {
+			const condensed = condenseConditionalTokenMap(b as Record<string, unknown>);
+			if (condensed !== null) {
+				if (condensed !== undefined) mergeInto(result, resolveStyleString(condensed, vp));
+			} else {
+				mergeInto(result, resolveStyleLayer(b as StyleLayerInput, vp));
+			}
+		}
 	}
 
 	const fromMap: Properties = {};

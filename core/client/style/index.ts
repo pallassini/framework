@@ -1,3 +1,4 @@
+export { styleEq, type StyleEqDescriptor } from "./styleEq";
 export { map, styleMap, type StyleGroup, type StyleResolver, type StyleVariantKey } from "./properties";
 export { resolveClasses, resolveToken, parseStyleToken } from "./resolve";
 export {
@@ -6,8 +7,11 @@ export {
 	activeTokensFromString,
 	tokenizeStyleString,
 	unwrapConditional,
+	condenseConditionalTokenMap,
+	STYLE_BASE_ALWAYS_KEY,
 	type StyleInput,
 	type StyleLayerInput,
+	type StyleBaseSegment,
 	type Conditional,
 	type AnimateInput,
 	type ResolvedStyle,
@@ -15,12 +19,11 @@ export {
 export type { StyleViewport } from "./viewport";
 export { mob, tab, des, getViewportSize, BREAKPOINTS, styleViewport } from "./viewport";
 export type { AnimateConfig, AnimatePreset, KeyframeStep, AnimationResult, TransitionConfig } from "./animation";
-
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
-import { resolveStyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
+import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
 import { styleViewport } from "./viewport";
 
 type El = HTMLElement | SVGElement;
@@ -66,6 +69,49 @@ function clearS(el: El): void {
 	el.removeAttribute("data-fw-layers");
 }
 
+function unwrapStyleReactive(v: unknown): unknown {
+	if (v == null || v === false) return v;
+	if (typeof v === "function" && !isSignal(v)) return (v as () => unknown)();
+	if (isSignal(v)) return (v as Signal<unknown>)();
+	if (Array.isArray(v)) {
+		/** `[() => boolean, suffix]` — condizione prima (boolean reattivo), poi valore per la chiave (es. `bg`). */
+		if (
+			v.length === 2 &&
+			typeof v[0] === "function" &&
+			!isSignal(v[0]) &&
+			typeof v[1] !== "function" &&
+			!isSignal(v[1])
+		) {
+			if (!(v[0] as () => unknown)()) return undefined;
+			return unwrapStyleReactive(v[1]);
+		}
+		/** `[suffix, () => boolean | Signal]` — stesso significato, valore prima (utile in `base: [...]`). */
+		if (
+			v.length === 2 &&
+			typeof v[0] !== "function" &&
+			!isSignal(v[0]) &&
+			(typeof v[1] === "function" || isSignal(v[1]))
+		) {
+			const c = v[1];
+			const ok = isSignal(c) ? !!(c as Signal<unknown>)() : !!(c as () => unknown)();
+			if (!ok) return undefined;
+			return unwrapStyleReactive(v[0]);
+		}
+		return v.map(unwrapStyleReactive);
+	}
+	if (typeof v === "object") {
+		const o = v as Record<string, unknown>;
+		const condensed = condenseConditionalTokenMap(o, (x) => unwrapStyleReactive(x));
+		if (condensed !== null) return condensed;
+		const out: Record<string, unknown> = {};
+		for (const [k, val] of Object.entries(o)) {
+			out[k] = unwrapStyleReactive(val);
+		}
+		return out;
+	}
+	return v;
+}
+
 function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 	const style = { ...resolved.style };
 	applyReducedMotion(style);
@@ -94,7 +140,7 @@ export function applyStyleImmediate(el: El, v: unknown): void {
 		return;
 	}
 
-	if (typeof v === "object" && !Array.isArray(v)) {
+	if (typeof v === "object" && v !== null) {
 		applyFromResolved(el, resolveStyleInput(v as StyleLayerInput, vp));
 		return;
 	}
@@ -104,13 +150,15 @@ export function applyStyleImmediate(el: El, v: unknown): void {
 
 /**
  * Applica `s` e si aggiorna su resize (viewport) e su Signal / funzione.
+ * Se `s` è `() => layer`, il layer viene rieseguito a ogni tick (usa `persistState.x == y` nel body, non un oggetto letterale fisso).
  */
 export function applyStyle(el: El, v: unknown): void {
 	if (v == null || v === false) return;
 
 	const read = (): unknown => {
-		if (typeof v === "function") return (v as () => unknown)();
-		if (isSignal(v)) return (v as Signal<unknown>)();
+		if (typeof v === "function") return unwrapStyleReactive((v as () => unknown)());
+		if (isSignal(v)) return unwrapStyleReactive((v as Signal<unknown>)());
+		if (typeof v === "object" && v !== null) return unwrapStyleReactive(v);
 		return v;
 	};
 

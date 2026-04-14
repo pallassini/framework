@@ -1,20 +1,16 @@
-import { v } from "client";
+import { v } from "../core/client/validator";
 
 export const clientConfig = {
 	state: {
-		id: 20,
-		role: {
-			admin: false,
-		},
+		id: v.uuid(),
 	},
 
 	sessionState: {
-		id: 0,
-		name: "",
+		id: v.uuid(),
 	},
 
 	persistState: {
-		id: 0,
+		id: v.uuid(),
 		email: "",
 		devtools: {
 			menu: "db" as "db" | "state",

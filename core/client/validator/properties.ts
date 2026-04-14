@@ -9,8 +9,10 @@ import { literals } from "./properties/literals";
 import { integer, number } from "./properties/number";
 import { string } from "./properties/string";
 import { unknown } from "./properties/unknown";
+import { uuid } from "./properties/uuid";
 
 export const v = {
+	uuid,
 	string,
 	number,
 	integer,

@@ -3,6 +3,11 @@ import type { DomProps, SharedProps, UiNode } from "../../props";
 
 export type CaseProps = SharedProps & {
 	when: unknown;
+	/**
+	 * Preferire `{() => <Figlio />}`: i figli diretti vengono smontati quando il case non matcha;
+	 * senza factory si riusano nodi già `dispose` e il contenuto non riappare.
+	 */
+	children?: unknown;
 };
 
 function getWhen(anchor: HTMLElement): unknown {

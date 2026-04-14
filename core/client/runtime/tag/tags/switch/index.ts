@@ -18,6 +18,16 @@ function readSwitchValue(raw: unknown): unknown {
 	return raw;
 }
 
+/** Figli `<case>` già renderizzati vengono smontati quando il case non matcha; senza factory si riusano nodi morti. */
+function resolveCaseChildren(ch: unknown): unknown {
+	if (typeof ch === "function" && !isSignal(ch)) return (ch as () => unknown)();
+	return ch;
+}
+
+function debugSwitch(...args: unknown[]): void {
+	if (import.meta.env.DEV) console.debug("[fw switch]", ...args);
+}
+
 function matchesWithValue(switchVal: unknown, when: unknown): boolean {
 	if (isSignal(when)) return Object.is(switchVal, (when as Signal<unknown>)());
 	if (typeof when === "function" && !isSignal(when))
@@ -81,12 +91,18 @@ export function clientSwitch(props: SwitchProps): UiNode {
 			}
 		}
 
+		debugSwitch("value", switchVal, "matchedIdx", matchedIdx, "cases", caseNodes.length);
+
 		for (let i = 0; i < caseNodes.length; i++) {
 			const el = caseNodes[i];
 			replaceChildrenWithDispose(el);
 			if (i === matchedIdx) {
 				const { children: ch } = caseMeta(el);
-				const nodes = toNodes(ch);
+				const raw = resolveCaseChildren(ch);
+				const nodes = toNodes(raw);
+				if (import.meta.env.DEV && typeof ch === "function" && !isSignal(ch) && nodes.length === 0) {
+					console.warn("[fw switch] <case> factory ha restituito nessun nodo; controlla il return.");
+				}
 				if (nodes.length) el.append(...nodes);
 			}
 		}

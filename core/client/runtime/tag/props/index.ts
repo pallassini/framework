@@ -31,8 +31,8 @@ export type SharedProps = ClientEvents & {
 	children?: unknown;
 	hover?: HoverProp;
 	/**
-	 * Token design system, `mob:(...) tab:(...) des:(...)`, layer `{ base, mob, tab, des, bg, animate, … }`;
-	 * reattivo con accessor o `Signal`.
+	 * Stringa token oppure layer `{ base, bg, … }`: dopo `base`, chiavi map con valore statico, `Signal`, `() => …`,
+	 * o tupla `[() => boolean, suffisso]` / `[suffisso, () => boolean]` per applicare la proprietà solo quando la condizione è vera.
 	 */
 	s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
 	/** Visibilità reattiva (prop su qualsiasi elemento). */

@@ -8,9 +8,11 @@ import { deleteSessionState } from "../session/idb";
 
 export type GlobalStoreStorageKind = "persist" | "session";
 
+/** `id` è escluso: può essere rigenerato (es. `v.uuid()`) senza cambiare la chiave IDB. */
 export function storeFingerprint(shape: Record<string, unknown>): string {
 	return Object.keys(shape)
 		.sort()
+		.filter((k) => k !== "id")
 		.map((k) => `${k}:${JSON.stringify(shape[k])}`)
 		.join("|");
 }

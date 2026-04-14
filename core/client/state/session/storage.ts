@@ -1,4 +1,5 @@
 import { watch } from "../effect";
+import { enqueueAsyncChain } from "../utils/asyncChain";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { cleanupStaleSessionKeys, getSessionState, setSessionState } from "./idb";
 
@@ -7,21 +8,39 @@ const DEBOUNCE_MS = 300;
 export function bindSessionIdb(store: Record<string, unknown>, key: string): void {
 	cleanupStaleSessionKeys();
 
-	void getSessionState(key).then((snapshot) => {
+	/**
+	 * Stessa logica del persist: memoria subito, IDB async; scritture IDB serializzate;
+	 * boot hydrate solo se non c’è già stato un secondo run reattivo.
+	 */
+	let bootHydrateOpen = true;
+	let sessionWatchRuns = 0;
+	let idbWriteTail = Promise.resolve();
+
+	const hydrate = (snapshot: unknown) => {
 		if (snapshot && typeof snapshot === "object") {
-			setStoreFromSnapshot(store, snapshot as Record<string, unknown>);
+			watch.batch(() => {
+				setStoreFromSnapshot(store, snapshot as Record<string, unknown>);
+			});
 		}
+	};
+
+	void getSessionState(key).then((snapshot) => {
+		if (!bootHydrateOpen) return;
+		bootHydrateOpen = false;
+		hydrate(snapshot);
 	});
 
 	let tid: ReturnType<typeof setTimeout> | null = null;
 	const flush = (): void => {
 		if (tid != null) clearTimeout(tid);
 		tid = null;
-		void setSessionState(key, getStoreSnapshot(store));
+		idbWriteTail = enqueueAsyncChain(idbWriteTail, () => setSessionState(key, getStoreSnapshot(store)));
 	};
 
 	watch(() => {
 		getStoreSnapshot(store);
+		sessionWatchRuns++;
+		if (sessionWatchRuns > 1) bootHydrateOpen = false;
 		if (tid != null) clearTimeout(tid);
 		tid = setTimeout(flush, DEBOUNCE_MS);
 	});
