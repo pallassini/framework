@@ -4,6 +4,6 @@ export { v } from "./properties";
  * A runtime il parse resta `v.enum([...])`.
  */
 export namespace v {
-	export type Enum<const T extends readonly [string, ...string[]]> = T[number];
+	export type Enum<T extends readonly [string, ...string[]]> = T[number];
 }
 export type { InferSchema } from "./properties/defs";

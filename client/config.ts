@@ -17,7 +17,7 @@ export const clientConfig = {
 		id: 0,
 		email: "",
 		devtools: {
-			menu: "db" satisfies v.Enum<["db", "state"]>,
+			menu: "db" as "db" | "state",
 		},
 	},
 };
