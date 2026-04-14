@@ -1,4 +1,4 @@
-import { For, persistState, styleEq } from "client";
+import { For, persistState } from "client";
 
 const TABS = [
   { id: "db", label: "DB" },
@@ -17,7 +17,7 @@ export default function MenuDevtools() {
               s={{
                 base: {
                   "px-4 py-2 round-10px": true,
-                  "bg-#313131": styleEq(persistState.devtools.menu, tab.id),
+                  "bg-#313131": persistState.devtools.menu== tab.id,
                 },
                 mob: {},
                 des: {},

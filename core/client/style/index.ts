@@ -1,4 +1,4 @@
-export { styleEq, type StyleEqDescriptor } from "./styleEq";
+import "./client-config-style";
 export { map, styleMap, type StyleGroup, type StyleResolver, type StyleVariantKey } from "./properties";
 export { resolveClasses, resolveToken, parseStyleToken } from "./resolve";
 export {

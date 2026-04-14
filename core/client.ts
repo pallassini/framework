@@ -2,12 +2,7 @@ import { clientConfig } from "../client/config";
 
 // STATE
 export {
-	watch,
-	isPersistDebugEnabled,
-	persistDebug,
-	persistDebugSnapshot,
-	persistLog,
-	persistShortJson,
+	watch
 } from "./client/state";
 import { createPersistState, createSessionState, createState } from "./client/state";
 export const state = createState(clientConfig.state);
@@ -32,8 +27,6 @@ export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 
 // JSX COMPONENTS
 export { For } from "./client/runtime/tag";
-export type { StyleInput } from "./client/style";
-export { styleEq } from "./client/style";
 
 // FORM
 export * from "./client/form";

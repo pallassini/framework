@@ -1,4 +1,4 @@
-export default function StatePanel() {
+export default function State() {
   return (
     <>
       <t>STATE</t>

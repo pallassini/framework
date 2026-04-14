@@ -3,9 +3,13 @@ import { desktop, For, state } from "client";
 export default function Home() {
 	// Cartella `desktop/routes/prova/index.ts` + `export const users` → RPC `desktop.prova.users`
 	const prova2 = state(desktop.prova.users);
-
+	void desktop.devtools.oioi({
+		onSuccess: (data) => console.log(data),
+		onError: (error) => console.error(error),
+	});
 	return (
 		<>
+			<t s="text-2 px-4vw py-2vh round-10px"></t>
 			<t
 				s="text-#ffffff bg-#1a6b3a"
 				click={() =>

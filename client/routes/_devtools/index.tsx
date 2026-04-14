@@ -1,15 +1,17 @@
-import { desktop } from "client";
+import { persistState } from "client";
 import Menu from "./_components/menu";
+import DB from "./db";
+import State from "./state";
 
 export default function MenuDevtools() {
-	void desktop.devtools.oioi({
-		onSuccess: (data) => console.log(data),
-		onError: (error) => console.error(error),
-	});
-  
   return (
     <>
-	 <Menu/>
+      <Menu />
+      <switch value={persistState.devtools.menu}>
+        <case when="db">{() => <DB />}</case>
+        <case when="state">{() => <State />}</case>
+      </switch>
+      <t s="text-6">DEVTOOLS</t>
     </>
   );
 }

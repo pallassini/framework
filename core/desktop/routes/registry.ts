@@ -100,7 +100,7 @@ export function d<I, O>(def: DesktopRouteInputConfig<I, O>): DesktopRouteDescTyp
 export function d<I, O>(
 	def: DesktopRouteNoInputConfig<O> | DesktopRouteInputConfig<I, O>,
 ): DesktopRouteDescTyped<I | void, O> {
-	if ("input" in def) return dWithInput(def);
+	if ("input" in def && def.input !== undefined) return dWithInput(def);
 	return dNoInput(def);
 }
 

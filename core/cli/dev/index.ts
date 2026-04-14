@@ -33,10 +33,10 @@ process.on("exit", () => {
 // —— SERVER
 await startRpcServer(root);
 
-// —— CLIENT 
+// —— CLIENT
 const { client } = await startClient(root);
 
-// —— STOP 
+// —— STOP
 const stop = async () => {
 	killDesktop();
 	killRpcServer();
@@ -44,7 +44,7 @@ const stop = async () => {
 	process.exit(0);
 };
 
-// —— OS error → STOP 
+// —— OS error → STOP
 for (const s of [
 	"SIGINT",
 	"SIGTERM",
@@ -54,7 +54,7 @@ for (const s of [
 	process.on(s, () => void stop());
 }
 
-// Ctrl+C → STOP 
+// Ctrl+C → STOP
 // d → DESKTOP (Electrobun)
 if (process.stdin.isTTY) {
 	readline.emitKeypressEvents(process.stdin);

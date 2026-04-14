@@ -138,7 +138,7 @@ export function s<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O>
 export function s<I, O>(
 	def: RouteNoInputConfig<O> | RouteInputConfig<I, O>,
 ): ServerRouteDescTyped<I | void, O> {
-	if ("input" in def) return sWithInput(def);
+	if ("input" in def && def.input !== undefined) return sWithInput(def);
 	return sNoInput(def);
 }
 
