@@ -1,6 +1,7 @@
 import type { Properties } from "csstype";
 import { backgroundColor } from "./properties/background";
 import { border } from "./properties/border";
+import { font } from "./properties/font";
 import * as g from "./properties/gap";
 import { minw } from "./properties/minw";
 import * as m from "./properties/margin";
@@ -31,6 +32,7 @@ export const map = styleMap({
   b: border,
   bg: backgroundColor,
   text: text,
+  font: font,
   minw: minw,
   z: zIndex,
   round: round,

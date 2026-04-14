@@ -3,11 +3,10 @@
  * - **x**: margini/padding orizzontali, `gapx`, `minw`
  * - **y**: margini/padding verticali, `gapy`
  * - **box**: `p`, `m`, `gap`, `b` (spessore)
- * - **text**: `font-size`
  * - **radius**: `round-*`
  * - **icon**: lato icona (passi un po’ più generosi dello spacing)
  */
-export type SpacingScaleKind = "x" | "y" | "box" | "text" | "radius" | "icon";
+export type SpacingScaleKind = "x" | "y" | "box" | "radius" | "icon";
 
 type ScaleStep = 1 | 2 | 3 | 4 | 5;
 
@@ -24,8 +23,6 @@ export function scaleStep(kind: SpacingScaleKind, step: number): string | null {
 			return SPACE_Y[key];
 		case "box":
 			return SPACE_BOX[key];
-		case "text":
-			return TEXT[key];
 		case "radius":
 			return RADIUS[key];
 		case "icon":
@@ -63,14 +60,6 @@ const SPACE_BOX: Record<ScaleStep, string> = {
 	2: "0.4375rem",
 	3: "0.625rem",
 	4: "0.875rem",
-	5: "1.25rem",
-};
-
-const TEXT: Record<ScaleStep, string> = {
-	1: "0.8125rem",
-	2: "0.875rem",
-	3: "1rem",
-	4: "1.125rem",
 	5: "1.25rem",
 };
 

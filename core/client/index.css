@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
+
 *,
 *::before,
 *::after {
@@ -9,8 +11,8 @@ body,
 #root {
 	margin: 0;
 	padding: 0;
+	font-family: "Outfit", system-ui, sans-serif;
 }
-
 /* Stack: tutti i figli nella stessa cella (inline map applica `layers` sul contenitore). */
 [data-fw-layers] > * {
 	grid-area: 1 / 1;
