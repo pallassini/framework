@@ -36,7 +36,16 @@ export {
 	device,
 	onlyDes,
 } from "./viewport";
-export type { AnimateConfig, AnimatePreset, KeyframeStep, AnimationResult, TransitionConfig } from "./animation";
+export type {
+	AnimateConfig,
+	AnimatePreset,
+	AnimateTrackStop,
+	BuildAnimationOptions,
+	KeyframeStep,
+	AnimationResult,
+	AnimationTimelineLayer,
+	TransitionConfig,
+} from "./animation";
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
@@ -81,6 +90,10 @@ function applyReducedMotion(style: Record<string, string>): void {
 	if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 	const a = style.animation;
 	if (a) style.animation = a.replace(/\d+ms/g, "1ms");
+	const durs = style.animationDuration;
+	if (durs) style.animationDuration = durs.replace(/\d+ms/g, "1ms");
+	const dels = style.animationDelay;
+	if (dels) style.animationDelay = dels.replace(/\d+ms/g, "1ms");
 }
 
 function clearS(el: El): void {

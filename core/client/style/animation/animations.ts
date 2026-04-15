@@ -3,6 +3,7 @@
  */
 
 import { ensureInjected } from "./inject";
+import { CSS_LENGTH_RE, isCssVarToken, isSpacingKeyword } from "../properties/utils/units";
 
 export type AnimatePreset = string;
 
@@ -13,6 +14,18 @@ export type KeyframeStep = {
 	y?: number | string;
 	transform?: string;
 	[key: string]: number | string | undefined;
+};
+
+/** Fermata lungo l’animazione (0–100% della `duration`). */
+export type AnimateTrackStop = {
+	/** Percentuale 0–100. */
+	at: number;
+	/** Token da sommare allo stato cumulativo (sovrascrive le stesse proprietà CSS di `base` / fermate precedenti). */
+	to?: string;
+	/** @deprecated Usa `to`. */
+	s?: string;
+	/** @deprecated Usa `to`. */
+	style?: string;
 };
 
 export type AnimateConfig = {
@@ -31,7 +44,30 @@ export type AnimateConfig = {
 	y?: [number | string, number | string];
 	rotate?: [number | string, number | string];
 	blur?: [number, number];
+	/**
+	 * Più fermate nello stesso segmento: ogni `to` si **aggiunge** allo stato (merge per proprietà).
+	 * Tupla `[at, "token…"]` = percentuale + `to`.
+	 */
+	track?: ReadonlyArray<AnimateTrackStop | readonly [number, string]>;
+	/**
+	 * Obiettivo al 100% del segmento. Lo 0% è sempre lo stato corrente (`base` + segmenti animati prima, o implicito).
+	 * Ogni proprietà in `to` sovrascrive la stessa proprietà già presente.
+	 */
+	to?: string;
+	/** Forma legacy: percentuali come chiavi; stringhe con merge cumulativo come `track`. */
 	keyframes?: Record<string | number, KeyframeStep | string>;
+};
+
+/** Opzioni interne: risolve stringhe token → proprietà inline (da `resolveStyleString`). */
+export type BuildAnimationOptions = {
+	resolveTokens?: (tokenString: string) => Record<string, string>;
+	/** Ritardo cumulativo prima di questo segmento quando `animate` è un array (catena sequenziale). */
+	chainDelayMs?: number;
+	/**
+	 * Stile già risolto prima di questo segmento (`base` + `to` dei segmenti precedenti).
+	 * Usato per 0% esplicito e per cumulare il `to` così le proprietà non si perdono tra un’animazione e l’altra.
+	 */
+	keyframeStartAcc?: Record<string, string>;
 };
 
 const PRESET_MOTION: Record<
@@ -114,26 +150,150 @@ const ANIMATION_PRESETS: Record<string, { class: string }> = {
 
 export const ANIMATION_CSS = BUNDLED_KEYFRAMES;
 
+/** Un segmento nella timeline (catena o singolo). */
+export type AnimationTimelineLayer = {
+	name: string;
+	durationMs: number;
+	easing: string;
+	delayMs: number;
+	iteration: number | "infinite";
+	fill: string;
+};
+
 export type AnimationResult = {
 	id?: string;
 	class?: string;
 	style?: Record<string, string>;
 	keyframesCss?: string;
+	/** Usato per ricostruire `style` in catena; con ≥2 layer si usano le longhand (più affidabile della shorthand con virgola). */
+	layers?: AnimationTimelineLayer[];
 };
+
+const ANIMATION_STYLE_KEYS = new Set([
+	"animation",
+	"animationName",
+	"animationDuration",
+	"animationTimingFunction",
+	"animationDelay",
+	"animationIterationCount",
+	"animationFillMode",
+	"animationDirection",
+	"animationPlayState",
+]);
+
+function stripAnimationStyleProps(s: Record<string, string> | undefined): Record<string, string> {
+	if (!s) return {};
+	const o: Record<string, string> = {};
+	for (const [k, v] of Object.entries(s)) {
+		if (ANIMATION_STYLE_KEYS.has(k)) continue;
+		o[k] = v;
+	}
+	return o;
+}
+
+function layersToInlineStyle(layers: AnimationTimelineLayer[]): Record<string, string> {
+	if (layers.length === 0) return {};
+	if (layers.length === 1) {
+		const L = layers[0]!;
+		let a = `${L.name} ${L.durationMs}ms ${L.easing} ${L.delayMs}ms`;
+		if (L.iteration !== 1) a += ` ${L.iteration === "infinite" ? "infinite" : L.iteration}`;
+		a += ` ${L.fill}`;
+		return { animation: a };
+	}
+	return {
+		animationName: layers.map((l) => l.name).join(", "),
+		animationDuration: layers.map((l) => `${l.durationMs}ms`).join(", "),
+		animationTimingFunction: layers.map((l) => l.easing).join(", "),
+		animationDelay: layers.map((l) => `${l.delayMs}ms`).join(", "),
+		animationIterationCount: layers
+			.map((l) => (l.iteration === "infinite" ? "infinite" : String(l.iteration)))
+			.join(", "),
+		animationFillMode: layers.map((l) => l.fill).join(", "),
+	};
+}
+
+function mergeSequentialChain(acc: AnimationResult, step: AnimationResult): AnimationResult {
+	const combinedLayers = [...(acc.layers ?? []), ...(step.layers ?? [])];
+	const keyframesCss = [acc.keyframesCss, step.keyframesCss].filter(Boolean).join("\n");
+	const cls = [acc.class, step.class].filter(Boolean).join(" ");
+
+	const style: Record<string, string> = {};
+	Object.assign(style, stripAnimationStyleProps(acc.style));
+	Object.assign(style, stripAnimationStyleProps(step.style));
+
+	if (combinedLayers.length) {
+		Object.assign(style, layersToInlineStyle(combinedLayers));
+	}
+
+	return {
+		id: step.id ?? acc.id,
+		class: cls || undefined,
+		style: Object.keys(style).length ? style : undefined,
+		keyframesCss: keyframesCss || undefined,
+		layers: combinedLayers.length ? combinedLayers : undefined,
+	};
+}
+
+/** Durata “a schermo” di un segmento (delay locale + durata × ripetizioni). */
+function estimateSegmentDurationMs(c: AnimatePreset | AnimateConfig): number {
+	if (typeof c === "string") return 200;
+	const cfg = c as AnimateConfig;
+	const d = cfg.duration ?? 200;
+	const delay = cfg.delay ?? 0;
+	const iter = cfg.iterations ?? cfg.repeat ?? 1;
+	if (iter === "infinite") return d + delay;
+	const n = typeof iter === "number" && iter > 0 ? iter : 1;
+	return (d + delay) * n;
+}
+
+function terminalAfterAnimateConfig(
+	cfg: AnimateConfig,
+	terminal: Record<string, string>,
+	resolveTokens?: (s: string) => Record<string, string>,
+): Record<string, string> {
+	if (!resolveTokens) return terminal;
+	const rows = collectTokenKeyframeRows(cfg);
+	if (!rows?.length) return terminal;
+	let acc = { ...terminal };
+	const indexed = rows.map((r, i) => ({ ...r, i }));
+	indexed.sort((a, b) => (a.at !== b.at ? a.at - b.at : a.i - b.i));
+	const groups: Array<{ at: number; tos: string[] }> = [];
+	for (const row of indexed) {
+		const last = groups[groups.length - 1];
+		if (last && last.at === row.at) last.tos.push(row.to);
+		else groups.push({ at: row.at, tos: [row.to] });
+	}
+	for (const g of groups) {
+		for (const toStr of g.tos) {
+			acc = { ...acc, ...resolveTokens(toStr) };
+		}
+	}
+	return acc;
+}
 
 export function buildAnimation(
 	config: AnimatePreset | AnimateConfig | Array<AnimatePreset | AnimateConfig>,
+	opts?: BuildAnimationOptions,
 ): AnimationResult {
 	if (Array.isArray(config)) {
-		return config.reduce<AnimationResult>((acc, c) => {
-			const r = buildAnimation(c);
-			return {
-				...acc,
-				...r,
-				class: [acc.class, r.class].filter(Boolean).join(" "),
-				style: { ...acc.style, ...r.style },
-			};
-		}, {});
+		if (config.length === 0) return {};
+		const { keyframeStartAcc: chainSeed = {}, chainDelayMs: _ignore, ...restOpts } = opts ?? {};
+		let chainDelayMs = 0;
+		let terminal: Record<string, string> = { ...chainSeed };
+		let acc: AnimationResult = {};
+		for (const c of config) {
+			const r = buildAnimation(c, {
+				...restOpts,
+				chainDelayMs,
+				keyframeStartAcc: terminal,
+			});
+			acc = mergeSequentialChain(acc, r);
+			if (typeof c === "object" && c !== null && !Array.isArray(c)) {
+				terminal = terminalAfterAnimateConfig(c as AnimateConfig, terminal, restOpts.resolveTokens);
+			}
+			chainDelayMs += estimateSegmentDurationMs(c);
+		}
+		return acc;
 	}
 
 	if (typeof config === "string") {
@@ -147,7 +307,7 @@ export function buildAnimation(
 		cfg = { preset: "in-fade", duration: 200 };
 	}
 
-	return createCustomAnimation(cfg);
+	return createCustomAnimation(cfg, opts);
 }
 
 const EASE: Record<string, string> = {
@@ -158,10 +318,142 @@ const EASE: Record<string, string> = {
 	linear: "linear",
 };
 
+const SKIP_PROPS_IN_KEYFRAMES = new Set([
+	"animation",
+	"animationDelay",
+	"animationDirection",
+	"animationDuration",
+	"animationFillMode",
+	"animationIterationCount",
+	"animationName",
+	"animationPlayState",
+	"animationTimingFunction",
+	"animationRange",
+	"animationTimeline",
+	"willChange",
+	"transition",
+]);
+
+function recordToKeyframeDeclarations(record: Record<string, string>): string {
+	const parts: string[] = [];
+	for (const [k, v] of Object.entries(record)) {
+		if (v == null || v === "" || SKIP_PROPS_IN_KEYFRAMES.has(k)) continue;
+		const kebab = k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+		parts.push(`${kebab}:${v}`);
+	}
+	return parts.join(";");
+}
+
+function clampPct(n: number): number {
+	if (!Number.isFinite(n)) return 0;
+	return Math.max(0, Math.min(100, n));
+}
+
+function stopToString(item: AnimateTrackStop | readonly [number, string]): { at: number; to: string } | null {
+	if (Array.isArray(item)) {
+		const at = clampPct(Number(item[0]));
+		const to = String(item[1] ?? "").trim();
+		return to ? { at, to } : null;
+	}
+	const to = (item.to ?? item.s ?? item.style ?? "").trim();
+	return to ? { at: clampPct(item.at), to } : null;
+}
+
+/** Righe `at`+`to` da `track` oppure un solo `to` al 100%. */
+function collectTokenKeyframeRows(cfg: AnimateConfig): Array<{ at: number; to: string }> | null {
+	if (cfg.track != null && cfg.track.length > 0) {
+		const out: Array<{ at: number; to: string }> = [];
+		for (const item of cfg.track) {
+			const row = stopToString(item);
+			if (row) out.push(row);
+		}
+		return out.length ? out : null;
+	}
+	if (cfg.to != null) {
+		const to = String(cfg.to).trim();
+		if (to) return [{ at: 100, to }];
+	}
+	return null;
+}
+
+/**
+ * Stato cumulativo: ogni gruppo (stesso `at`, più `to` in ordine) fa merge sul record;
+ * tra gruppi con `at` diversi il merge continua così ogni keyframe contiene tutto lo stato fino a quel punto.
+ */
+function buildCumulativeKeyframeEntries(
+	rows: Array<{ at: number; to: string }>,
+	opts: BuildAnimationOptions | undefined,
+	startAcc: Record<string, string>,
+): [string, string][] {
+	const indexed = rows.map((r, i) => ({ ...r, i }));
+	indexed.sort((a, b) => (a.at !== b.at ? a.at - b.at : a.i - b.i));
+
+	const groups: Array<{ at: number; tos: string[] }> = [];
+	for (const row of indexed) {
+		const last = groups[groups.length - 1];
+		if (last && last.at === row.at) last.tos.push(row.to);
+		else groups.push({ at: row.at, tos: [row.to] });
+	}
+
+	let acc: Record<string, string> = opts?.resolveTokens ? { ...startAcc } : {};
+	let tokenAcc = "";
+	const entries: [string, string][] = [];
+
+	for (const g of groups) {
+		let decl = "";
+		if (opts?.resolveTokens) {
+			for (const toStr of g.tos) {
+				acc = { ...acc, ...opts.resolveTokens(toStr) };
+			}
+			decl = recordToKeyframeDeclarations(acc);
+		} else {
+			tokenAcc = [tokenAcc, ...g.tos].filter(Boolean).join(" ").trim();
+			decl = stringStepToCss(tokenAcc, opts);
+		}
+		if (decl) entries.push([`${g.at}%`, decl]);
+	}
+
+	const zeroDecl = recordToKeyframeDeclarations(startAcc);
+	const hasZero = entries.some(([p]) => p === "0%");
+	if (zeroDecl && !hasZero && entries.length > 0) {
+		entries.unshift(["0%", zeroDecl]);
+	}
+	return entries;
+}
+
+function pctLabelToNumber(pct: string): number {
+	if (pct === "0%") return 0;
+	if (pct === "100%") return 100;
+	const n = parseInt(pct.replace("%", ""), 10);
+	return Number.isFinite(n) ? clampPct(n) : 0;
+}
+
+function stringStepToCss(step: string, opts?: BuildAnimationOptions): string {
+	const t = step.trim();
+	if (!t) return "";
+	if (opts?.resolveTokens) {
+		const rec = opts.resolveTokens(t);
+		const fromMap = recordToKeyframeDeclarations(rec);
+		if (fromMap) return fromMap;
+	}
+	return stepToCss(parseKeyframeStepString(t)).join(";");
+}
+
+function declarationsMightNeedTransformOrigin(css: string): boolean {
+	return /\btransform\s*:/.test(css) && /scale\s*\(/i.test(css);
+}
+
 function hash(s: string): string {
 	let h = 0;
 	for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
 	return "k" + Math.abs(h).toString(36);
+}
+
+/** Evita collisioni sul nome @keyframes (insertRule fallisce in silenzio se il nome è duplicato). */
+let fwKeyframeNameSeq = 0;
+
+function allocKeyframeName(salt: string): string {
+	return `fw-kf-${++fwKeyframeNameSeq}-${hash(salt)}`;
 }
 
 function px(v: number | string): string {
@@ -209,12 +501,26 @@ function stepToCss(step: KeyframeStep): string[] {
 
 const KEYFRAME_COLORS = new Set(["red", "white", "black", "blue", "green", "gray", "grey", "transparent"]);
 
+function isValidSpacingCssSuffix(s: string): boolean {
+	return isSpacingKeyword(s) || CSS_LENGTH_RE.test(s) || isCssVarToken(s);
+}
+
+/** Margini tipo token `s` (`mt-50vh`, `mb-0`) → proprietà camelCase per `stepToCss`. */
+const KEYFRAME_MARGIN_EDGE: Record<string, string> = {
+	mt: "marginTop",
+	mb: "marginBottom",
+	ml: "marginLeft",
+	mr: "marginRight",
+};
+
 function parseKeyframeStepString(str: string): KeyframeStep {
 	const step: KeyframeStep = {};
 	const tokens = str.trim().split(/\s+/).filter(Boolean);
 	const hexRe = /^([a-z]+)-#([a-fA-F0-9]{3,8})$/;
 	const colorRe = /^(bg|c|color)-([a-zA-Z][a-zA-Z0-9-]*)$/;
 	const numRe = /^([a-z]+)-([\d.]+)$/;
+	const marginEdgeRe = /^(mt|mb|ml|mr)-(.+)$/;
+	const marginAllRe = /^m-(.+)$/;
 	for (const t of tokens) {
 		const hex = t.match(hexRe);
 		if (hex) {
@@ -235,6 +541,23 @@ function parseKeyframeStepString(str: string): KeyframeStep {
 			if (key === "bg") step.bg = cssVal;
 			else step.c = cssVal;
 			continue;
+		}
+		const marginEdge = t.match(marginEdgeRe);
+		if (marginEdge) {
+			const [, edge, suffix] = marginEdge;
+			if (suffix && isValidSpacingCssSuffix(suffix)) {
+				const prop = KEYFRAME_MARGIN_EDGE[edge!]!;
+				(step as Record<string, string>)[prop] = suffix;
+				continue;
+			}
+		}
+		const marginAll = t.match(marginAllRe);
+		if (marginAll) {
+			const suffix = marginAll[1];
+			if (suffix && isValidSpacingCssSuffix(suffix)) {
+				(step as Record<string, string>).margin = suffix;
+				continue;
+			}
 		}
 		const num = t.match(numRe);
 		if (num) {
@@ -267,43 +590,89 @@ function cssValRotate(v: number | string): string {
 	return typeof v === "number" ? `${v}deg` : String(v);
 }
 
-function createCustomAnimation(cfg: AnimateConfig): AnimationResult {
+function finalizeKeyframeEntries(
+	entries: [string, string][],
+	cfg: AnimateConfig,
+	d: number,
+	ease: string,
+	iter: number | "infinite",
+	effectiveDelayMs: number,
+	fill: string,
+): AnimationResult {
+	const blocks = entries.map(([pct, css]) => `${pct}{${css}}`).join("");
+	const name = allocKeyframeName(JSON.stringify(entries) + String(d) + ease + String(effectiveDelayMs));
+	const keyframesCss = `@keyframes ${name}{${blocks}}`;
+	const layer: AnimationTimelineLayer = {
+		name,
+		durationMs: d,
+		easing: ease,
+		delayMs: effectiveDelayMs,
+		iteration: iter,
+		fill,
+	};
+
+	const hasScaleObject =
+		cfg.keyframes &&
+		Object.values(cfg.keyframes).some((s) => s && typeof s === "object" && "scale" in s);
+	const hasScaleCss = entries.some(([, css]) => declarationsMightNeedTransformOrigin(css));
+	const hasScale = Boolean(hasScaleObject) || hasScaleCss;
+
+	const style: Record<string, string> = { ...layersToInlineStyle([layer]) };
+	if (hasScale) {
+		style.transformOrigin = "50% 50%";
+		style.willChange = "transform";
+	}
+	return { id: name, keyframesCss, layers: [layer], style };
+}
+
+function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions): AnimationResult {
 	const d = cfg.duration ?? 200;
 	const ease = EASE[cfg.ease ?? ""] ?? cfg.ease ?? "ease-out";
 	const iter = cfg.iterations ?? cfg.repeat ?? 1;
 	const delayMs = cfg.delay ?? 0;
+	const effectiveDelayMs = delayMs + (opts?.chainDelayMs ?? 0);
 	const fill = cfg.fill ?? "forwards";
 
-	if (cfg.keyframes && Object.keys(cfg.keyframes).length > 0) {
-		const entries = Object.entries(cfg.keyframes)
-			.map(([k, step]) => {
-				const parsed = typeof step === "string" ? parseKeyframeStepString(step) : (step as KeyframeStep);
-				return [percentKey(k), stepToCss(parsed).join(";")] as [string, string];
-			})
-			.filter(([, css]) => css)
-			.sort((a, b) => {
-				const pct = (x: string) =>
-					x === "0%" ? 0 : x === "100%" ? 100 : parseInt(x.replace("%", ""), 10);
-				return pct(a[0]) - pct(b[0]);
-			});
-		const blocks = entries.map(([pct, css]) => `${pct}{${css}}`).join("");
-		const id = hash(JSON.stringify(cfg.keyframes) + String(d) + ease);
-		const name = `fw-kf-${id}`;
-		const css = `@keyframes ${name}{${blocks}}`;
-		let animation = `${name} ${d}ms ${ease}`;
-		if (delayMs) animation += ` ${delayMs}ms`;
-		if (iter !== 1) animation += ` ${iter === "infinite" ? "infinite" : iter}`;
-		animation += ` ${fill}`;
-
-		const hasScale =
-			cfg.keyframes &&
-			Object.values(cfg.keyframes).some((s) => s && typeof s === "object" && "scale" in s);
-		const style: Record<string, string> = { animation };
-		if (hasScale) {
-			style.transformOrigin = "50% 50%";
-			style.willChange = "transform";
+	const tokenRows = collectTokenKeyframeRows(cfg);
+	if (tokenRows && tokenRows.length > 0) {
+		const entries = buildCumulativeKeyframeEntries(tokenRows, opts, opts?.keyframeStartAcc ?? {});
+		if (entries.length >= 1) {
+			return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
 		}
-		return { id, keyframesCss: css, style };
+	}
+
+	if (cfg.keyframes && Object.keys(cfg.keyframes).length > 0) {
+		const pairs = Object.entries(cfg.keyframes).filter(([, step]) => step != null);
+		const allStrings = pairs.every(([, step]) => typeof step === "string");
+		if (allStrings) {
+			const rows: Array<{ at: number; to: string }> = [];
+			for (const [k, step] of pairs) {
+				const to = String(step).trim();
+				if (to) rows.push({ at: pctLabelToNumber(percentKey(k)), to });
+			}
+			const entries = buildCumulativeKeyframeEntries(rows, opts, opts?.keyframeStartAcc ?? {});
+			if (entries.length >= 1) {
+				return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
+			}
+		} else {
+			const entries = pairs
+				.map(([k, step]) => {
+					const css =
+						typeof step === "string"
+							? stringStepToCss(step, opts)
+							: stepToCss(step as KeyframeStep).join(";");
+					return [percentKey(k), css] as [string, string];
+				})
+				.filter(([, css]) => css)
+				.sort((a, b) => {
+					const pct = (x: string) =>
+						x === "0%" ? 0 : x === "100%" ? 100 : parseInt(x.replace("%", ""), 10);
+					return pct(a[0]) - pct(b[0]);
+				});
+			if (entries.length >= 1) {
+				return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
+			}
+		}
 	}
 
 	let opacity: [number, number] | undefined;
@@ -378,21 +747,24 @@ function createCustomAnimation(cfg: AnimateConfig): AnimationResult {
 		return {};
 	}
 
-	const id = hash(JSON.stringify({ d, ease, from, to }));
-	const name = `fw-kf-${id}`;
+	const name = allocKeyframeName(JSON.stringify({ d, ease, from, to, effectiveDelayMs }));
 	const css = `@keyframes ${name}{from{${from.join(";")}}to{${to.join(";")}}}`;
-	let animation = `${name} ${d}ms ${ease}`;
-	if (delayMs) animation += ` ${delayMs}ms`;
-	if (iter !== 1) animation += ` ${iter === "infinite" ? "infinite" : iter}`;
-	animation += ` ${fill}`;
+	const layer: AnimationTimelineLayer = {
+		name,
+		durationMs: d,
+		easing: ease,
+		delayMs: effectiveDelayMs,
+		iteration: iter,
+		fill,
+	};
 
-	const style: Record<string, string> = { animation };
+	const style: Record<string, string> = { ...layersToInlineStyle([layer]) };
 	if (scale || cfg.scaleX != null || cfg.scaleY != null) {
 		style.transformOrigin = "50% 50%";
 		style.willChange = "transform";
 	}
 
-	return { id, keyframesCss: css, style };
+	return { id: name, keyframesCss: css, layers: [layer], style };
 }
 
 export function ensureAnimationCss(): void {

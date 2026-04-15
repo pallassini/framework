@@ -6,7 +6,10 @@ export {
 	ensureAnimationCss,
 	ANIMATION_CSS,
 	type AnimationResult,
+	type AnimationTimelineLayer,
 	type AnimateConfig,
 	type AnimatePreset,
+	type AnimateTrackStop,
+	type BuildAnimationOptions,
 	type KeyframeStep,
 } from "./animations";

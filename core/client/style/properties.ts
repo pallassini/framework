@@ -11,6 +11,7 @@ import { minw } from "./properties/minw";
 import { w } from "./properties/w";
 import * as m from "./properties/margin";
 import * as p from "./properties/padding";
+import { opacity as opacityFn } from "./properties/opacity";
 import { round } from "./properties/round";
 import { text } from "./properties/text";
 import { zIndex } from "./properties/zIndex";
@@ -47,6 +48,7 @@ export const map = styleMap({
   w: w,
   h: h,
   z: zIndex,
+  opacity: opacityFn,
   round: round,
 
   /** Marcatore per figli di `layers`: abilita varianti `layer` su left/right/top/bottom/center*. */
@@ -131,8 +133,9 @@ export const map = styleMap({
       layer: { alignSelf: "center" },
     },
   },
+  /** Solo `center` (senza `row`/`col`/`absolute`/…): centra il box nel viewport (`fixed` + translate). Con `row`/`col` resta allineamento flex sui figli. */
   center: {
-    default: { justifyContent: "center", alignItems: "center" },
+    default: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
     variants: {
       row: { justifyContent: "center", alignItems: "center" },
       col: { justifyContent: "center", alignItems: "center" },

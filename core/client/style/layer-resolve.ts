@@ -45,6 +45,7 @@ export type StyleBaseSegment = string | Conditional<string> | Readonly<Record<st
  *   oppure **`[() => boolean, suffisso]`** (condizione reattiva prima, valore dopo — niente `===` nella chiave).
  *   Merge dopo `base`, sovrascrive le stesse proprietà CSS.
  * - **mob** / **tab** / **des** — token o layer per quel viewport.
+ * - **animate** — preset, oggetto, oppure **array** in sequenza: ogni elemento usa **`to`** (e opz. `track`) come overlay sullo stato corrente; `base` resta il fondo sempre sovrascrivibile.
  */
 export interface StyleLayerInput {
 	base?: string | StyleLayerInput | readonly StyleBaseSegment[] | Readonly<Record<string, unknown>>;
@@ -314,14 +315,40 @@ export function resolveStyleString(
 	return result;
 }
 
-function mergeAnimate(anim: AnimateInput | undefined, into: ResolvedStyle): void {
+function styleSnapshotForKeyframes(style: Record<string, string>): Record<string, string> {
+	const o: Record<string, string> = {};
+	for (const [k, v] of Object.entries(style)) {
+		if (k === "animation" || k.startsWith("animation")) continue;
+		o[k] = v;
+	}
+	return o;
+}
+
+function mergeAnimate(
+	anim: AnimateInput | undefined,
+	into: ResolvedStyle,
+	vp: StyleViewport,
+	extraBases: ReadonlySet<string>,
+): void {
 	if (anim == null) return;
 	ensureAnimationCss();
-	const built = buildAnimation(anim);
+	const built = buildAnimation(anim, {
+		keyframeStartAcc: styleSnapshotForKeyframes(into.style),
+		resolveTokens: (tokenString: string) => {
+			const r = resolveStyleString(tokenString.trim(), vp, extraBases);
+			return { ...r.style };
+		},
+	});
 	if (built.class) into.classes.push(...built.class.split(/\s+/).filter(Boolean));
 	if (built.style) Object.assign(into.style, built.style);
 	if (built.keyframesCss && built.id) {
-		injectRule("fw-kf", built.keyframesCss);
+		const chunks = built.keyframesCss
+			.split(/(?=@keyframes)/g)
+			.map((s) => s.trim())
+			.filter(Boolean);
+		for (const chunk of chunks) {
+			injectRule("fw-kf", chunk);
+		}
 	}
 }
 
@@ -377,7 +404,7 @@ export function resolveStyleLayer(
 	}
 
 	const anim = unwrapConditional<AnimateInput>(layer.animate);
-	mergeAnimate(anim, result);
+	mergeAnimate(anim, result, vp, contextForVp);
 
 	applyPositionedInsetDefaultsResolved(result.style);
 	return result;
