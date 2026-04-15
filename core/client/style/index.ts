@@ -42,6 +42,7 @@ import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
 import { clearMediaBlend, flushMediaBlendAfterStyle } from "../runtime/tag/tags/media/blend";
+import { clearVideoEdgeFade, flushVideoEdgeFadeAfterStyle } from "../runtime/tag/tags/media/video-edge-fade";
 import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
 import { styleViewport } from "./viewport";
 
@@ -83,7 +84,10 @@ function applyReducedMotion(style: Record<string, string>): void {
 }
 
 function clearS(el: El): void {
-	if (el instanceof HTMLElement) clearMediaBlend(el);
+	if (el instanceof HTMLElement) {
+		clearMediaBlend(el);
+		clearVideoEdgeFade(el);
+	}
 	clearMapStyles(el);
 	el.removeAttribute("class");
 	el.removeAttribute("data-fw-layers");
@@ -145,7 +149,10 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 	if (cls) el.setAttribute("class", cls);
 	else el.removeAttribute("class");
 
-	if (el instanceof HTMLElement) flushMediaBlendAfterStyle(el);
+	if (el instanceof HTMLElement) {
+		flushMediaBlendAfterStyle(el);
+		flushVideoEdgeFadeAfterStyle(el);
+	}
 }
 
 /** Applica `s` (stringa, layer oggetto, numero) al viewport corrente. */

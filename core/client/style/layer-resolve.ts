@@ -77,6 +77,46 @@ export const RESERVED_LAYER_KEYS = new Set([
 	"transition",
 ]);
 
+function mergeBaseSets(ancestor: ReadonlySet<string> | undefined, own: ReadonlySet<string>): Set<string> {
+	const out = new Set<string>();
+	if (ancestor) for (const b of ancestor) out.add(b);
+	for (const b of own) out.add(b);
+	return out;
+}
+
+/**
+ * Token base (`col`, `row`, …) già presenti nel `base` del layer: servono a `resolveToken` per le varianti
+ * quando `mob`/`tab`/`des` è una stringa separata (altrimenti `centerX` non vede `col` e usa solo `default`).
+ */
+function collectBasesFromStyleBase(base: StyleLayerInput["base"], vp: StyleViewport): Set<string> {
+	const out = new Set<string>();
+	if (base == null) return out;
+	if (typeof base === "string") {
+		const active = activeTokensFromString(base, vp);
+		for (const t of tokenizeStyleString(active)) out.add(parseStyleToken(t).base);
+		return out;
+	}
+	if (Array.isArray(base)) {
+		for (const item of base) {
+			if (item == null || item === false) continue;
+			const u = unwrapConditional<string>(item);
+			if (u === undefined) continue;
+			const active = activeTokensFromString(u, vp);
+			for (const t of tokenizeStyleString(active)) out.add(parseStyleToken(t).base);
+		}
+		return out;
+	}
+	const condensed = condenseConditionalTokenMap(base as Record<string, unknown>);
+	if (condensed !== null) {
+		if (condensed !== undefined) {
+			const active = activeTokensFromString(condensed, vp);
+			for (const t of tokenizeStyleString(active)) out.add(parseStyleToken(t).base);
+		}
+		return out;
+	}
+	return collectBasesFromStyleBase((base as StyleLayerInput).base, vp);
+}
+
 /** Chiave riservata in una mappa token→condizione: token stringa sempre inclusi (equivalente a `: true` su ogni token). */
 export const STYLE_BASE_ALWAYS_KEY = "__";
 
@@ -247,7 +287,11 @@ function hasLayersInActive(active: string): boolean {
 	return tokenizeStyleString(active).some((t) => parseStyleToken(t).base === "layers");
 }
 
-export function resolveStyleString(str: string, vp: StyleViewport): ResolvedStyle {
+export function resolveStyleString(
+	str: string,
+	vp: StyleViewport,
+	extraBasesForVariants?: ReadonlySet<string>,
+): ResolvedStyle {
 	const result = emptyResolved();
 	const active = activeTokensFromString(str, vp);
 	if (!active.trim()) return result;
@@ -261,7 +305,7 @@ export function resolveStyleString(str: string, vp: StyleViewport): ResolvedStyl
 	}
 
 	if (known.length) {
-		const props = resolveClasses(map, known.join(" "));
+		const props = resolveClasses(map, known.join(" "), extraBasesForVariants);
 		Object.assign(result.style, propsToStrings(props));
 	}
 	result.classes = passthrough;
@@ -281,8 +325,14 @@ function mergeAnimate(anim: AnimateInput | undefined, into: ResolvedStyle): void
 	}
 }
 
-export function resolveStyleLayer(layer: StyleLayerInput, vp: StyleViewport): ResolvedStyle {
+export function resolveStyleLayer(
+	layer: StyleLayerInput,
+	vp: StyleViewport,
+	/** Basi ereditate da un layer padre (viewport annidato). */
+	ancestorBases?: ReadonlySet<string>,
+): ResolvedStyle {
 	const result = emptyResolved();
+	const contextForVp = mergeBaseSets(ancestorBases, collectBasesFromStyleBase(layer.base, vp));
 
 	if (layer.base != null) {
 		const b = layer.base;
@@ -300,7 +350,7 @@ export function resolveStyleLayer(layer: StyleLayerInput, vp: StyleViewport): Re
 			if (condensed !== null) {
 				if (condensed !== undefined) mergeInto(result, resolveStyleString(condensed, vp));
 			} else {
-				mergeInto(result, resolveStyleLayer(b as StyleLayerInput, vp));
+				mergeInto(result, resolveStyleLayer(b as StyleLayerInput, vp, ancestorBases));
 			}
 		}
 	}
@@ -312,7 +362,9 @@ export function resolveStyleLayer(layer: StyleLayerInput, vp: StyleViewport): Re
 	const vpRaw = layer[vp];
 	if (vpRaw != null) {
 		const sub =
-			typeof vpRaw === "string" ? resolveStyleString(vpRaw, vp) : resolveStyleLayer(vpRaw as StyleLayerInput, vp);
+			typeof vpRaw === "string"
+				? resolveStyleString(vpRaw, vp, contextForVp)
+				: resolveStyleLayer(vpRaw as StyleLayerInput, vp, contextForVp);
 		mergeInto(result, sub);
 	}
 

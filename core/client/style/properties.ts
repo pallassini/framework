@@ -51,6 +51,10 @@ export const map = styleMap({
   relative: { position: "relative" },
   fixed: { position: "fixed" },
   sticky: { position: "sticky" },
+  /** Box assoluto inset 0 (come layer meteors sotto `relative`). */
+  fill: { position: "absolute", inset: "0" },
+  "overflow-hidden": { overflow: "hidden" },
+  "no-events": { pointerEvents: "none" },
   layers: {
     display: "grid",
     gridTemplateColumns: "1fr",

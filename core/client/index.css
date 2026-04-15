@@ -17,6 +17,11 @@ body,
 	color: #f5f5f5;
 }
 
+/* Stacking: figli con z-index negativo (es. Meteors `fill`) restano sopra lo sfondo di #root. */
+#root {
+	isolation: isolate;
+}
+
 /* Stack: tutti i figli nella stessa cella (inline map applica `layers` sul contenitore).
  Niente `isolation` qui: altrimenti il blend del video non compone con lo sfondo dietro la sezione. */
 [data-fw-layers] > * {

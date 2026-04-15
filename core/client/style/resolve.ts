@@ -133,9 +133,15 @@ export function applyPositionedInsetDefaultsResolved(style: Record<string, strin
 }
 
 /** Una stringa class (`m-2 flex …`): merge di tutti i `Properties` risolti. */
-export function resolveClasses<M extends Record<string, unknown>>(map: M, classNames: string): Properties {
+export function resolveClasses<M extends Record<string, unknown>>(
+	map: M,
+	classNames: string,
+	/** Basi da altri segmenti dello stesso layer (es. `base: "col"` quando si risolve solo `mob: "centerX"`). */
+	extraBases?: ReadonlySet<string>,
+): Properties {
 	const tokens = tokenizeStyleString(classNames);
 	const bases = new Set(tokens.map((t) => parseStyleToken(t).base));
+	if (extraBases) for (const b of extraBases) bases.add(b);
 
 	let acc: Properties = {};
 	for (const token of tokens) {
