@@ -13,7 +13,9 @@ export function setClientRoundScale(scale: ClientRoundScale | undefined): void {
 	clientRoundScale = scale;
 }
 
-export function round(suffix: string): Properties | undefined {
+export function round(suffix: string, ctx?: { negative?: boolean }): Properties | undefined {
+	if (ctx?.negative) return undefined;
+	if (suffix === "circle") return { borderRadius: "50%" };
 	if (clientRoundScale) {
 		const row = clientRoundScale[suffix];
 		if (row) {

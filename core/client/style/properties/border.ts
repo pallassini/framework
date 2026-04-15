@@ -3,7 +3,8 @@ import { resolveColorToken } from "./utils/color";
 import { resolveSpacingToken } from "./utils/units";
 
 /** Larghezza (`b-2vh`, `b-1px`) o colore (`b-#fff`, `b-rgba(...)`). Senza suffisso: `1px solid`. */
-export function border(suffix: string): Properties | undefined {
+export function border(suffix: string, ctx?: { negative?: boolean }): Properties | undefined {
+	if (ctx?.negative) return undefined;
 	if (!suffix) return { borderStyle: "solid", borderWidth: "1px" };
 
 	const width = resolveSpacingToken(suffix, "box");

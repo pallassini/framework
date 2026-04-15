@@ -21,6 +21,7 @@ export const clientConfig = {
 
   // STYLE
   style: {
+    smoothScroll: true,
     text: {
       "1": {
         mob: "clamp(0.75rem, 0.71rem + 0.2vw, 0.8125rem)",

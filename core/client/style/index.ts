@@ -1,11 +1,19 @@
 import "./client-config-style";
-export { map, styleMap, type StyleGroup, type StyleResolver, type StyleVariantKey } from "./properties";
+export type { SmoothScrollConfig, SmoothScrollTune } from "./smooth-scroll";
+export {
+	map,
+	styleMap,
+	type StyleGroup,
+	type StyleResolver,
+	type StyleResolverContext,
+	type StyleVariantKey,
+} from "./properties";
 export { resolveClasses, resolveToken, parseStyleToken } from "./resolve";
+export { tokenizeStyleString } from "./tokenize-style";
 export {
 	resolveStyleInput,
 	resolveStyleString,
 	activeTokensFromString,
-	tokenizeStyleString,
 	unwrapConditional,
 	condenseConditionalTokenMap,
 	STYLE_BASE_ALWAYS_KEY,
@@ -16,13 +24,24 @@ export {
 	type AnimateInput,
 	type ResolvedStyle,
 } from "./layer-resolve";
-export type { StyleViewport } from "./viewport";
-export { mob, tab, des, getViewportSize, BREAKPOINTS, styleViewport } from "./viewport";
+export type { StyleViewport, Device } from "./viewport";
+export {
+	viewport,
+	mob,
+	tab,
+	des,
+	getViewportSize,
+	BREAKPOINTS,
+	styleViewport,
+	device,
+	onlyDes,
+} from "./viewport";
 export type { AnimateConfig, AnimatePreset, KeyframeStep, AnimationResult, TransitionConfig } from "./animation";
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
+import { clearMediaBlend, flushMediaBlendAfterStyle } from "../runtime/tag/tags/media/blend";
 import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
 import { styleViewport } from "./viewport";
 
@@ -64,6 +83,7 @@ function applyReducedMotion(style: Record<string, string>): void {
 }
 
 function clearS(el: El): void {
+	if (el instanceof HTMLElement) clearMediaBlend(el);
 	clearMapStyles(el);
 	el.removeAttribute("class");
 	el.removeAttribute("data-fw-layers");
@@ -124,6 +144,8 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 	const cls = resolved.classes.filter(Boolean).join(" ");
 	if (cls) el.setAttribute("class", cls);
 	else el.removeAttribute("class");
+
+	if (el instanceof HTMLElement) flushMediaBlendAfterStyle(el);
 }
 
 /** Applica `s` (stringa, layer oggetto, numero) al viewport corrente. */

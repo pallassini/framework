@@ -10,10 +10,16 @@ import {
 } from "./animation";
 import type { StyleGroup } from "./properties";
 import { map } from "./properties";
-import { parseStyleToken, resolveClasses, resolveToken } from "./resolve";
+import {
+	applyPositionedInsetDefaultsResolved,
+	parseStyleToken,
+	resolveClasses,
+	resolveToken,
+} from "./resolve";
 import { isSignal, type Signal } from "../state/state/signal";
 import { isStyleEqDescriptor } from "./styleEq";
 import type { StyleViewport } from "./viewport";
+import { tokenizeStyleString } from "./tokenize-style";
 
 // ─── Tipi `s` ───────────────────────────────────────────────────────────────
 
@@ -224,45 +230,6 @@ function applyLayerMapKeys(layer: StyleLayerInput, target: Properties): void {
 
 // ─── Stringa token ───────────────────────────────────────────────────────────
 
-/** Token con spazi; blocchi `mob:(...)` bilanciati sulle parentesi. */
-export function tokenizeStyleString(input: string): string[] {
-	const s = input.trim();
-	const out: string[] = [];
-	let i = 0;
-	while (i < s.length) {
-		while (i < s.length && /\s/.test(s[i]!)) i++;
-		if (i >= s.length) break;
-		const slice = s.slice(i);
-		const m = slice.match(/^(mob|tab|des):/);
-		if (m) {
-			const openIdx = i + m[0]!.length;
-			if (s[openIdx] !== "(") {
-				let j = i;
-				while (j < s.length && !/\s/.test(s[j]!)) j++;
-				out.push(s.slice(i, j));
-				i = j;
-				continue;
-			}
-			let depth = 1;
-			let j = openIdx + 1;
-			while (j < s.length && depth > 0) {
-				const ch = s[j]!;
-				if (ch === "(") depth++;
-				else if (ch === ")") depth--;
-				j++;
-			}
-			out.push(s.slice(i, j));
-			i = j;
-		} else {
-			let j = i;
-			while (j < s.length && !/\s/.test(s[j]!)) j++;
-			out.push(s.slice(i, j));
-			i = j;
-		}
-	}
-	return out;
-}
-
 export function activeTokensFromString(str: string, vp: StyleViewport): string {
 	const parts: string[] = [];
 	for (const t of tokenizeStyleString(str)) {
@@ -277,8 +244,7 @@ export function activeTokensFromString(str: string, vp: StyleViewport): string {
 }
 
 function hasLayersInActive(active: string): boolean {
-	const tokens = active.trim().split(/\s+/).filter(Boolean);
-	return tokens.some((t) => parseStyleToken(t).base === "layers");
+	return tokenizeStyleString(active).some((t) => parseStyleToken(t).base === "layers");
 }
 
 export function resolveStyleString(str: string, vp: StyleViewport): ResolvedStyle {
@@ -286,7 +252,7 @@ export function resolveStyleString(str: string, vp: StyleViewport): ResolvedStyl
 	const active = activeTokensFromString(str, vp);
 	if (!active.trim()) return result;
 
-	const tokens = active.trim().split(/\s+/).filter(Boolean);
+	const tokens = tokenizeStyleString(active);
 	const known: string[] = [];
 	const passthrough: string[] = [];
 	for (const t of tokens) {
@@ -300,6 +266,7 @@ export function resolveStyleString(str: string, vp: StyleViewport): ResolvedStyl
 	}
 	result.classes = passthrough;
 	result.layers = hasLayersInActive(active);
+	applyPositionedInsetDefaultsResolved(result.style);
 	return result;
 }
 
@@ -360,6 +327,7 @@ export function resolveStyleLayer(layer: StyleLayerInput, vp: StyleViewport): Re
 	const anim = unwrapConditional<AnimateInput>(layer.animate);
 	mergeAnimate(anim, result);
 
+	applyPositionedInsetDefaultsResolved(result.style);
 	return result;
 }
 

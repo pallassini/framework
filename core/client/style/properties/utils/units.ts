@@ -13,17 +13,30 @@ export function isSpacingKeyword(s: string): boolean {
 
 export type { SpacingScaleKind };
 
+function negateSpacingCssValue(v: string): string | null {
+	if (v === "auto") return null;
+	if (isCssVarToken(v)) return `calc(${v} * -1)`;
+	if (v === "0") return "0";
+	return `-${v}`;
+}
+
 /**
  * Suffisso → valore CSS: keyword, lunghezze esplicite, `var()`, scala **1–5** (`kind` decide vw/vh/vmin…).
+ * Con `negative`, il valore è invertito di segno (`-mt-11vh` → `-11vh`; `auto` non è ammesso).
  */
-export function resolveSpacingToken(s: string, kind: SpacingScaleKind = "box"): string | null {
-	if (isSpacingKeyword(s)) return s;
-	if (CSS_LENGTH_RE.test(s)) return s;
-	if (isCssVarToken(s)) return s;
-	const step = parseScaleSuffix(s);
-	if (step != null) {
-		const v = scaleStep(kind, step);
-		if (v) return v;
+export function resolveSpacingToken(s: string, kind: SpacingScaleKind = "box", negative?: boolean): string | null {
+	let out: string | null = null;
+	if (isSpacingKeyword(s)) out = s;
+	else if (CSS_LENGTH_RE.test(s)) out = s;
+	else if (isCssVarToken(s)) out = s;
+	else {
+		const step = parseScaleSuffix(s);
+		if (step != null) {
+			const v = scaleStep(kind, step);
+			if (v) out = v;
+		}
 	}
-	return null;
+	if (out == null) return null;
+	if (!negative) return out;
+	return negateSpacingCssValue(out);
 }

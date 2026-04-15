@@ -1,6 +1,8 @@
 import type { UiNode } from "../../runtime/tag/props";
-import { replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
+import { onNodeDispose, replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
+import { watch } from "../../state/effect";
 import { pruneRouteLocalsExcept } from "../../state/local";
+import { viewport } from "../../style/viewport";
 import { getRouteLoader, loadRouteModuleFresh } from "./routes";
 import {
 	emptyRoutePage,
@@ -33,8 +35,10 @@ export function createRenderer(
 	rootEl: HTMLElement,
 	shellRef: { current: Shell },
 	rootMounted: { current: boolean },
+	shellMountOut?: { current: HTMLElement | null },
 ) {
 	let gen = 0;
+	let shellWatchStop: (() => void) | null = null;
 
 	async function render(path: string, opts: RenderOptions = {}): Promise<void> {
 		const isHmr = opts.hmr === true;
@@ -48,7 +52,23 @@ export function createRenderer(
 		}
 
 		if (!rootMounted.current) {
-			mount(shellRef.current(RouteProxy), rootEl);
+			rootEl.replaceChildren();
+			const shellMount = document.createElement("span");
+			shellMount.style.display = "contents";
+			rootEl.appendChild(shellMount);
+			if (shellMountOut) shellMountOut.current = shellMount;
+
+			shellWatchStop?.();
+			shellWatchStop = watch(() => {
+				void viewport.device();
+				mount(shellRef.current(RouteProxy), shellMount);
+			});
+			onNodeDispose(shellMount, () => {
+				shellWatchStop?.();
+				shellWatchStop = null;
+				if (shellMountOut) shellMountOut.current = null;
+			});
+
 			rootMounted.current = true;
 		}
 
@@ -101,6 +121,9 @@ export function createRenderer(
 
 	function invalidate(): void {
 		gen++;
+		shellWatchStop?.();
+		shellWatchStop = null;
+		if (shellMountOut) shellMountOut.current = null;
 		rootMounted.current = false;
 	}
 

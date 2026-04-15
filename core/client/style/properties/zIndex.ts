@@ -4,9 +4,12 @@ import type { Properties } from "csstype";
 const Z_TOP = 2_147_483_647;
 const Z_BACK = -2_147_483_647;
 
-export function zIndex(suffix: string): Properties | undefined {
-	if (suffix === "top") return { zIndex: Z_TOP };
-	if (suffix === "back") return { zIndex: Z_BACK };
-	if (/^\d+$/.test(suffix)) return { zIndex: Number(suffix) };
+export function zIndex(suffix: string, ctx?: { negative?: boolean }): Properties | undefined {
+	if (suffix === "top") return ctx?.negative ? undefined : { zIndex: Z_TOP };
+	if (suffix === "back") return ctx?.negative ? undefined : { zIndex: Z_BACK };
+	if (/^\d+$/.test(suffix)) {
+		const n = Number(suffix);
+		return { zIndex: ctx?.negative ? -n : n };
+	}
 	return undefined;
 }

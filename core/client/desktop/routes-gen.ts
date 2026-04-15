@@ -3,16 +3,11 @@
  * Non modificare a mano.
  */
 
-import { default as _devtools_db, rowDelete as _devtools_db_rowDelete, rowUpdate as _devtools_db_rowUpdate } from "../../../desktop/routes/_devtools/db/index";
-
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
 	: never;
 
 export type DesktopRoutes = {
-	"_devtools.db": InferRoute<typeof _devtools_db>;
-	"_devtools.db.rowDelete": InferRoute<typeof _devtools_db_rowDelete>;
-	"_devtools.db.rowUpdate": InferRoute<typeof _devtools_db_rowUpdate>;
 };
 
 export type DesktopPath = keyof DesktopRoutes & string;

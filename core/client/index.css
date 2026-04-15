@@ -11,10 +11,40 @@ body,
 #root {
 	margin: 0;
 	padding: 0;
+	min-height: 100%;
 	font-family: "Outfit", system-ui, sans-serif;
-}
-/* Stack: tutti i figli nella stessa cella (inline map applica `layers` sul contenitore). */
-[data-fw-layers] > * {
-	grid-area: 1 / 1;
+	background: var(--background, #050505);
+	color: #f5f5f5;
 }
 
+/* Stack: tutti i figli nella stessa cella (inline map applica `layers` sul contenitore).
+ Niente `isolation` qui: altrimenti il blend del video non compone con lo sfondo dietro la sezione. */
+[data-fw-layers] > * {
+	grid-area: 1 / 1;
+	position: relative;
+}
+
+/* SCROLLBAR */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    border: 1px solid transparent;
+  }
+  
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+  }

@@ -1,9 +1,12 @@
 import type { Properties } from "csstype";
 import { backgroundColor } from "./properties/background";
+import { blur } from "./properties/blur";
 import { border } from "./properties/border";
 import { font } from "./properties/font";
 import * as g from "./properties/gap";
+import { h } from "./properties/h";
 import { minw } from "./properties/minw";
+import { w } from "./properties/w";
 import * as m from "./properties/margin";
 import * as p from "./properties/padding";
 import { round } from "./properties/round";
@@ -31,9 +34,12 @@ export const map = styleMap({
   gapy: g.gapy,
   b: border,
   bg: backgroundColor,
+  blur: blur,
   text: text,
   font: font,
   minw: minw,
+  w: w,
+  h: h,
   z: zIndex,
   round: round,
 
@@ -45,12 +51,6 @@ export const map = styleMap({
   relative: { position: "relative" },
   fixed: { position: "fixed" },
   sticky: { position: "sticky" },
-
-  // DIRECTION
-  row: { display: "flex", flexDirection: "row" },
-  col: { display: "flex", flexDirection: "column" },
-
-  /** Impila i figli nella stessa cella a griglia, centrati (serve regola CSS su `[data-fw-layers] > *`). */
   layers: {
     display: "grid",
     gridTemplateColumns: "1fr",
@@ -58,6 +58,10 @@ export const map = styleMap({
     placeItems: "center",
     position: "relative",
   },
+
+  // DIRECTION
+  row: { display: "flex", flexDirection: "row" },
+  col: { display: "flex", flexDirection: "column" },
 
   // ALIGNMENT
   left: {
@@ -96,6 +100,7 @@ export const map = styleMap({
       layer: { alignSelf: "end" },
     },
   },
+  /** In riga: centra i figli (`justify-content`). Con `fixed` senza `row`/`col`: centra il box (`left`+`transform`). */
   centerX: {
     default: { justifyContent: "center" },
     variants: {
@@ -128,18 +133,23 @@ export const map = styleMap({
 // TYPES
 type MapEntry = (typeof map)[keyof typeof map];
 
-export type StyleVariantKey = MapEntry extends { default: StyleResolver | Properties; variants?: infer V }
-	? V extends Record<string, unknown>
-		? keyof V & string
-		: never
-	: never;
+export type StyleVariantKey = MapEntry extends {
+  default: StyleResolver | Properties;
+  variants?: infer V;
+}
+  ? V extends Record<string, unknown>
+    ? keyof V & string
+    : never
+  : never;
 
 export type * from "./properties/utils/color";
-export type StyleResolver = (suffix: string) => Properties | undefined;
+export type StyleResolverContext = { negative?: boolean };
+
+export type StyleResolver = (suffix: string, ctx?: StyleResolverContext) => Properties | undefined;
 
 export type StyleGroup = {
-	default: StyleResolver | Properties;
-	variants?: Partial<Record<string, Properties | StyleResolver>>;
+  default: StyleResolver | Properties;
+  variants?: Partial<Record<string, Properties | StyleResolver>>;
 };
 
 type StyleMapEntry = Properties | StyleResolver | StyleGroup;

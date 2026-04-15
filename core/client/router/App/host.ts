@@ -20,14 +20,20 @@ type AppBridge = {
 	rootEl: HTMLElement;
 	shellRef: { current: Shell };
 	rootMounted: { current: boolean };
+	shellMountRef: { current: HTMLElement | null };
 	render: (path: string, opts?: { hmr?: boolean }) => Promise<void>;
 	invalidate: () => void;
 	unbind: () => void;
 };
 
-function remountShell(rootEl: HTMLElement, shell: Shell, rootMounted: boolean): void {
+function remountShell(
+	shell: Shell,
+	rootMounted: boolean,
+	shellMount: HTMLElement | null,
+	fallbackRoot: HTMLElement,
+): void {
 	if (!rootMounted) return;
-	mount(shell(RouteProxy), rootEl);
+	mount(shell(RouteProxy), shellMount ?? fallbackRoot);
 }
 
 /** 1. Ritorna `true` se c’è già un runtime (HMR del modulo client). */
@@ -44,16 +50,17 @@ export function resumeAfterClientHmr(shell: Shell): boolean {
 export function setupRendererAndNav(shell: Shell, rootEl: HTMLElement): AppBridge {
 	const shellRef = { current: shell };
 	const rootMounted = { current: false };
-	const { render, invalidate } = createRenderer(rootEl, shellRef, rootMounted);
+	const shellMountRef = { current: null as HTMLElement | null };
+	const { render, invalidate } = createRenderer(rootEl, shellRef, rootMounted, shellMountRef);
 	const unbind = bind(rootEl, render);
 	void render(location.pathname);
-	return { rootEl, shellRef, rootMounted, render, invalidate, unbind };
+	return { rootEl, shellRef, rootMounted, shellMountRef, render, invalidate, unbind };
 }
 
 /** 3. Registra `__fwAppRuntime` / `__fwDispose` e hook Vite `hot`. */
 export function primeRuntimeAndHot(bridge: AppBridge): void {
 	const g = globalThis as FwGlobal;
-	const { rootEl, shellRef, rootMounted, render, invalidate, unbind } = bridge;
+	const { rootEl, shellRef, rootMounted, shellMountRef, render, invalidate, unbind } = bridge;
 
 	const dispose = () => {
 		invalidate();
@@ -65,7 +72,7 @@ export function primeRuntimeAndHot(bridge: AppBridge): void {
 		render,
 		setShell(next) {
 			shellRef.current = next;
-			remountShell(rootEl, shellRef.current, rootMounted.current);
+			remountShell(shellRef.current, rootMounted.current, shellMountRef.current, rootEl);
 		},
 		dispose,
 	};

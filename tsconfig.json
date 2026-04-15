@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "jsxImportSource": "jsx-runtime",
-    "types": ["bun", "node"],
+    "types": ["bun", "node", "vite/client"],
     "paths": {
       "client": ["./core/client.ts"],
       "server": ["./core/server.ts"],

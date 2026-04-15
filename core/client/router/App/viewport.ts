@@ -1,6 +1,7 @@
 import type { UiNode } from "../../runtime/tag/props";
 import { watch } from "../../state/effect";
 import { beginRouteLocalFrame } from "../../state/local";
+import { styleViewport } from "../../style/viewport";
 import { toNodes } from "../../runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
 import {
@@ -48,6 +49,7 @@ export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): U
 	anchor.append(ph, ch);
 
 	const dispose = watch(() => {
+		void styleViewport();
 		const phase = routePhase();
 		const asyncFb = routeAsyncFallback();
 		const modLoading = routeModuleLoading();

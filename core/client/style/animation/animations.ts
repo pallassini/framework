@@ -302,8 +302,6 @@ function createCustomAnimation(cfg: AnimateConfig): AnimationResult {
 		if (hasScale) {
 			style.transformOrigin = "50% 50%";
 			style.willChange = "transform";
-			style.backfaceVisibility = "hidden";
-			style.isolation = "isolate";
 		}
 		return { id, keyframesCss: css, style };
 	}

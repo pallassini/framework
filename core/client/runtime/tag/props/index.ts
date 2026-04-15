@@ -35,7 +35,11 @@ export type SharedProps = ClientEvents & {
 	 * o tupla `[() => boolean, suffisso]` / `[suffisso, () => boolean]` per applicare la proprietà solo quando la condizione è vera.
 	 */
 	s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
-	/** Visibilità reattiva (prop su qualsiasi elemento). */
+	/**
+	 * Visibilità reattiva: `Signal`, funzione `() => …`, booleano.
+	 * Su `<t>` / `<div>`: come `<show>` (watch + `readWhen`).
+	 * I branch viewport sono signal: usa `mob()`, `show={!mob()}`, `show={() => device() === "mob"}`, ecc. (`!mob` da solo è sempre falso: `mob` è una funzione).
+	 */
 	show?: unknown;
 	[key: string]: unknown;
 };

@@ -24,6 +24,9 @@ export { FW_DB_SCHEMA_RELOAD_EVENT } from "./fw-db-schema-reload-event";
 import type { DesktopPath, DesktopRouteOut } from "./client/desktop";
 export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 
+// STYLE (viewport) — stesso meccanismo di `state` (`createState` + `viewport.device()` …)
+export { viewport, device, mob, tab, des, onlyDes } from "./client/style";
+
 // JSX COMPONENTS
 export { For } from "./client/runtime/tag";
 

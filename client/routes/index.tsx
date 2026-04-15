@@ -1,7 +1,9 @@
+import Hero from "./_components/hero";
+
 export default function Home() {
   return (
     <>
-      <img src="./_assets/flow.webp"/>
+      <Hero/>
     </>
   );
 }

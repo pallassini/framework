@@ -1,8 +1,6 @@
-import { watch } from "../../../state/effect";
-import { toNodes } from "../../logic/children";
-import { onNodeDispose, replaceChildrenWithDispose } from "../../logic/lifecycle";
+import { onNodeDispose } from "../../logic/lifecycle";
 import { applyDomProps } from "../../logic/dom-props";
-import { readWhen } from "../../logic/read-when";
+import { watchConditionalChildren } from "../../logic/conditional-children";
 import type { DomProps, SharedProps, UiNode } from "../props";
 
 export type ShowProps = SharedProps & {
@@ -18,16 +16,7 @@ export function show(props: ShowProps): UiNode {
 	const { when, fallback, children, ...rest } = props;
 	applyDomProps(anchor, rest as DomProps);
 
-	const dispose = watch(() => {
-		const allowed = readWhen(when);
-		replaceChildrenWithDispose(anchor);
-		if (allowed) {
-			const nodes = toNodes(children);
-			if (nodes.length) anchor.append(...nodes);
-		} else if (fallback != null) {
-			anchor.append(...toNodes(fallback));
-		}
-	});
+	const dispose = watchConditionalChildren(anchor, when, children, fallback);
 	onNodeDispose(anchor, dispose);
 
 	return anchor;
