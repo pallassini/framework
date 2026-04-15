@@ -9,17 +9,17 @@ export default function Hero() {
           base: "",
           mob: "col centerX mt-13vh -ml-5vw gap-3vh",
           tab: "mt-35vh ml-5vw row",
-          des: "mt-13vh ml-10vw row",
+          des: "mt-13vh ml-15vw row",
         }}
       >
         <div s={{ base: "layers", mob: "w-full" }}>
           {/* LIGHT */}
           <div
             s={{
-              base: "z-0 round-circle blur-30px bg-gradient(circle, #fff 40%, rgba(255,255,255,0.4) 55%, rgba(255,255,255,0.15) 70%)",
+              base: "z-0 round-circle blur-30px bg-gradient(circle, #fff 40%, rgba(255,255,255,0.4) 55%, rgba(255,255,255,0.15) 70%) maxw-30rem maxh-30rem",
               mob: "w-88vw h-50vw",
               tab: "w-48vw h-20vw",
-              des: "w-39.5vw h-28vw",
+              des: "w-28.5vw h-23vw",
               animate: {
                 keyframes: {
                   0: { opacity: 0.62, scale: 1 },
@@ -37,13 +37,13 @@ export default function Hero() {
           {/* LOGO */}
         
           <VideoCanvasBorder
-            s={{ base: "z-1", mob: "w-60vw", tab: "w-33vw", des: "w-22vw" }}
+            s={{ base: "z-1 maxw-30rem", mob: "w-60vw", tab: "w-33vw", des: "w-22vw" }}
             src="./_assets/logo.webm"
           />
        
         </div>
         {/* FLOW AGENCY */}
-        <div s={{ base: "col", mob: "mt-7vh ml-8vw", tab: "mt-14vh -ml-2.5vw", des: "mt-14vh -ml-2.5vw" }}>
+        <div s={{ base: "col", mob: "mt-7vh ml-8vw", tab: "mt-14vh -ml-2.5vw", des: "mt-14vh ml-2.5vw" }}>
           <img
             s={{ base: "z-1", mob: "w-60vw", tab: "w-33vw", des: "w-25vw" }}
             src="./_assets/flow.webp"
@@ -61,11 +61,6 @@ export default function Hero() {
             muted
           />
         </div>
-      </div>
-
-      <div s="col">
-        <t s="mt-80vh">FLOW AGENCY</t>
-        <t s="mt-80vh">FLOW AGENCY</t>
       </div>
     </>
   );

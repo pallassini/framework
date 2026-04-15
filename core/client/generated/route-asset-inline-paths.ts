@@ -3,4 +3,5 @@
 export type RouteAssetInlineSrc =
 	| "routes/_components/hero/_assets/agency.webm"
 	| "routes/_components/hero/_assets/flow.webp"
-	| "routes/_components/hero/_assets/logo.webm";
+	| "routes/_components/hero/_assets/logo.webm"
+	| "routes/_components/problem/bruciare.webm";

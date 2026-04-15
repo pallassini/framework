@@ -46,7 +46,7 @@ function isStyleGroup(x: unknown): x is StyleGroup {
 }
 
 /** Con `row`/`col`, `justifyContent`/`alignItems` bastano: la variante posizionata aggiungerebbe `left`+`transform` e romperebbe barre `fixed` a tutta larghezza (es. menu). */
-const ALIGN_NO_POSITION_VARIANT_WITH_FLEX = new Set(["centerX", "centerY", "center"]);
+const ALIGN_NO_POSITION_VARIANT_WITH_FLEX = new Set(["centerx", "centery", "centerX", "centerY", "center"]);
 
 function skipPositionVariantForFlex(base: string, variantKey: string, bases: ReadonlySet<string>): boolean {
 	if (variantKey !== "absolute,fixed,sticky") return false;

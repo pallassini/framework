@@ -5,6 +5,8 @@ import { border } from "./properties/border";
 import { font } from "./properties/font";
 import * as g from "./properties/gap";
 import { h } from "./properties/h";
+import { maxh } from "./properties/maxh";
+import { maxw } from "./properties/maxw";
 import { minw } from "./properties/minw";
 import { w } from "./properties/w";
 import * as m from "./properties/margin";
@@ -38,6 +40,10 @@ export const map = styleMap({
   text: text,
   font: font,
   minw: minw,
+  maxw: maxw,
+  maxh: maxh,
+  wmax: maxw,
+  hmax: maxh,
   w: w,
   h: h,
   z: zIndex,
@@ -64,8 +70,10 @@ export const map = styleMap({
   },
 
   // DIRECTION
-  row: { display: "flex", flexDirection: "row" },
+  row: { display: "flex", flexDirection: "row", flexWrap: "wrap" },
   col: { display: "flex", flexDirection: "column" },
+  /** I figli partecipano al layout del nonno (utile a “appiattire” gruppi in una `row` su desktop). */
+  contents: { display: "contents" },
 
   // ALIGNMENT
   left: {
@@ -104,9 +112,9 @@ export const map = styleMap({
       layer: { alignSelf: "end" },
     },
   },
-  /** In riga: centra i figli (`justify-content`). Con `fixed` senza `row`/`col`: centra il box (`left`+`transform`). */
-  centerX: {
-    default: { justifyContent: "center" },
+  /** In riga: centra i figli (`justify-content`). Blocco senza flex: `text-align: center`. Con `fixed` senza `row`/`col`: centra il box (`left`+`transform`). */
+  centerx: {
+    default: { justifyContent: "center", textAlign: "center" },
     variants: {
       row: { justifyContent: "center" },
       col: { alignItems: "center" },
@@ -114,7 +122,7 @@ export const map = styleMap({
       layer: { justifySelf: "center" },
     },
   },
-  centerY: {
+  centery: {
     default: { alignItems: "center" },
     variants: {
       row: { alignItems: "center" },
