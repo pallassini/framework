@@ -1,7 +1,7 @@
 import { des, mob } from "client";
 
-const muted = "text-#565656 des:(text-9) mob:(text-5)";
-const hot = "text-#ff0000 des:(text-10) mob:(text-7)";
+const muted = "text-#8f8f8f des:(text-9) mob:(text-6)";
+const hot = "text-#ff0000 des:(text-10) mob:(text-8)";
 
 export default function Stop() {
   return (
@@ -10,7 +10,7 @@ export default function Stop() {
       <div
         s={{
           base: "row center",
-          mob: "text-5vw",
+          mob: "text-5.5vw",
           tab: "text-2vw",
           des: "text-2vw ",
         }}
@@ -28,9 +28,9 @@ export default function Stop() {
           loop
           muted
         />
-        <t s={{ mob: "-ml-3vw", des: "-ml-2vw" }}>SOLDI {des() ? "IN SOFTWARE MEDIOCRI" : ""}</t>
+        <t s={{ mob: "-ml-3vw ", des: "-ml-2vw" }}>SOLDI {des() ? "IN SOFTWARE MEDIOCRI" : ""}</t>
       </div>
-      <t show={mob()} s="-mt-2rem">
+      <t show={mob()} s="-mt-2rem text-5.5vw">
         IN SOFTWARE MEDIOCRI
       </t>
 
@@ -58,22 +58,18 @@ export default function Stop() {
             </t>
           </div>
           <div s={{ mob: "w-100% centerx", tab: "contents", des: "contents" }}>
-            <t s={{ base: hot, mob: "mr-0.5vw", des: "mr-0.5vw" }}>poco performanti</t>{" "}
+            <t s={{ base: hot, mob: "mr-0.5vw", des: "mr-0.5vw ml-0.5vw" }}>poco performanti</t>{" "}
             <t s={{ base: muted, mob: "mr-0.5vw", des: "mr-0.5vw" }}> e </t>{" "}
-            <t s={hot}> non scalabili</t>
+            <t s={hot}> impossibili da scalare</t>
           </div>
         </div>
         <div
           s={{
             base: "row centerx bottom font-5 gapx-2",
-            mob: "text-4 w-100% centerx",
-            tab: "text-5",
-            des: "text-6",
           }}
         >
-          <t s={muted}>e poi te le fanno pagare</t>
+          <t s={muted}>e te le fanno pagare</t>
           <t s={hot}>20k</t>
-          <t s={muted}>.</t>
         </div>
       </div>
     </div>
