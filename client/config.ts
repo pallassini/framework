@@ -21,6 +21,7 @@ export const clientConfig = {
 
   // STYLE
   style: {
+    /** Stile tipo Lenis (Halo Lab): lerp unico, niente “strisciamento” solo in coda. */
     smoothScroll: true,
     text: {
       "1": {

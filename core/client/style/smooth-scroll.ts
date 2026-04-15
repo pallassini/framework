@@ -12,20 +12,40 @@ declare global {
 }
 
 export type SmoothScrollTune = {
-	/** Damping strength (higher = snappier). Default `0.14`. */
+	/** Damping strength (higher = snappier). Default `0.11` (~Lenis). */
 	lerp?: number;
-	/** Wheel delta scale. Default `0.75`. */
+	/** Wheel delta scale. Default `0.78`. */
 	wheelMultiplier?: number;
 	/** Touch delta scale. Default `0.85`. */
 	touchMultiplier?: number;
+	/**
+	 * Distanza (px) dal target entro cui l’inerzia si ammorbidisce (ease-out).
+	 * Più alto = rampa più lunga (solo con `easeOutLerpMin < 1`). Default `420`.
+	 */
+	easeOutRange?: number;
+	/**
+	 * Moltiplicatore minimo del `lerp` quando si è vicini al target (`0`–`1`).
+	 * `1` = disattivato (comportamento tipo Lenis: solo smorzamento esponenziale). Default `1`.
+	 */
+	easeOutLerpMin?: number;
+	/**
+	 * Curva sulla distanza in `easeOutRange`: `>1` sposta parte del rallentamento “più in alto” (meno tutto in coda).
+	 * Usato solo se `easeOutLerpMin < 1`. Default `1.22`.
+	 */
+	easeOutGamma?: number;
 };
 
 /** `false` off; `true` or `{}` defaults; object merges with defaults. `undefined` → on with defaults. */
 export type SmoothScrollConfig = false | true | SmoothScrollTune;
 
-const DEFAULT_LERP = 0.14;
-const DEFAULT_WHEEL_MULT = 0.75;
+/** Vicino a Lenis (un solo lerp, niente frenata extra in coda). */
+const DEFAULT_LERP = 0.11;
+const DEFAULT_WHEEL_MULT = 0.78;
 const DEFAULT_TOUCH_MULT = 0.85;
+const DEFAULT_EASE_OUT_RANGE = 420;
+/** `1` = curve easing extra disabilitata (come la maggior parte dei siti con Lenis). */
+const DEFAULT_EASE_OUT_LERP_MIN = 1;
+const DEFAULT_EASE_OUT_GAMMA = 1.22;
 
 function clamp(v: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, v));
@@ -36,19 +56,34 @@ function damp(current: number, target: number, lambda: number, dtSeconds: number
 	return target + (current - target) * Math.exp(-lambda * dtSeconds);
 }
 
-function resolveTune(config: SmoothScrollConfig | undefined): { lerp: number; wheelMultiplier: number; touchMultiplier: number } | null {
+function resolveTune(
+	config: SmoothScrollConfig | undefined,
+): {
+	lerp: number;
+	wheelMultiplier: number;
+	touchMultiplier: number;
+	easeOutRange: number;
+	easeOutLerpMin: number;
+	easeOutGamma: number;
+} | null {
 	if (config === false) return null;
 	if (config === true || config === undefined) {
 		return {
 			lerp: DEFAULT_LERP,
 			wheelMultiplier: DEFAULT_WHEEL_MULT,
 			touchMultiplier: DEFAULT_TOUCH_MULT,
+			easeOutRange: DEFAULT_EASE_OUT_RANGE,
+			easeOutLerpMin: DEFAULT_EASE_OUT_LERP_MIN,
+			easeOutGamma: DEFAULT_EASE_OUT_GAMMA,
 		};
 	}
 	return {
 		lerp: config.lerp ?? DEFAULT_LERP,
 		wheelMultiplier: config.wheelMultiplier ?? DEFAULT_WHEEL_MULT,
 		touchMultiplier: config.touchMultiplier ?? DEFAULT_TOUCH_MULT,
+		easeOutRange: config.easeOutRange ?? DEFAULT_EASE_OUT_RANGE,
+		easeOutLerpMin: config.easeOutLerpMin ?? DEFAULT_EASE_OUT_LERP_MIN,
+		easeOutGamma: config.easeOutGamma ?? DEFAULT_EASE_OUT_GAMMA,
 	};
 }
 
@@ -66,7 +101,7 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 
 	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-	const { lerp, wheelMultiplier, touchMultiplier } = tune;
+	const { lerp, wheelMultiplier, touchMultiplier, easeOutRange, easeOutLerpMin, easeOutGamma } = tune;
 
 	let current = window.scrollY;
 	let target = window.scrollY;
@@ -110,8 +145,15 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 		const dt = Math.max(0.001, (now - lastTime) / 1000);
 		lastTime = now;
 
-		const next = damp(current, target, lerp * 60, dt);
-		const done = Math.abs(next - target) <= 0.2;
+		const err = Math.abs(current - target);
+		let lerpMult = 1;
+		if (easeOutLerpMin < 1 - 1e-6 && easeOutRange > 0) {
+			const easeT = Math.min(1, err / easeOutRange);
+			const shaped = Math.pow(easeT, easeOutGamma);
+			lerpMult = easeOutLerpMin + (1 - easeOutLerpMin) * shaped;
+		}
+		const next = damp(current, target, lerp * 60 * lerpMult, dt);
+		const done = Math.abs(next - target) <= 0.35;
 
 		current = done ? target : next;
 

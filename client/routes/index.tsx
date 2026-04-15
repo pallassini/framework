@@ -9,6 +9,13 @@ export default function Home() {
       <div s={{ des: "mt-30vh", mob: "mt-10vh" }}>
         <Problem />
       </div>
+    <div s='col'>
+      <t s="mt-80vh">dwdw</t>
+      <t s="mt-80vh">dwdw</t>
+      <t s="mt-80vh">dwdw</t>
+      <t s="mt-80vh">dwdw</t>
+      
+    </div>
     </>
   );
 }
