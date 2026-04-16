@@ -112,13 +112,18 @@ export default function FlowAgencyDes() {
             }}
           >
             <img
-              s={{ base: "z-1", mob: "w-60vw", tab: "w-33vw", des: "w-25vw" }}
+              s={{
+                base: "z-1 maxw-40rem",
+                mob: "w-60vw",
+                tab: "w-33vw",
+                des: "w-25vw",
+              }}
               src="../assets/flow.webp"
             />
           </div>
           <video
             s={{
-              base: "z-1 opacity-0",
+              base: "z-1 opacity-0 maxw-60rem",
               mob: "w-98vw -mt-6vh -ml-2vw",
               tab: "w-33vw -mt-1vh",
               des: "w-40vw -mt-10vh -ml-0.5vw",
