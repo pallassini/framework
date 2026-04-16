@@ -9,10 +9,10 @@ export default function Hero() {
           base: "w-80vw h-70vh",
           mob: "col centerX mt-13vh -ml-5vw gap-3vh ",
           tab: "mt-35vh ml-5vw row",
-          des: "mt-13vh row center",
+          des: "mt-13vh ml-10vw row center",
         }}
       >
-        <div s={{ base: "layers", mob: "w-full" }}>
+        <div s={{ base: "layers", mob: "ml-5vw" }}>
           {/* LIGHT */}
           <div
             s={{
@@ -62,6 +62,7 @@ export default function Hero() {
           />
         </div>
       </div>
+      
     </>
   );
 }
