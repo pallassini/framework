@@ -1,7 +1,7 @@
-import { applyStyle, type StyleInput } from "../../../../core/client/style";
-import { onNodeDispose } from "../../../../core/client/runtime/logic/lifecycle";
-import type { Node } from "../../../../core/client/runtime/logic/jsx-runtime";
-import { watch, type Signal } from "../../../../core/client/state";
+import { applyStyle, type StyleInput } from "../../../../../core/client/style";
+import { onNodeDispose } from "../../../../../core/client/runtime/logic/lifecycle";
+import type { Node } from "../../../../../core/client/runtime/logic/jsx-runtime";
+import { watch, type Signal } from "../../../../../core/client/state";
 
 /** Colore “nero” da rimuovere se connesso ai bordi (RGB). */
 const TARGET = [3, 3, 3] as const;

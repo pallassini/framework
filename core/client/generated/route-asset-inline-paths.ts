@@ -3,9 +3,10 @@
 export type RouteAssetInlineSrc =
 	| "routes/_components/flowAgency/assets/agency.webm"
 	| "routes/_components/flowAgency/assets/angle.webp"
+	| "routes/_components/flowAgency/assets/flow.webp"
 	| "routes/_components/flowAgency/assets/logo.webm"
 	| "routes/_components/flowAgency/assets/logo.webp"
-	| "routes/_components/hero/_assets/agency.webm"
-	| "routes/_components/hero/_assets/flow.webp"
-	| "routes/_components/hero/_assets/logo.webm"
+	| "routes/_components/flowAgency/mob/_assets/agency.webm"
+	| "routes/_components/flowAgency/mob/_assets/flow.webp"
+	| "routes/_components/flowAgency/mob/_assets/logo.webm"
 	| "routes/_components/problem/bruciare.webm";

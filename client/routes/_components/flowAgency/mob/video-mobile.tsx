@@ -1,7 +1,7 @@
 import { mob } from "client";
-import type { MediaBlendLevel } from "../../../../core/client/runtime/tag/tags/media/blend";
-import type { VideoEdgeFadeOptions } from "../../../../core/client/runtime/tag/tags/media/video-edge-fade";
-import type { VideoProps } from "../../../../core/client/runtime/tag/tags/video";
+import type { MediaBlendLevel } from "../../../../../core/client/runtime/tag/tags/media/blend";
+import type { VideoEdgeFadeOptions } from "../../../../../core/client/runtime/tag/tags/media/video-edge-fade";
+import type { VideoProps } from "../../../../../core/client/runtime/tag/tags/video";
 
 export type VideoMobileProps = Omit<VideoProps, "blend" | "edgeFade"> & {
 	/**

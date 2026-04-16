@@ -1,6 +1,6 @@
 import { device } from "client";
 import FlowAgencyDes from "./des";
-import Hero from "../hero";
+import FlowAgencyMob from "./mob";
 
 export default function FlowAgency() {
   return (
@@ -9,11 +9,8 @@ export default function FlowAgency() {
         <case when={"des"}>
           <FlowAgencyDes />
         </case>
-        <case when={"mob"}>
-          <Hero />
-        </case>
-        <case when={"tab"}>
-          <FlowAgencyDes />
+        <case when={(v) => v === "mob" || v === "tab"}>
+          <FlowAgencyMob />
         </case>
       </switch>
     </>
