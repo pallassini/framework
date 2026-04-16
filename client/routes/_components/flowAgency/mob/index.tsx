@@ -59,7 +59,7 @@ export default function FlowAgencyMob() {
             base: "z-1 maxw-30rem mt-175vh opacity-0 w-12vw",
             animate: [
               {
-                to: "mt-40vh w-20vw opacity-100",
+                to: "mt-30vh w-25vw opacity-100",
                 duration: 920,
                 ease: "cubic-bezier(0.22, 1, 0.88, 1)",
               },
@@ -97,13 +97,13 @@ export default function FlowAgencyMob() {
           <img
             alt=""
             decoding="async"
-            s={{ base: "z-1 maxw-30rem w-60vw mx-5vw" }}
+            s={{ base: "z-1 maxw-30rem w-60vw mx-5vw mt-3vh" }}
             src={MOB_FLOW_WEBP}
           />
         </div>
         <VideoMobile
           s={{
-            base: "relative z-1 maxw-30rem w-98vw -mt-5vh opacity-0",
+            base: "relative z-1 maxw-30rem w-98vw -mt-8vh opacity-0",
             animate: [
               {
                 to: "opacity-100",
