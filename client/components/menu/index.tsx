@@ -8,21 +8,26 @@ export default function Menu() {
           base: "row center gap-10vw weight-600 w-100% fixed top-0 left-0 z-50 h-6vh bg-background text-#fff font-5 text-3 opacity-0",
           mob: "gap-10vw",
           des: "gap-10vw",
-          animate: [
-            { to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 2200 },
-          ],
+          animate: [{ to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 2200 }],
         }}
       >
         <t>APP</t>
         <t>
           SITO<t show={!mob()}> WEB</t>
         </t>
-        <t>EMAIL <t show={!mob()}> PROFESSIONALE</t></t>
+        <t>
+          EMAIL <t show={!mob()}> PROFESSIONALE</t>
+        </t>
         <t click={() => go("/contacts")}>CONTATTI</t>
       </div>
 
       {/* BOTTOM SHADOW */}
-      <div s="fixed mt-6vh  w-100% h-1vh z-40 bg-gradient(180deg, var(--background), transparent) " />
+      <div
+        s={{
+          base: "fixed mt-6vh  w-100% h-1vh z-40 bg-gradient(180deg, var(--background), transparent) opacity-0",
+          animate: [{ to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 2200 }],
+        }}
+      />
     </>
   );
 }

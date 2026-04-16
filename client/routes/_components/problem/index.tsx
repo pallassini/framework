@@ -6,19 +6,9 @@ const hot = "text-#ff0000 des:(text-10) mob:(text-8)";
 export default function Stop() {
   return (
     <div s="col font-6 center">
-      {/* 1st */}
-      <div
-        s={{
-          base: "row center",
-          mob: "text-5.5vw",
-          tab: "text-2vw",
-          des: "text-2vw ",
-        }}
-      >
-        <t>SMETTI DI</t>
-        <video
+       <video
           s={{
-            mob: "w-60vw  -mt-1.2rem -ml-3vw",
+            mob: "w-90vw  -mt-1.4rem -ml-3vw",
             tab: "w-12vw",
             des: "w-30vw -mt-3.5rem -ml-2vw maxw-50rem",
           }}
@@ -28,10 +18,32 @@ export default function Stop() {
           loop
           muted
         />
-        <t s={{ mob: "-ml-3vw ", des: "-ml-2vw" }}>SOLDI {des() ? "IN SOFTWARE MEDIOCRI" : ""}</t>
+      {/* 1st */}
+      <div
+        s={{
+          base: "row center",
+          mob: "text-5.5vw",
+          tab: "text-2vw",
+          des: "text-2vw ",
+        }}
+      >
+        <t>Basta</t>
+        <video
+          s={{
+            mob: "w-70vw  -mt-1.4rem -ml-3vw",
+            tab: "w-12vw",
+            des: "w-30vw -mt-3.5rem -ml-2vw maxw-50rem",
+          }}
+          src="./bruciare.webm"
+          blend
+          autoplay
+          loop
+          muted
+        />
+        <t s={{ mob: "-ml-3vw ", des: "-ml-2vw" }}>soldi {des() ? "in SOFTWARE MEDIOCRI" : ""}</t>
       </div>
       <t show={mob()} s="-mt-2rem text-5.5vw">
-        IN SOFTWARE MEDIOCRI
+        per SOFTWARE MEDIOCRI
       </t>
 
       {/* 2nd+3rd: mob = 3 righe centrate; tab/des = una row bottom + riga 20k */}

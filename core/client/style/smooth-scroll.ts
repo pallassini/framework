@@ -11,6 +11,20 @@ declare global {
 	}
 }
 
+/**
+ * Se `read()` è `true`, wheel/touch non aggiornano lo scroll (es. intro a schermo intero).
+ * `undefined` disattiva il lock.
+ */
+let smoothScrollInteractionLock: (() => boolean) | undefined;
+
+export function setSmoothScrollInteractionLock(read: (() => boolean) | undefined): void {
+	smoothScrollInteractionLock = read;
+}
+
+function isSmoothScrollInteractionLocked(): boolean {
+	return smoothScrollInteractionLock?.() ?? false;
+}
+
 export type SmoothScrollTune = {
 	/** Damping strength (higher = snappier). Default `0.11` (~Lenis). */
 	lerp?: number;
@@ -142,6 +156,21 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 	}
 
 	function tick(now: number): void {
+		if (isSmoothScrollInteractionLocked()) {
+			if (rafId) {
+				cancelAnimationFrame(rafId);
+				rafId = 0;
+			}
+			if (window.scrollY !== 0) {
+				ignoreNativeScroll = true;
+				window.scrollTo(0, 0);
+				ignoreNativeScroll = false;
+			}
+			current = 0;
+			target = 0;
+			return;
+		}
+
 		const dt = Math.max(0.001, (now - lastTime) / 1000);
 		lastTime = now;
 
@@ -181,6 +210,10 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 
 	function onWheel(e: WheelEvent): void {
 		if (e.ctrlKey) return;
+		if (isSmoothScrollInteractionLocked()) {
+			if (e.cancelable) e.preventDefault();
+			return;
+		}
 		const el = e.target instanceof HTMLElement ? e.target : null;
 		if (isInsideScrollable(el)) return;
 		if (e.cancelable) e.preventDefault();
@@ -199,6 +232,10 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 	function onTouchMove(e: TouchEvent): void {
 		const t = e.touches[0];
 		if (!t) return;
+		if (isSmoothScrollInteractionLocked()) {
+			if (e.cancelable) e.preventDefault();
+			return;
+		}
 		const el = e.target instanceof HTMLElement ? e.target : null;
 		if (isInsideScrollable(el)) return;
 		const dy = touchLastY - t.clientY;
@@ -214,6 +251,7 @@ export function initSmoothScroll(config: SmoothScrollConfig | undefined): void {
 	}
 
 	function onTouchEnd(): void {
+		if (isSmoothScrollInteractionLocked()) return;
 		const inertia = clamp(touchVelocity * 12, -220, 220);
 		if (Math.abs(inertia) > 1) {
 			target = clampTarget(target + inertia);

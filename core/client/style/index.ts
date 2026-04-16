@@ -1,5 +1,6 @@
 import "./client-config-style";
 export type { SmoothScrollConfig, SmoothScrollTune } from "./smooth-scroll";
+export { setSmoothScrollInteractionLock } from "./smooth-scroll";
 export {
 	map,
 	styleMap,

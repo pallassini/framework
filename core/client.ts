@@ -25,7 +25,7 @@ import type { DesktopPath, DesktopRouteOut } from "./client/desktop";
 export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 
 // STYLE (viewport) — stesso meccanismo di `state` (`createState` + `viewport.device()` …)
-export { viewport, device, mob, tab, des, onlyDes } from "./client/style";
+export { viewport, device, mob, tab, des, onlyDes, setSmoothScrollInteractionLock } from "./client/style";
 
 // JSX COMPONENTS
 export { For } from "./client/runtime/tag";
