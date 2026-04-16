@@ -1,25 +1,21 @@
 import VideoMobile from "./video-mobile";
 import VideoCanvasBorder from "./video-canvas-border";
 
+/** Solo viewport mobile: layout colonna, logo e flow/agency centrati orizzontalmente. */
 export default function Hero() {
   return (
     <>
       <div
         s={{
-          base: "w-80vw h-70vh",
-          mob: "col centerX mt-13vh -ml-5vw gap-3vh ",
-          tab: "mt-35vh ml-5vw row",
-          des: "mt-13vh ml-10vw row center",
+          base: "col centerX w-100% mt-13vh gap-3vh",
         }}
       >
-        <div s={{ base: "layers", mob: "ml-5vw" }}>
+        <div s={{ base: "layers w-100%" }}>
           {/* LIGHT */}
           <div
             s={{
-              base: "z-0 round-circle blur-30px bg-gradient(circle, #fff 40%, rgba(255,255,255,0.4) 55%, rgba(255,255,255,0.15) 70%) maxw-30rem maxh-30rem",
-              mob: "w-88vw h-50vw",
-              tab: "w-48vw h-20vw",
-              des: "w-28.5vw h-23vw",
+              base:
+                "z-0 round-circle blur-30px bg-gradient(circle, #fff 40%, rgba(255,255,255,0.4) 55%, rgba(255,255,255,0.15) 70%) maxw-30rem maxh-30rem w-88vw h-50vw",
               animate: {
                 keyframes: {
                   0: { opacity: 0.62, scale: 1 },
@@ -34,26 +30,19 @@ export default function Hero() {
               },
             }}
           />
-          {/* LOGO */}
-        
           <VideoCanvasBorder
-            s={{ base: "z-1 maxw-30rem", mob: "w-60vw", tab: "w-33vw", des: "w-22vw" }}
+            s={{ base: "z-1 maxw-30rem w-60vw" }}
             src="./_assets/logo.webm"
           />
-       
         </div>
-        {/* FLOW AGENCY */}
-        <div s={{ base: "col", mob: "mt-7vh ml-8vw", tab: "mt-14vh -ml-2.5vw", des: "mt-14vh ml-2.5vw" }}>
+        <div s={{ base: "col centerX w-100% mt-7vh gap-3vh" }}>
           <img
-            s={{ base: "z-1", mob: "w-60vw", tab: "w-33vw", des: "w-25vw" }}
+            s={{ base: "z-1 maxw-30rem w-60vw mx-5vw" }}
             src="./_assets/flow.webp"
           />
           <VideoMobile
             s={{
-              base: "z-1",
-              mob: "w-98vw -mt-6vh -ml-2vw",
-              tab: "w-33vw -mt-1vh",
-              des: "w-40vw -mt-11vh -ml-0.5vw",
+              base: "z-1 maxw-30rem w-98vw -mt-6vh",
             }}
             src="./_assets/agency.webm"
             autoplay
@@ -62,7 +51,6 @@ export default function Hero() {
           />
         </div>
       </div>
-      
     </>
   );
 }
