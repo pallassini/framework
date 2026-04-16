@@ -62,17 +62,17 @@ export const clientConfig = {
       "8": {
         mob: "clamp(1.1875rem, 1.06rem + 0.6vw, 1.25rem)",
         tab: "clamp(1.25rem, 1.1rem + 0.54vw, 1.375rem)",
-        des: "clamp(1.375rem, 1.22rem + 0.4vw, 1.5rem)",
+        des: "clamp(2.75rem, 2rem + 0.82vw, 3.25rem)",
       },
       "9": {
         mob: "clamp(1.25rem, 1.1rem + 0.72vw, 1.375rem)",
         tab: "clamp(1.375rem, 1.17rem + 0.62vw, 1.5rem)",
-        des: "clamp(1.5rem, 1.3rem + 0.48vw, 1.75rem)",
+        des: "clamp(3rem, 2.15rem + 0.9vw, 3.5rem)",
       },
       "10": {
         mob: "clamp(1.375rem, 1.2rem + 0.85vw, 1.5rem)",
         tab: "clamp(1.5rem, 1.24rem + 0.75vw, 1.75rem)",
-        des: "clamp(1.75rem, 1.45rem + 0.62vw, 2rem)",
+        des: "clamp(3.25rem, 2.35rem + 1vw, 4rem)",
       },
     },
     icon: {

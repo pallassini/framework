@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <>
       <FlowAgency />
-      <div show={showProblem} s="mt-30vh mb-20vh">
+      <div show={showProblem} s={{ des: "mt-15vh mb-20vh", mob: "mt-5vh mb-10vh" }}>
         <Problem />
       </div>
     </>

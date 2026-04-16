@@ -7,6 +7,7 @@ export type RouteAssetInlineSrc =
 	| "routes/_components/flowAgency/assets/logo.webm"
 	| "routes/_components/flowAgency/assets/logo.webp"
 	| "routes/_components/flowAgency/mob/_assets/agency.webm"
+	| "routes/_components/flowAgency/mob/_assets/agency.webp"
 	| "routes/_components/flowAgency/mob/_assets/flow.webp"
 	| "routes/_components/flowAgency/mob/_assets/logo.webm"
-	| "routes/_components/problem/bruciare.webm";
+	| "routes/_components/problemOLD/bruciare.webm";
