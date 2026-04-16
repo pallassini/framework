@@ -1,82 +1,21 @@
-import { state, watch } from "client";
-import VideoMobile from "./video-mobile";
+import { state } from "client";
 
-/** Ritardo fade-in agency (ms); allineato al `delay` dell’animate sul video. */
+/** Ritardo fade-in agency dopo il logo (ms). */
 const agencyEnterDelayMs = 280;
 
 /** URL assoluti risolti da Vite. */
 const MOB_LOGO_WEBP = new URL("../assets/logo.webp", import.meta.url).href;
 const MOB_FLOW_WEBP = new URL("./_assets/flow.webp", import.meta.url).href;
-const MOB_AGENCY_WEBM = new URL("./_assets/agency.webm", import.meta.url).href;
-
-function preloadImage(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error(`preloadImage: ${url}`));
-    img.src = url;
-  });
-}
-
-function preloadVideo(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const v = document.createElement("video");
-    v.muted = true;
-    v.preload = "auto";
-    v.playsInline = true;
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      try {
-        v.pause();
-      } catch {
-        /* ok */
-      }
-      v.removeAttribute("src");
-      v.load();
-      resolve();
-    };
-    const fail = () => {
-      if (settled) return;
-      settled = true;
-      reject(new Error(`preloadVideo: ${url}`));
-    };
-    v.addEventListener("canplaythrough", finish, { once: true });
-    v.addEventListener("loadeddata", finish, { once: true });
-    v.addEventListener("error", fail, { once: true });
-    v.src = url;
-    v.load();
-  });
-}
-
-function preloadFlowAgencyMobAssets(): Promise<void> {
-  return Promise.all([
-    preloadImage(MOB_LOGO_WEBP),
-    preloadImage(MOB_FLOW_WEBP),
-    preloadVideo(MOB_AGENCY_WEBM),
-  ]).then(() => undefined);
-}
+const MOB_AGENCY_WEBP = new URL("./_assets/agency.webp", import.meta.url).href;
 
 /**
- * Mobile / tablet: logo `logo.webp`; agency in video + blend.
+ * Mobile / tablet: niente preload globale (caricamento naturale del browser), agency in webp + blend.
  */
 export default function FlowAgencyMob() {
   const logo = state(false);
-  const assetsReady = state(false);
-  const preloadStarted = state(false);
-
-  watch(() => {
-    if (assetsReady() || preloadStarted()) return;
-    preloadStarted(true);
-    void preloadFlowAgencyMobAssets()
-      .then(() => assetsReady(true))
-      .catch(() => assetsReady(true));
-  });
 
   return (
     <div
-      show={assetsReady}
       s={{
         base: "relative col top centerX w-100% mt-12vh gap-3vh",
       }}
@@ -155,11 +94,16 @@ export default function FlowAgencyMob() {
           }}
         >
           <img
+            alt=""
+            decoding="async"
             s={{ base: "z-1 maxw-30rem w-60vw mx-5vw" }}
             src={MOB_FLOW_WEBP}
           />
         </div>
-        <VideoMobile
+        <img
+          alt=""
+          blend="natural"
+          decoding="async"
           s={{
             base: "relative z-1 maxw-30rem w-98vw -mt-5vh opacity-0",
             animate: [
@@ -172,12 +116,7 @@ export default function FlowAgencyMob() {
               },
             ],
           }}
-          src={MOB_AGENCY_WEBM}
-          loop
-          muted
-          playWhen={logo}
-          playEnterDelayMs={agencyEnterDelayMs}
-          playLeadMs={100}
+          src={MOB_AGENCY_WEBP}
         />
       </div>
     </div>
