@@ -5,6 +5,29 @@
 import { ensureInjected } from "./inject";
 import { CSS_LENGTH_RE, isCssVarToken, isSpacingKeyword } from "../properties/utils/units";
 
+/** Disattiva tutti i log animazione: `globalThis.__FW_DEBUG_ANIM__ = false`. */
+export function fwAnimateDebugLog(...args: unknown[]): void {
+	if (typeof globalThis !== "undefined" && (globalThis as { __FW_DEBUG_ANIM__?: boolean }).__FW_DEBUG_ANIM__ === false) {
+		return;
+	}
+	if (typeof console !== "undefined" && console.log) {
+		console.log("[fw:animate]", ...args);
+	}
+}
+
+function summarizeAnimateSegment(c: AnimatePreset | AnimateConfig): string {
+	if (typeof c === "string") return `preset:${c}`;
+	const o = c as AnimateConfig;
+	const to = o.to != null ? String(o.to).slice(0, 100) : "";
+	return JSON.stringify({
+		to: to || undefined,
+		duration: o.duration,
+		delay: o.delay,
+		ease: o.ease,
+		preset: o.preset,
+	});
+}
+
 export type AnimatePreset = string;
 
 export type KeyframeStep = {
@@ -31,6 +54,7 @@ export type AnimateTrackStop = {
 export type AnimateConfig = {
 	preset?: string;
 	duration?: number;
+	/** Ritardo in ms prima che parta **questo** segmento (si somma al `chainDelayMs` interno nelle catene `animate: [...]`). */
 	delay?: number;
 	ease?: string;
 	fill?: "forwards" | "backwards" | "both" | "none";
@@ -56,6 +80,10 @@ export type AnimateConfig = {
 	to?: string;
 	/** Forma legacy: percentuali come chiavi; stringhe con merge cumulativo come `track`. */
 	keyframes?: Record<string | number, KeyframeStep | string>;
+	/** Chiamato quando parte il CSS animation di questo segmento (`animationstart`, dopo `delay`). */
+	onStart?: () => void;
+	/** Chiamato quando finisce il CSS animation di questo segmento (`animationend`; con `iterations` > 1 può ripetersi). */
+	onEnd?: () => void;
 };
 
 /** Opzioni interne: risolve stringhe token → proprietà inline (da `resolveStyleString`). */
@@ -158,6 +186,8 @@ export type AnimationTimelineLayer = {
 	delayMs: number;
 	iteration: number | "infinite";
 	fill: string;
+	onStart?: () => void;
+	onEnd?: () => void;
 };
 
 export type AnimationResult = {
@@ -271,6 +301,56 @@ function terminalAfterAnimateConfig(
 	return acc;
 }
 
+function attachSegmentHooks(layer: AnimationTimelineLayer, cfg: AnimateConfig): void {
+	if (cfg.onStart != null) layer.onStart = cfg.onStart;
+	if (cfg.onEnd != null) layer.onEnd = cfg.onEnd;
+}
+
+function hasNoMotionTokens(cfg: AnimateConfig): boolean {
+	return (
+		(cfg.to == null || String(cfg.to).trim() === "") &&
+		(cfg.track == null || cfg.track.length === 0) &&
+		(cfg.keyframes == null || Object.keys(cfg.keyframes).length === 0) &&
+		cfg.preset == null &&
+		cfg.opacity == null &&
+		cfg.scale == null &&
+		cfg.scaleX == null &&
+		cfg.scaleY == null &&
+		cfg.x == null &&
+		cfg.y == null &&
+		cfg.rotate == null &&
+		cfg.blur == null
+	);
+}
+
+/** Keyframe senza dichiarazioni: layer no-op o hold (timeline CSS affidabile nelle catene). */
+function createInvariantKeyframeSegment(
+	effectiveDelayMs: number,
+	durationMs: number,
+	ease: string,
+	fill: string,
+	iter: number | "infinite",
+	cfg?: AnimateConfig,
+): AnimationResult {
+	const name = allocKeyframeName(`inv-${effectiveDelayMs}-${durationMs}-${ease}-${String(iter)}`);
+	const keyframesCss = `@keyframes ${name}{0%,100%{}}`;
+	const layer: AnimationTimelineLayer = {
+		name,
+		durationMs: durationMs,
+		easing: ease,
+		delayMs: effectiveDelayMs,
+		iteration: iter,
+		fill,
+	};
+	if (cfg) attachSegmentHooks(layer, cfg);
+	return {
+		id: name,
+		keyframesCss,
+		layers: [layer],
+		style: { ...layersToInlineStyle([layer]) },
+	};
+}
+
 export function buildAnimation(
 	config: AnimatePreset | AnimateConfig | Array<AnimatePreset | AnimateConfig>,
 	opts?: BuildAnimationOptions,
@@ -278,10 +358,16 @@ export function buildAnimation(
 	if (Array.isArray(config)) {
 		if (config.length === 0) return {};
 		const { keyframeStartAcc: chainSeed = {}, chainDelayMs: _ignore, ...restOpts } = opts ?? {};
+		fwAnimateDebugLog("chain start", {
+			userSegments: config.length,
+			keyframeStartAccKeys: Object.keys(chainSeed),
+			keyframeStartAccSample: Object.fromEntries(Object.entries(chainSeed).slice(0, 8)),
+		});
 		let chainDelayMs = 0;
 		let terminal: Record<string, string> = { ...chainSeed };
 		let acc: AnimationResult = {};
-		for (const c of config) {
+		config.forEach((c, i) => {
+			const chainDelayMsBefore = chainDelayMs;
 			const r = buildAnimation(c, {
 				...restOpts,
 				chainDelayMs,
@@ -291,8 +377,53 @@ export function buildAnimation(
 			if (typeof c === "object" && c !== null && !Array.isArray(c)) {
 				terminal = terminalAfterAnimateConfig(c as AnimateConfig, terminal, restOpts.resolveTokens);
 			}
-			chainDelayMs += estimateSegmentDurationMs(c);
+			const est = estimateSegmentDurationMs(c);
+			chainDelayMs += est;
+			fwAnimateDebugLog(`chain segment ${i}`, summarizeAnimateSegment(c), {
+				chainDelayMsBefore,
+				estimateSegmentMs: est,
+				chainDelayMsAfter: chainDelayMs,
+				stepLayers: r.layers?.length ?? 0,
+				stepId: r.id,
+				stepClass: r.class,
+				stepHasKeyframesCss: Boolean(r.keyframesCss),
+				accLayersAfterMerge: acc.layers?.length ?? 0,
+				terminalKeys: Object.keys(terminal).slice(0, 12),
+			});
+		});
+		const layersBeforeSynth = acc.layers?.length ?? 0;
+		/**
+		 * Con 2 sole animazioni in lista (`animationName` con due voci) alcuni motori applicano male la catena.
+		 * Aggiungiamo **dopo** la sequenza utente uno o più layer `@keyframes` vuoti (durata 0), con `animation-delay`
+		 * incrementale (+0ms, +1ms, …) così non sono tutti sovrapposti sullo stesso istante.
+		 */
+		let padStagger = 0;
+		let synthCount = 0;
+		while ((acc.layers?.length ?? 0) > 0 && (acc.layers?.length ?? 0) < 3) {
+			const delayMs = chainDelayMs + padStagger;
+			fwAnimateDebugLog("chain synth pad", {
+				index: synthCount,
+				animationDelayMs: delayMs,
+				layersBefore: acc.layers?.length ?? 0,
+			});
+			acc = mergeSequentialChain(
+				acc,
+				createInvariantKeyframeSegment(delayMs, 0, "linear", "forwards", 1),
+			);
+			padStagger += 1;
+			synthCount += 1;
 		}
+		fwAnimateDebugLog("chain done", {
+			layersBeforeSynth,
+			synthPadsAdded: synthCount,
+			finalLayers: acc.layers?.length ?? 0,
+			finalStyleKeys: acc.style ? Object.keys(acc.style) : [],
+			animationShorthand: acc.style?.animation,
+			animationName: acc.style?.animationName,
+			animationDuration: acc.style?.animationDuration,
+			animationDelay: acc.style?.animationDelay,
+			keyframesCssLength: acc.keyframesCss?.length ?? 0,
+		});
 		return acc;
 	}
 
@@ -610,6 +741,7 @@ function finalizeKeyframeEntries(
 		iteration: iter,
 		fill,
 	};
+	attachSegmentHooks(layer, cfg);
 
 	const hasScaleObject =
 		cfg.keyframes &&
@@ -633,12 +765,31 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 	const effectiveDelayMs = delayMs + (opts?.chainDelayMs ?? 0);
 	const fill = cfg.fill ?? "forwards";
 
+	fwAnimateDebugLog("createCustom enter", {
+		d,
+		ease,
+		iter,
+		delayMs,
+		chainDelayMs: opts?.chainDelayMs ?? 0,
+		effectiveDelayMs,
+		to: cfg.to != null ? String(cfg.to).slice(0, 80) : "",
+		hasNoMotion: hasNoMotionTokens(cfg),
+		keyframeAccKeys: opts?.keyframeStartAcc ? Object.keys(opts.keyframeStartAcc).slice(0, 10) : [],
+	});
+
+	if (d === 0 && hasNoMotionTokens(cfg)) {
+		fwAnimateDebugLog("createCustom -> noop duration 0 (invariant keyframes)");
+		return createInvariantKeyframeSegment(effectiveDelayMs, 0, ease, fill, iter, cfg);
+	}
+
 	const tokenRows = collectTokenKeyframeRows(cfg);
 	if (tokenRows && tokenRows.length > 0) {
 		const entries = buildCumulativeKeyframeEntries(tokenRows, opts, opts?.keyframeStartAcc ?? {});
 		if (entries.length >= 1) {
+			fwAnimateDebugLog("createCustom -> token/to keyframes", { rows: tokenRows.length, entries: entries.length });
 			return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
 		}
+		fwAnimateDebugLog("createCustom -> token rows but no entries (unexpected)", { tokenRows: tokenRows.length });
 	}
 
 	if (cfg.keyframes && Object.keys(cfg.keyframes).length > 0) {
@@ -743,7 +894,19 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 
 	if (from.length === 0 && to.length === 0) {
 		const presetOnly = cfg.preset && ANIMATION_PRESETS[cfg.preset];
-		if (presetOnly) return { class: presetOnly.class };
+		if (presetOnly) {
+			fwAnimateDebugLog("createCustom -> preset class only", cfg.preset);
+			return { class: presetOnly.class };
+		}
+		if (d > 0 && hasNoMotionTokens(cfg)) {
+			fwAnimateDebugLog("createCustom -> hold (empty to, d>0)", { d, effectiveDelayMs });
+			return createInvariantKeyframeSegment(effectiveDelayMs, d, ease, fill, iter, cfg);
+		}
+		fwAnimateDebugLog("createCustom -> EMPTY {} (no keyframes, check config)", {
+			d,
+			preset: cfg.preset,
+			hasNoMotion: hasNoMotionTokens(cfg),
+		});
 		return {};
 	}
 
@@ -757,6 +920,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 		iteration: iter,
 		fill,
 	};
+	attachSegmentHooks(layer, cfg);
 
 	const style: Record<string, string> = { ...layersToInlineStyle([layer]) };
 	if (scale || cfg.scaleX != null || cfg.scaleY != null) {

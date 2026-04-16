@@ -46,12 +46,14 @@ export type {
 	AnimationTimelineLayer,
 	TransitionConfig,
 } from "./animation";
+export { clearAnimationLifecycle, fwAnimateDebugLog, syncAnimationLifecycle } from "./animation";
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
 import { clearMediaBlend, flushMediaBlendAfterStyle } from "../runtime/tag/tags/media/blend";
 import { clearVideoEdgeFade, flushVideoEdgeFadeAfterStyle } from "../runtime/tag/tags/media/video-edge-fade";
+import { clearAnimationLifecycle, syncAnimationLifecycle } from "./animation";
 import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
 import { styleViewport } from "./viewport";
 
@@ -97,6 +99,7 @@ function applyReducedMotion(style: Record<string, string>): void {
 }
 
 function clearS(el: El): void {
+	clearAnimationLifecycle(el);
 	if (el instanceof HTMLElement) {
 		clearMediaBlend(el);
 		clearVideoEdgeFade(el);
@@ -157,6 +160,11 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 	else el.removeAttribute("data-fw-layers");
 
 	applyMapStyles(el, style as Properties);
+
+	clearAnimationLifecycle(el);
+	if (resolved.animationLifecycle?.length) {
+		syncAnimationLifecycle(el, resolved.animationLifecycle);
+	}
 
 	const cls = resolved.classes.filter(Boolean).join(" ");
 	if (cls) el.setAttribute("class", cls);

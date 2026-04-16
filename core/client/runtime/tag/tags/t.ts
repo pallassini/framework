@@ -6,7 +6,10 @@ import type { DomProps, SharedProps, UiNode } from "../props";
 
 export type TProps = SharedProps;
 
-/** Senza `s`: `<t>` con figli non solo testo si comporta come involucro trasparente nel flusso inline (come testo unico nel contenitore padre). */
+/**
+ * Senza `s`: `<t>` con testo + nodi mescolati usa un wrapper **inline** (non `contents`), così in una `row` con `gap`
+ * resta **un solo** flex item e il testo non si separa dal resto.
+ */
 function useInlineFlowContents(children: unknown, s: SharedProps["s"]): boolean {
 	if (s != null && s !== false) return false;
 	if (children == null || children === false) return false;
@@ -26,7 +29,10 @@ export function t(props: TProps): UiNode {
 	const contents = useInlineFlowContents(children, s);
 	if (!contents) el.style.minWidth = "0";
 	applyDomProps(el, { ...rest, s, children: undefined } as DomProps);
-	if (contents) el.style.display = "contents";
+	if (contents) {
+		el.style.display = "inline";
+		el.style.minWidth = "0";
+	}
 
 	if (show !== undefined) {
 		const dispose = watchConditionalChildren(el, show, children, fallback);

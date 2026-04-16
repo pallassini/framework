@@ -133,9 +133,9 @@ export const map = styleMap({
       layer: { alignSelf: "center" },
     },
   },
-  /** Solo `center` (senza `row`/`col`/`absolute`/…): centra il box nel viewport (`fixed` + translate). Con `row`/`col` resta allineamento flex sui figli. */
+  /** Solo `center` (senza `row`/`col`/`absolute`/`fixed`/`sticky`): centra il box nel contenitore in flusso (`margin` orizzontale auto + `text-align`). Non usa `fixed`, così lo scroll sposta l’elemento. Con `absolute`/`fixed`/`sticky`: inset + translate come prima. */
   center: {
-    default: { position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
+    default: { marginLeft: "auto", marginRight: "auto", textAlign: "center" },
     variants: {
       row: { justifyContent: "center", alignItems: "center" },
       col: { justifyContent: "center", alignItems: "center" },

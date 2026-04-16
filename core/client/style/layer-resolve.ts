@@ -3,6 +3,7 @@ import {
 	buildAnimation,
 	buildTransition,
 	ensureAnimationCss,
+	fwAnimateDebugLog,
 	injectRule,
 	type AnimateConfig,
 	type AnimatePreset,
@@ -44,8 +45,8 @@ export type StyleBaseSegment = string | Conditional<string> | Readonly<Record<st
  * - **Chiavi del map** (`bg`, `px`, …): suffisso statico; oppure **`[suffisso, () => boolean]`** / **`Signal`**;
  *   oppure **`[() => boolean, suffisso]`** (condizione reattiva prima, valore dopo — niente `===` nella chiave).
  *   Merge dopo `base`, sovrascrive le stesse proprietà CSS.
- * - **mob** / **tab** / **des** — token o layer per quel viewport.
- * - **animate** — preset, oggetto, oppure **array** in sequenza: ogni elemento usa **`to`** (e opz. `track`) come overlay sullo stato corrente; `base` resta il fondo sempre sovrascrivibile.
+ * - **mob** / **tab** / **des** — stringa di token **oppure** lo stesso tipo di oggetto del layer (`base`, `class`, `animate`, `transition`, chiavi map, …) **senza** annidare di nuovo `mob`/`tab`/`des` nello stesso ramo. Se il ramo viewport ha un **`animate`** proprio, **non** si applica più l’`animate` del livello esterno (solo quello del ramo).
+ * - **animate** — preset, oggetto, oppure **array** in sequenza: ogni elemento usa **`to`** (e opz. `track`) come overlay sullo stato corrente; `base` resta il fondo sempre sovrascrivibile. Con **array**, il runtime aggiunge in coda layer no-op (keyframes vuoti) se servono per avere **almeno 3** voci nelle proprietà `animation*` (workaround motori che con sole 2 animazioni non rispettano la catena). Non servono blocchi `{ to: "", duration: 0 }` manuali. Ogni segmento può avere **`delay`** in ms (oltre al ritardo cumulativo della catena), **`onStart`** / **`onEnd`** (dopo `delay`, su `animationstart` / `animationend` di quel segmento). Un blocco con **`to` vuoto** e **`duration` > 0** è un hold sullo stato corrente.
  */
 export interface StyleLayerInput {
 	base?: string | StyleLayerInput | readonly StyleBaseSegment[] | Readonly<Record<string, unknown>>;
@@ -64,6 +65,8 @@ export type ResolvedStyle = {
 	style: Record<string, string>;
 	classes: string[];
 	layers: boolean;
+	/** Callback legati ai nomi `@keyframes` applicati (vedi `syncAnimationLifecycle`). */
+	animationLifecycle?: ReadonlyArray<{ name: string; onStart?: () => void; onEnd?: () => void }>;
 };
 
 export const VIEWPORT_KEYS: StyleViewport[] = ["mob", "tab", "des"];
@@ -176,6 +179,40 @@ export function condenseConditionalTokenMap(
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/** Due oggetti nella forma di segmento `animate` (non tupla `Conditional`). */
+function looksLikeAnimateSegment(x: unknown): boolean {
+	if (x == null || typeof x !== "object" || Array.isArray(x)) return false;
+	const o = x as Record<string, unknown>;
+	return (
+		"to" in o ||
+		"preset" in o ||
+		"track" in o ||
+		"keyframes" in o ||
+		"duration" in o ||
+		"opacity" in o ||
+		"scale" in o ||
+		"scaleX" in o ||
+		"scaleY" in o ||
+		"x" in o ||
+		"y" in o ||
+		"delay" in o ||
+		"ease" in o ||
+		"fill" in o ||
+		"blur" in o ||
+		"rotate" in o
+	);
+}
+
+function isTwoItemAnimateChain(a: unknown, b: unknown): boolean {
+	return looksLikeAnimateSegment(a) && looksLikeAnimateSegment(b);
+}
+
+/** Il ramo `mob`/`tab`/`des` è un oggetto con `animate` effettivo → sostituisce l’`animate` del parent. */
+function viewportBranchDeclaresAnimate(vpRaw: unknown): boolean {
+	if (vpRaw == null || typeof vpRaw !== "object" || Array.isArray(vpRaw)) return false;
+	return unwrapConditional<AnimateInput>((vpRaw as StyleLayerInput).animate) != null;
+}
+
 function isStyleGroupEntry(v: unknown): v is StyleGroup {
 	return typeof v === "object" && v !== null && "default" in v;
 }
@@ -202,9 +239,19 @@ export function unwrapConditional<T>(v: unknown): T | undefined {
 	if (v == null || v === false) return undefined;
 	if (Array.isArray(v) && v.length === 2) {
 		const [a, cond] = v;
+		/**
+		 * `animate: [ { to, duration }, { to, duration } ]` ha lunghezza 2 ma **non** è
+		 * `Conditional` `[segmento, boolean|fn]` — prima si prendeva solo il primo elemento.
+		 */
+		if (isTwoItemAnimateChain(a, cond)) {
+			return v as T;
+		}
 		if (cond === false) return undefined;
 		if (typeof cond === "function" && !(cond as () => boolean)()) return undefined;
-		return a as T;
+		if (typeof cond === "boolean" || typeof cond === "function") {
+			return a as T;
+		}
+		return v as T;
 	}
 	if (typeof v === "object" && v !== null && "value" in v) {
 		const o = v as { value: T; when?: boolean };
@@ -222,6 +269,9 @@ function mergeInto(target: ResolvedStyle, source: ResolvedStyle): void {
 	Object.assign(target.style, source.style);
 	target.classes.push(...source.classes);
 	target.layers = target.layers || source.layers;
+	if (source.animationLifecycle?.length) {
+		target.animationLifecycle = [...(target.animationLifecycle ?? []), ...source.animationLifecycle];
+	}
 }
 
 function propsToStrings(p: Properties): Record<string, string> {
@@ -332,8 +382,16 @@ function mergeAnimate(
 ): void {
 	if (anim == null) return;
 	ensureAnimationCss();
+	const snap = styleSnapshotForKeyframes(into.style);
+	fwAnimateDebugLog("mergeAnimate apply", {
+		vp,
+		isArray: Array.isArray(anim),
+		arrayLength: Array.isArray(anim) ? anim.length : undefined,
+		snapshotKeys: Object.keys(snap),
+		snapshotSample: Object.fromEntries(Object.entries(snap).slice(0, 10)),
+	});
 	const built = buildAnimation(anim, {
-		keyframeStartAcc: styleSnapshotForKeyframes(into.style),
+		keyframeStartAcc: snap,
 		resolveTokens: (tokenString: string) => {
 			const r = resolveStyleString(tokenString.trim(), vp, extraBases);
 			return { ...r.style };
@@ -341,13 +399,41 @@ function mergeAnimate(
 	});
 	if (built.class) into.classes.push(...built.class.split(/\s+/).filter(Boolean));
 	if (built.style) Object.assign(into.style, built.style);
-	if (built.keyframesCss && built.id) {
+	if (built.keyframesCss) {
 		const chunks = built.keyframesCss
 			.split(/(?=@keyframes)/g)
 			.map((s) => s.trim())
 			.filter(Boolean);
+		fwAnimateDebugLog("mergeAnimate inject keyframes", {
+			chunks: chunks.length,
+			totalChars: built.keyframesCss.length,
+			firstChunkPreview: chunks[0]?.slice(0, 120),
+		});
 		for (const chunk of chunks) {
 			injectRule("fw-kf", chunk);
+		}
+	} else {
+		fwAnimateDebugLog("mergeAnimate no keyframesCss", {
+			hasClass: Boolean(built.class),
+			hasStyle: Boolean(built.style),
+			layers: built.layers?.length ?? 0,
+		});
+	}
+	fwAnimateDebugLog("mergeAnimate into.style animation props", {
+		animation: into.style.animation,
+		animationName: into.style.animationName,
+		animationDuration: into.style.animationDuration,
+		animationDelay: into.style.animationDelay,
+		animationTimingFunction: into.style.animationTimingFunction,
+		animationFillMode: into.style.animationFillMode,
+	});
+
+	if (built.layers?.length) {
+		const life = built.layers
+			.filter((l) => l.onStart != null || l.onEnd != null)
+			.map((l) => ({ name: l.name, onStart: l.onStart, onEnd: l.onEnd }));
+		if (life.length) {
+			into.animationLifecycle = [...(into.animationLifecycle ?? []), ...life];
 		}
 	}
 }
@@ -404,7 +490,9 @@ export function resolveStyleLayer(
 	}
 
 	const anim = unwrapConditional<AnimateInput>(layer.animate);
-	mergeAnimate(anim, result, vp, contextForVp);
+	if (!viewportBranchDeclaresAnimate(vpRaw)) {
+		mergeAnimate(anim, result, vp, contextForVp);
+	}
 
 	applyPositionedInsetDefaultsResolved(result.style);
 	return result;
