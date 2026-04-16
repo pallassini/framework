@@ -29,6 +29,13 @@ body,
 	position: relative;
 }
 
+/* `<show>` è un figlio diretto con `display: contents`; il selettore sopra non colpisce i nipoti.
+   Stessa cella per il contenuto montato dentro `data-fw-show`. */
+[data-fw-layers] > [data-fw-show] > * {
+	grid-area: 1 / 1;
+	position: relative;
+}
+
 /* SCROLLBAR */
 html {
     scrollbar-width: thin;

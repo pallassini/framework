@@ -37,7 +37,8 @@ export type SharedProps = ClientEvents & {
 	s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
 	/**
 	 * Visibilità reattiva: `Signal`, funzione `() => …`, booleano.
-	 * Su `<t>` / `<div>`: come `<show>` (watch + `readWhen`).
+	 * Su `<t>` / `<div>` senza `fallback`: smonta/monta **l’elemento** nel DOM (come la prop `show` su `<img>`).
+	 * Con `fallback`: solo i **figli** vengono scambiati (`when` vero → `children`, falso → `fallback`).
 	 * I branch viewport sono signal: usa `mob()`, `show={!mob()}`, `show={() => device() === "mob"}`, ecc. (`!mob` da solo è sempre falso: `mob` è una funzione).
 	 */
 	show?: unknown;

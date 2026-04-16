@@ -7,6 +7,7 @@ import { desktopConfig } from "../../desktop/config";
 import { SERVER_RPC_HOST, SERVER_RPC_PORT } from "../server/routes/config";
 import { genDesktopRoutes } from "./desktop-routes-gen";
 import { genServerRoutes } from "./server-routes-gen";
+import { lazyCaseChildrenPlugin } from "./vite-plugin-lazy-case-children";
 import { routeAssetSrcPlugin } from "./vite-plugin-route-asset-src";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -47,6 +48,7 @@ export default defineConfig({
 	logLevel: "silent",
 	customLogger: muteIssueLogger(),
 	plugins: [
+		lazyCaseChildrenPlugin(root),
 		routeAssetSrcPlugin(root),
 		genServerRoutes(root),
 		genDesktopRoutes(root),

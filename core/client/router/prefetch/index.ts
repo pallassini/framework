@@ -51,6 +51,8 @@ function collectMediaUrls(root: globalThis.Node): string[] {
 	function walk(n: globalThis.Node): void {
 		if (n.nodeType === globalThis.Node.ELEMENT_NODE) {
 			const el = n as Element;
+			/** Es. video nascosto di `VideoCanvasBorder`: non avviare fetch metadata in warm DOM. */
+			if (el.getAttribute("data-fw-skip-prefetch") != null) return;
 			const tag = el.tagName;
 			if (tag === "IMG") add((el as HTMLImageElement).src || el.getAttribute("src"));
 			else if (tag === "VIDEO") {

@@ -9,10 +9,15 @@ import type { ClientEvents, DomProps, HoverProp, UiNode } from "../../props";
  */
 export type CaseProps<T = unknown> = ClientEvents & {
 	/**
-	 * Preferire `{() => <Figlio />}`: i figli diretti vengono smontati quando il case non matcha;
-	 * senza factory si riusano nodi già `dispose` e il contenuto non riappare.
+	 * Figli del branch. Di default (plugin `lazy-case-children`) vengono valutati solo quando il case matcha.
+	 * Puoi ancora passare `children={() => …}` per una factory manuale.
 	 */
 	children?: unknown;
+	/**
+	 * Se `true`, questo branch viene materializzato subito (come il JSX senza factory), utile per pre-caricare.
+	 * Il plugin rimuove la prop dall’output; non arriva al DOM.
+	 */
+	preload?: boolean;
 	hover?: HoverProp;
 	s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
 	show?: unknown;
@@ -40,7 +45,8 @@ export function clientCase(props: CaseProps): UiNode {
 	anchor.setAttribute("data-fw-case", "");
 	anchor.style.display = "contents";
 
-	const { when, children, ...rest } = props;
+	const { when, children, preload: _preload, ...rest } = props;
+	void _preload;
 	(anchor as HTMLElement & { __fwWhen?: unknown }).__fwWhen = when;
 	(anchor as HTMLElement & { __fwCaseChildren?: unknown }).__fwCaseChildren = children;
 	applyDomProps(anchor, rest as DomProps);

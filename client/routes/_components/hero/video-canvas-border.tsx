@@ -1,6 +1,7 @@
 import { applyStyle, type StyleInput } from "../../../../core/client/style";
 import { onNodeDispose } from "../../../../core/client/runtime/logic/lifecycle";
 import type { Node } from "../../../../core/client/runtime/logic/jsx-runtime";
+import { watch, type Signal } from "../../../../core/client/state";
 
 /** Colore “nero” da rimuovere se connesso ai bordi (RGB). */
 const TARGET = [3, 3, 3] as const;
@@ -98,6 +99,17 @@ export type VideoCanvasBorderProps = {
 	/** Path relativo sotto `client/routes` (riscritto dal plugin) o URL assoluto. */
 	src: string;
 	s?: StyleInput;
+	/**
+	 * Se impostato, il video non parte da solo al `loadedmetadata`: mostra il primo frame
+	 * finché il segnale non diventa `true`, poi chiama `play()`.
+	 */
+	playWhen?: Signal<boolean>;
+	/**
+	 * Chiamato una volta che il canvas è pronto: ricevi `play` da invocare quando vuoi avviare
+	 * la riproduzione (es. dopo un’animazione o al tap). Implica lo stesso comportamento di
+	 * attesa del primo frame di `playWhen` (nessun autoplay finché non chiami `play()`).
+	 */
+	getPlay?: (play: () => void) => void;
 };
 
 /**
@@ -105,7 +117,8 @@ export type VideoCanvasBorderProps = {
  * Il video è nascosto: lo stacking e gli `s` applicati al canvas non interferiscono con il blend del tag `<video>`.
  */
 export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
-	const { src, s } = props;
+	const { src, s, playWhen, getPlay } = props;
+	const deferPlayback = playWhen != null || getPlay != null;
 
 	const wrap = document.createElement("div");
 	wrap.style.position = "relative";
@@ -115,9 +128,10 @@ export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
 	video.src = src;
 	video.muted = true;
 	video.loop = true;
-	video.autoplay = true;
+	video.autoplay = false;
 	video.playsInline = true;
-	video.preload = "auto";
+	video.preload = "metadata";
+	video.setAttribute("data-fw-skip-prefetch", "");
 	video.setAttribute("playsinline", "");
 	Object.assign(video.style, {
 		position: "absolute",
@@ -138,6 +152,8 @@ export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
 	let lastFrame = 0;
 	const interval = 1000 / FPS;
 	let started = false;
+	let metadataReady = false;
+	let playbackStarted = false;
 	let disposed = false;
 
 	const stop = () => {
@@ -187,8 +203,12 @@ export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
 	const tick = (t: number) => {
 		rafId = 0;
 		if (disposed) return;
+		/**
+		 * Il wrap può non essere ancora `isConnected` nel frame in cui il parent finisce di montare
+		 * (es. `<show>`). Non chiamare `cleanup()` qui: smontava il video e azzerava `src` prima dell’attach.
+		 */
 		if (!wrap.isConnected) {
-			cleanup();
+			rafId = requestAnimationFrame(tick);
 			return;
 		}
 		if (document.hidden || video.paused || video.readyState < 2) {
@@ -205,6 +225,26 @@ export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
 	};
 
 	let drawFrame = () => {};
+
+	const paintStillFrame = () => {
+		if (disposed) return;
+		try {
+			if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) drawFrame();
+		} catch {
+			/* primo frame opzionale */
+		}
+	};
+
+	const startPlayback = () => {
+		if (disposed || playbackStarted) return;
+		playbackStarted = true;
+		void video.play().catch(() => {});
+		lastFrame = performance.now() - interval;
+		scheduleNext();
+		video.addEventListener("pause", stop);
+		video.addEventListener("ended", stop);
+		video.addEventListener("play", scheduleNext);
+	};
 
 	const onLoadedMetadata = () => {
 		if (started) return;
@@ -245,19 +285,54 @@ export default function VideoCanvasBorder(props: VideoCanvasBorderProps): Node {
 			processFrame(ctx, maskCanvas, maskCtx, w, h, imgData, queue, visited, maskData);
 		};
 
-		void video.play().catch(() => {});
-		lastFrame = performance.now() - interval;
-		scheduleNext();
+		metadataReady = true;
 
-		video.addEventListener("pause", stop);
-		video.addEventListener("ended", stop);
-		video.addEventListener("play", scheduleNext);
+		if (deferPlayback) {
+			try {
+				video.pause();
+			} catch {
+				/* */
+			}
+			video.currentTime = 0;
+			video.addEventListener("seeked", paintStillFrame, { once: true });
+			video.addEventListener("loadeddata", paintStillFrame, { once: true });
+			queueMicrotask(() => {
+				if (!playbackStarted) paintStillFrame();
+			});
+			if (playWhen?.()) startPlayback();
+			if (getPlay) {
+				queueMicrotask(() => {
+					if (!disposed) getPlay(startPlayback);
+				});
+			}
+		} else {
+			startPlayback();
+		}
 	};
 
 	video.addEventListener("loadedmetadata", onLoadedMetadata);
 	document.addEventListener("visibilitychange", onVisibilityChange);
-	onNodeDispose(wrap, cleanup);
+
+	const stopPlayWhenWatch =
+		playWhen != null
+			? watch(() => {
+					const wantPlay = playWhen();
+					if (metadataReady && wantPlay) startPlayback();
+				})
+			: null;
+
+	onNodeDispose(wrap, () => {
+		stopPlayWhenWatch?.();
+		cleanup();
+	});
 
 	wrap.append(video, canvas);
+	video.load();
+	if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+		queueMicrotask(() => {
+			if (!disposed) onLoadedMetadata();
+		});
+	}
+
 	return wrap;
 }

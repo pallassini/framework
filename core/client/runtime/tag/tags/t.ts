@@ -2,6 +2,7 @@ import { applyDomProps } from "../../logic/dom-props";
 import { toNodes } from "../../logic/children";
 import { onNodeDispose } from "../../logic/lifecycle";
 import { watchConditionalChildren } from "../../logic/conditional-children";
+import { show as applyShowToElement } from "../props/show";
 import type { DomProps, SharedProps, UiNode } from "../props";
 
 export type TProps = SharedProps;
@@ -35,8 +36,14 @@ export function t(props: TProps): UiNode {
 	}
 
 	if (show !== undefined) {
-		const dispose = watchConditionalChildren(el, show, children, fallback);
-		onNodeDispose(el, dispose);
+		if (fallback != null) {
+			const dispose = watchConditionalChildren(el, show, children, fallback);
+			onNodeDispose(el, dispose);
+		} else {
+			const nodes = toNodes(children);
+			if (nodes.length) el.append(...nodes);
+			applyShowToElement(el, show);
+		}
 	} else {
 		const nodes = toNodes(children);
 		if (nodes.length) el.append(...nodes);

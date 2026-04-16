@@ -10,6 +10,11 @@ import type { DomProps, SharedProps, UiNode } from "../../props";
 export type SwitchProps = SharedProps & {
 	value?: unknown;
 	fallback?: unknown;
+	/**
+	 * Se `true`, i figli di ogni `<case>` restano valutati subito (come il JSX standard).
+	 * Di default il plugin `lazy-case-children` avvolge i `children` dei case in una factory.
+	 */
+	preload?: boolean;
 };
 
 function readSwitchValue(raw: unknown): unknown {
@@ -18,7 +23,7 @@ function readSwitchValue(raw: unknown): unknown {
 	return raw;
 }
 
-/** Figli `<case>` già renderizzati vengono smontati quando il case non matcha; senza factory si riusano nodi morti. */
+/** Con `children` factory (default via plugin o manuale) crea i nodi al match; altrimenti valuta subito. */
 function resolveCaseChildren(ch: unknown): unknown {
 	if (typeof ch === "function" && !isSignal(ch)) return (ch as () => unknown)();
 	return ch;
@@ -53,7 +58,8 @@ export function clientSwitch(props: SwitchProps): UiNode {
 	root.style.display = "contents";
 
 	const hasValueMode = Object.prototype.hasOwnProperty.call(props, "value");
-	const { fallback, children, value, ...rest } = props;
+	const { fallback, children, value, preload: _preload, ...rest } = props;
+	void _preload;
 	applyDomProps(root, rest as DomProps);
 
 	const fbAnchor = document.createElement("span");
