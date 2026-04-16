@@ -2,6 +2,7 @@ import { toNodes } from "../../logic/children";
 import { applyDomProps } from "../../logic/dom-props";
 import { onNodeDispose } from "../../logic/lifecycle";
 import { watch } from "../../../state/effect";
+import type { Signal } from "../../../state";
 import type { DomProps, SharedProps, UiNode } from "../props";
 import { applyMediaBlendEffect, clearMediaBlend, type MediaBlendLevel } from "./media/blend";
 import { applyVideoEdgeFade, clearVideoEdgeFade, type VideoEdgeFadeOptions } from "./media/video-edge-fade";
@@ -36,6 +37,18 @@ export type VideoProps = SharedProps & {
 	 * Con `blend`, default `cover` (taglia per riempire). `contain` mostra tutto il fotogramma (niente taglio orizzontale).
 	 */
 	objectFit?: "contain" | "cover" | "fill" | "none" | "scale-down";
+	/**
+	 * Se impostato, non chiama `play()` finché il segnale non è `true` (disattiva l’autoplay immediato su `loadeddata` / `canplay`).
+	 */
+	playWhen?: Signal<boolean>;
+	/**
+	 * Ritardo (ms) dell’entrata visiva (es. `delay` del primo `animate` su `opacity`); con `playLeadMs` la riproduzione parte prima del fade-in.
+	 */
+	playEnterDelayMs?: number;
+	/**
+	 * Anticipo (ms) rispetto a `playEnterDelayMs` (default 100). Ignorato se `playEnterDelayMs` non è impostato (allora `play()` parte appena `playWhen` è true).
+	 */
+	playLeadMs?: number;
 };
 
 function dimCss(v: number | string): string {
@@ -64,12 +77,16 @@ export function video(props: VideoProps): UiNode {
 		edgeFade,
 		objectFit,
 		disablePictureInPicture,
+		playWhen,
+		playEnterDelayMs,
+		playLeadMs,
+		autoplay,
 		...rest
 	} = props;
 
 	if (playsinline !== false) el.playsInline = true;
 
-	applyDomProps(el, { ...rest, src, children: undefined } as DomProps);
+	applyDomProps(el, { ...rest, src, autoplay: playWhen != null ? false : autoplay, children: undefined } as DomProps);
 	el.src = src;
 
 	if (disablePictureInPicture !== false) {
@@ -80,9 +97,9 @@ export function video(props: VideoProps): UiNode {
 		el.setAttribute("controlsList", [...tokens].join(" "));
 	}
 
-	const wantAutoplay = props.autoplay === true;
-	if (wantAutoplay && props.muted !== false) el.muted = true;
-	if (props.preload == null) el.preload = wantAutoplay ? "auto" : "metadata";
+	const wantAutoplay = autoplay === true && playWhen == null;
+	if ((wantAutoplay || playWhen != null) && props.muted !== false) el.muted = true;
+	if (props.preload == null) el.preload = wantAutoplay || playWhen != null ? "auto" : "metadata";
 
 	const blendObjectFit = objectFit ?? "cover";
 
@@ -123,7 +140,27 @@ export function video(props: VideoProps): UiNode {
 		applyVideoEdgeFade(el, edgeFade === true ? true : edgeFade);
 	}
 
-	if (wantAutoplay) {
+	if (playWhen != null) {
+		let timeoutId: number | undefined;
+		const lead = playLeadMs ?? 100;
+		const stop = watch(() => {
+			if (timeoutId != null) {
+				clearTimeout(timeoutId);
+				timeoutId = undefined;
+			}
+			if (!playWhen()) return;
+			const ms =
+				playEnterDelayMs != null ? Math.max(0, playEnterDelayMs - lead) : 0;
+			timeoutId = window.setTimeout(() => {
+				timeoutId = undefined;
+				void el.play().catch(() => {});
+			}, ms);
+		});
+		onNodeDispose(el, () => {
+			stop();
+			if (timeoutId != null) clearTimeout(timeoutId);
+		});
+	} else if (wantAutoplay) {
 		const tryPlay = () => {
 			void el.play().catch(() => {});
 		};

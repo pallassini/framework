@@ -1,6 +1,8 @@
 import { state } from "client";
 import VideoCanvasBorder from "../../hero/video-canvas-border";
-import VideoMobile from "../../hero/video-mobile";
+
+/** Ritardo fade-in agency (ms); deve coincidere col `delay` dell’animate sotto. */
+const agencyEnterDelayMs = 280;
 
 export default function FlowAgencyDes() {
   const logo = state(false);
@@ -85,7 +87,7 @@ export default function FlowAgencyDes() {
 
         {/* FLOW AGENCY: assoluto a destra del layers → il logo non viene ri-centrato; entrata morbida */}
         <div
-        show={logo}
+          show={logo}
           style={{
             position: "absolute",
             left: "100%",
@@ -114,17 +116,29 @@ export default function FlowAgencyDes() {
               src="../assets/flow.webp"
             />
           </div>
-          <VideoMobile
+          <video
             s={{
-              base: "z-1",
+              base: "z-1 opacity-0",
               mob: "w-98vw -mt-6vh -ml-2vw",
               tab: "w-33vw -mt-1vh",
               des: "w-40vw -mt-10vh -ml-0.5vw",
+              animate: [
+                {
+                  to: "opacity-100",
+                  duration: 960,
+                  delay: agencyEnterDelayMs,
+                  ease: "cubic-bezier(0.22, 1, 0.88, 1)",
+                  fill: "both",
+                },
+              ],
             }}
             src="../assets/agency.webm"
-            autoplay
             loop
             muted
+            blend
+            playWhen={logo}
+            playEnterDelayMs={agencyEnterDelayMs}
+            playLeadMs={100}
           />
         </div>
       </div>
