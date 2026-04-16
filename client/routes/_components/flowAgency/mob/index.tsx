@@ -1,4 +1,5 @@
 import { state } from "client";
+import VideoMobile from "./video-mobile";
 
 /** Ritardo fade-in agency dopo il logo (ms). */
 const agencyEnterDelayMs = 280;
@@ -6,10 +7,10 @@ const agencyEnterDelayMs = 280;
 /** URL assoluti risolti da Vite. */
 const MOB_LOGO_WEBP = new URL("../assets/logo.webp", import.meta.url).href;
 const MOB_FLOW_WEBP = new URL("./_assets/flow.webp", import.meta.url).href;
-const MOB_AGENCY_WEBP = new URL("./_assets/agency.webp", import.meta.url).href;
+const MOB_AGENCY_WEBM = new URL("./_assets/agency.webm", import.meta.url).href;
 
 /**
- * Mobile / tablet: niente preload globale (caricamento naturale del browser), agency in webp + blend.
+ * Mobile / tablet: agency = WebM leggero (720p30) + blend via VideoMobile.
  */
 export default function FlowAgencyMob() {
   const logo = state(false);
@@ -100,10 +101,7 @@ export default function FlowAgencyMob() {
             src={MOB_FLOW_WEBP}
           />
         </div>
-        <img
-          alt=""
-          blend="natural"
-          decoding="async"
+        <VideoMobile
           s={{
             base: "relative z-1 maxw-30rem w-98vw -mt-5vh opacity-0",
             animate: [
@@ -116,7 +114,13 @@ export default function FlowAgencyMob() {
               },
             ],
           }}
-          src={MOB_AGENCY_WEBP}
+          src={MOB_AGENCY_WEBM}
+          playWhen={logo}
+          playEnterDelayMs={agencyEnterDelayMs}
+          playLeadMs={0}
+          loop
+          muted
+          playsinline
         />
       </div>
     </div>
