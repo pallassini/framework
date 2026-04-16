@@ -13,6 +13,7 @@ import * as m from "./properties/margin";
 import * as p from "./properties/padding";
 import { opacity as opacityFn } from "./properties/opacity";
 import { round } from "./properties/round";
+import { rotate as rotateFn } from "./properties/rotate";
 import { text } from "./properties/text";
 import { zIndex } from "./properties/zIndex";
 
@@ -50,6 +51,8 @@ export const map = styleMap({
   z: zIndex,
   opacity: opacityFn,
   round: round,
+  rotate: rotateFn,
+  rotat: rotateFn,
 
   /** Marcatore per figli di `layers`: abilita varianti `layer` su left/right/top/bottom/center*. */
   layer: {},

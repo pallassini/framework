@@ -54,7 +54,6 @@ export function icon(props: IconProps): UiNode {
 	const { name, size, stroke, children: _c, ...rest } = props;
 	const src = resolveTemplate(name);
 	if (src == null) {
-		console.warn(`[fw] icon non registrata: "${name}" (aggiungila in icons.tsx o registerIcon)`);
 		return null;
 	}
 	const svg = src.cloneNode(true) as SVGElement;

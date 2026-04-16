@@ -46,14 +46,25 @@ export type {
 	AnimationTimelineLayer,
 	TransitionConfig,
 } from "./animation";
-export { clearAnimationLifecycle, fwAnimateDebugLog, syncAnimationLifecycle } from "./animation";
+export {
+	clearAnimationLifecycle,
+	fwAnimateDebugEnabled,
+	fwAnimateDebugLog,
+	fwAnimateDebugRefreshCache,
+	fwLifecycleDebugLog,
+	syncAnimationLifecycle,
+} from "./animation";
 import type { Properties } from "csstype";
 import { watch } from "../state/effect";
 import { isSignal, type Signal } from "../state/state/signal";
 import { onNodeDispose } from "../runtime/logic/lifecycle";
 import { clearMediaBlend, flushMediaBlendAfterStyle } from "../runtime/tag/tags/media/blend";
 import { clearVideoEdgeFade, flushVideoEdgeFadeAfterStyle } from "../runtime/tag/tags/media/video-edge-fade";
-import { clearAnimationLifecycle, syncAnimationLifecycle } from "./animation";
+import {
+	clearAnimationLifecycle,
+	fwLifecycleDebugLog,
+	syncAnimationLifecycle,
+} from "./animation";
 import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
 import { styleViewport } from "./viewport";
 
@@ -87,16 +98,66 @@ function applyMapStyles(el: El, props: Properties): void {
 	managedStyleKeys.set(el, next);
 }
 
+/** Valori tipo `900ms`, `0.9s`, `0` dalla lista CSS animation-* (virgole). */
+function parseCssTimeListMs(raw: string): number[] | null {
+	const parts = raw.split(",").map((s) => {
+		const t = s.trim();
+		const ms = t.match(/^([\d.]+)ms$/i);
+		if (ms) return parseFloat(ms[1]!);
+		const sec = t.match(/^([\d.]+)s$/i);
+		if (sec) return parseFloat(sec[1]!) * 1000;
+		const n = parseFloat(t);
+		return Number.isFinite(n) ? n : 0;
+	});
+	return parts.length ? parts : null;
+}
+
 function applyReducedMotion(style: Record<string, string>): void {
 	if (typeof window === "undefined") return;
 	if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+	const animNames = style.animationName?.split(",").map((s) => s.trim()).filter(Boolean);
+	const dursRaw = style.animationDuration;
+	const delsRaw = style.animationDelay;
+
+	/**
+	 * Con catene `animationName` multipla, sostituire **ogni** delay con `1ms` fa partire
+	 * quasi tutti i segmenti insieme → `animationend` / `onEnd` del segmento 2+ sembrano immediati.
+	 * Ricostruiamo una micro-timeline sequenziale (1ms a segmento, delay cumulativo).
+	 */
+	if (animNames && animNames.length > 1 && dursRaw && delsRaw) {
+		const durs = parseCssTimeListMs(dursRaw);
+		const dels = parseCssTimeListMs(delsRaw);
+		if (
+			durs &&
+			dels &&
+			durs.length === animNames.length &&
+			dels.length === animNames.length
+		) {
+			let t = 0;
+			const outDur: string[] = [];
+			const outDel: string[] = [];
+			for (let i = 0; i < animNames.length; i++) {
+				outDur.push("1ms");
+				outDel.push(`${t}ms`);
+				t += 1;
+			}
+			style.animationDuration = outDur.join(", ");
+			style.animationDelay = outDel.join(", ");
+			const a = style.animation;
+			if (a) style.animation = a.replace(/\d+ms/g, "1ms");
+			return;
+		}
+	}
+
 	const a = style.animation;
 	if (a) style.animation = a.replace(/\d+ms/g, "1ms");
-	const durs = style.animationDuration;
-	if (durs) style.animationDuration = durs.replace(/\d+ms/g, "1ms");
-	const dels = style.animationDelay;
-	if (dels) style.animationDelay = dels.replace(/\d+ms/g, "1ms");
+	if (dursRaw) style.animationDuration = dursRaw.replace(/\d+ms/g, "1ms");
+	if (delsRaw) style.animationDelay = delsRaw.replace(/\d+ms/g, "1ms");
 }
+
+/** In `animate: [{ …, onStart, onEnd }]` non sono getter reattivi: non vanno invocati in unwrap. */
+const STYLE_ANIMATE_HOOK_KEYS = new Set(["onStart", "onEnd"]);
 
 function clearS(el: El): void {
 	clearAnimationLifecycle(el);
@@ -145,6 +206,10 @@ function unwrapStyleReactive(v: unknown): unknown {
 		if (condensed !== null) return condensed;
 		const out: Record<string, unknown> = {};
 		for (const [k, val] of Object.entries(o)) {
+			if (STYLE_ANIMATE_HOOK_KEYS.has(k) && typeof val === "function" && !isSignal(val)) {
+				out[k] = val;
+				continue;
+			}
 			out[k] = unwrapStyleReactive(val);
 		}
 		return out;
@@ -154,16 +219,54 @@ function unwrapStyleReactive(v: unknown): unknown {
 
 function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 	const style = { ...resolved.style };
+	const rmBefore =
+		typeof window !== "undefined" && typeof window.matchMedia === "function"
+			? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+			: false;
 	applyReducedMotion(style);
+	const rmAfter = rmBefore;
+
+	fwLifecycleDebugLog("applyFromResolved enter", {
+		tag: el.tagName,
+		hasAnimLife: Boolean(resolved.animationLifecycle?.length),
+		animLifeCount: resolved.animationLifecycle?.length ?? 0,
+		prefersReducedMotion: rmAfter,
+		animationName: style.animationName,
+		animationDuration: style.animationDuration,
+		animationDelay: style.animationDelay,
+	});
 
 	if (resolved.layers) el.setAttribute("data-fw-layers", "");
 	else el.removeAttribute("data-fw-layers");
 
 	applyMapStyles(el, style as Properties);
 
+	if (typeof window !== "undefined" && el.isConnected) {
+		try {
+			const cs = getComputedStyle(el);
+			fwLifecycleDebugLog("applyFromResolved computed (post-map)", {
+				animationName: cs.animationName,
+				animationDuration: cs.animationDuration,
+				animationDelay: cs.animationDelay,
+			});
+		} catch (e) {
+			fwLifecycleDebugLog("applyFromResolved getComputedStyle failed", String(e));
+		}
+	}
+
 	clearAnimationLifecycle(el);
 	if (resolved.animationLifecycle?.length) {
+		fwLifecycleDebugLog("applyFromResolved syncAnimationLifecycle", {
+			bindings: resolved.animationLifecycle.map((b) => ({
+				name: b.name.slice(0, 48) + (b.name.length > 48 ? "…" : ""),
+				endAfterMs: b.endAfterMs,
+				hasOnEnd: b.onEnd != null,
+				hasOnStart: b.onStart != null,
+			})),
+		});
 		syncAnimationLifecycle(el, resolved.animationLifecycle);
+	} else {
+		fwLifecycleDebugLog("applyFromResolved no animationLifecycle (skip sync)");
 	}
 
 	const cls = resolved.classes.filter(Boolean).join(" ");

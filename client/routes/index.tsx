@@ -6,7 +6,9 @@ export default function Home() {
   return (
     <>
 
-      <Main />
+    <div s='center row'>
+      <Hero />
+    </div>
       <div s={{ des: "mt-30vh", mob: "mt-10vh" }}>
      
       </div>

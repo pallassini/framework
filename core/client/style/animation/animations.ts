@@ -4,16 +4,7 @@
 
 import { ensureInjected } from "./inject";
 import { CSS_LENGTH_RE, isCssVarToken, isSpacingKeyword } from "../properties/utils/units";
-
-/** Disattiva tutti i log animazione: `globalThis.__FW_DEBUG_ANIM__ = false`. */
-export function fwAnimateDebugLog(...args: unknown[]): void {
-	if (typeof globalThis !== "undefined" && (globalThis as { __FW_DEBUG_ANIM__?: boolean }).__FW_DEBUG_ANIM__ === false) {
-		return;
-	}
-	if (typeof console !== "undefined" && console.log) {
-		console.log("[fw:animate]", ...args);
-	}
-}
+import { fwAnimateDebugLog } from "./debug-log";
 
 function summarizeAnimateSegment(c: AnimatePreset | AnimateConfig): string {
 	if (typeof c === "string") return `preset:${c}`;

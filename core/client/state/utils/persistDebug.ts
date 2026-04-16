@@ -1,5 +1,5 @@
 /**
- * Log persistenza (una riga, `console.log`). Attiva:
+ * Hook di debug persistenza (output console rimosso). Attiva:
  * - `localStorage.setItem("fw_debug_persist", "1")` poi ricarica, oppure
  * - `globalThis.__FW_DEBUG_PERSIST__ = true`
  */
@@ -21,10 +21,9 @@ export function isPersistDebugEnabled(): boolean {
 	return false;
 }
 
-/** Una riga, facile da copiare. */
-export function persistLog(msg: string): void {
+/** No-op se il flag debug non è attivo. */
+export function persistLog(_msg: string): void {
 	if (!isPersistDebugEnabled()) return;
-	console.log("[fw persist] " + msg);
 }
 
 export function persistShortJson(data: unknown, maxLen = 200): string {
@@ -39,9 +38,8 @@ export function persistShortJson(data: unknown, maxLen = 200): string {
 }
 
 /** @deprecated Usare persistLog + persistShortJson */
-export function persistDebug(label: string, detail?: unknown): void {
+export function persistDebug(_label: string, _detail?: unknown): void {
 	if (!isPersistDebugEnabled()) return;
-	console.log("[fw persist] " + label + " " + persistShortJson(detail, 400));
 }
 
 /** @deprecated Usare persistShortJson */

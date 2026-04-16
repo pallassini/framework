@@ -21,7 +21,6 @@ export function img(props: ImgProps): UiNode {
 	if (loading != null) el.loading = loading;
 	applyDomProps(el, { ...rest, children: undefined } as DomProps);
 	if (blend) applyMediaBlendEffect(el, blend);
-	const ch = toNodes(children);
-	if (ch.length) console.warn("[fw] <img> ignora i children.");
+	toNodes(children);
 	return el;
 }

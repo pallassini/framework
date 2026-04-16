@@ -6,10 +6,10 @@ export default function Hero() {
     <>
       <div
         s={{
-          base: "",
-          mob: "col centerX mt-13vh -ml-5vw gap-3vh",
+          base: "w-80vw h-70vh",
+          mob: "col centerX mt-13vh -ml-5vw gap-3vh ",
           tab: "mt-35vh ml-5vw row",
-          des: "mt-13vh ml-15vw row",
+          des: "mt-13vh row center",
         }}
       >
         <div s={{ base: "layers", mob: "w-full" }}>
@@ -23,9 +23,9 @@ export default function Hero() {
               animate: {
                 keyframes: {
                   0: { opacity: 0.62, scale: 1 },
-                  25: { opacity: 0.88, scale: 1.015 },
-                  50: { opacity: 1, scale: 1.03 },
-                  75: { opacity: 0.88, scale: 1.015 },
+                  25: { opacity: 0.88, scale: 1.025 },
+                  50: { opacity: 1, scale: 1.05 },
+                  75: { opacity: 0.88, scale: 1.025 },
                   100: { opacity: 0.62, scale: 1 },
                 },
                 duration: 5200,

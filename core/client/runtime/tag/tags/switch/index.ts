@@ -24,10 +24,6 @@ function resolveCaseChildren(ch: unknown): unknown {
 	return ch;
 }
 
-function debugSwitch(...args: unknown[]): void {
-	if (import.meta.env.DEV) console.debug("[fw switch]", ...args);
-}
-
 function matchesWithValue(switchVal: unknown, when: unknown): boolean {
 	if (isSignal(when)) return Object.is(switchVal, (when as Signal<unknown>)());
 	if (typeof when === "function" && !isSignal(when))
@@ -47,7 +43,7 @@ function appendSwitchChild(root: HTMLElement, n: globalThis.Node): void {
 	if (isCaseNode(n)) root.append(n);
 	else if (n instanceof Text && !n.data.trim()) return;
 	else {
-		console.warn("[fw] <switch> accetta solo <case> come figli diretti; ignorato:", n);
+		/* figlio non-<case> ignorato */
 	}
 }
 
@@ -91,8 +87,6 @@ export function clientSwitch(props: SwitchProps): UiNode {
 			}
 		}
 
-		debugSwitch("value", switchVal, "matchedIdx", matchedIdx, "cases", caseNodes.length);
-
 		for (let i = 0; i < caseNodes.length; i++) {
 			const el = caseNodes[i];
 			replaceChildrenWithDispose(el);
@@ -100,9 +94,6 @@ export function clientSwitch(props: SwitchProps): UiNode {
 				const { children: ch } = caseMeta(el);
 				const raw = resolveCaseChildren(ch);
 				const nodes = toNodes(raw);
-				if (import.meta.env.DEV && typeof ch === "function" && !isSignal(ch) && nodes.length === 0) {
-					console.warn("[fw switch] <case> factory ha restituito nessun nodo; controlla il return.");
-				}
 				if (nodes.length) el.append(...nodes);
 			}
 		}

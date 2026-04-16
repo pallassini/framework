@@ -85,7 +85,6 @@ export function input(props: InputProps): UiNode {
 		});
 	}
 
-	const nodes = toNodes(children);
-	if (nodes.length) console.warn("[fw] <input> ignora i children.");
+	toNodes(children);
 	return el;
 }

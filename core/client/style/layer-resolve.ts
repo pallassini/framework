@@ -1,11 +1,13 @@
 import type { Properties } from "csstype";
 import {
+	animationLayerEndAfterMs,
 	buildAnimation,
 	buildTransition,
 	ensureAnimationCss,
 	fwAnimateDebugLog,
 	injectRule,
 	type AnimateConfig,
+	type AnimationLifecycleBinding,
 	type AnimatePreset,
 	type TransitionConfig,
 } from "./animation";
@@ -46,7 +48,7 @@ export type StyleBaseSegment = string | Conditional<string> | Readonly<Record<st
  *   oppure **`[() => boolean, suffisso]`** (condizione reattiva prima, valore dopo — niente `===` nella chiave).
  *   Merge dopo `base`, sovrascrive le stesse proprietà CSS.
  * - **mob** / **tab** / **des** — stringa di token **oppure** lo stesso tipo di oggetto del layer (`base`, `class`, `animate`, `transition`, chiavi map, …) **senza** annidare di nuovo `mob`/`tab`/`des` nello stesso ramo. Se il ramo viewport ha un **`animate`** proprio, **non** si applica più l’`animate` del livello esterno (solo quello del ramo).
- * - **animate** — preset, oggetto, oppure **array** in sequenza: ogni elemento usa **`to`** (e opz. `track`) come overlay sullo stato corrente; `base` resta il fondo sempre sovrascrivibile. Con **array**, il runtime aggiunge in coda layer no-op (keyframes vuoti) se servono per avere **almeno 3** voci nelle proprietà `animation*` (workaround motori che con sole 2 animazioni non rispettano la catena). Non servono blocchi `{ to: "", duration: 0 }` manuali. Ogni segmento può avere **`delay`** in ms (oltre al ritardo cumulativo della catena), **`onStart`** / **`onEnd`** (dopo `delay`, su `animationstart` / `animationend` di quel segmento). Un blocco con **`to` vuoto** e **`duration` > 0** è un hold sullo stato corrente.
+ * - **animate** — preset, oggetto, oppure **array** in sequenza: ogni elemento usa **`to`** (e opz. `track`) come overlay sullo stato corrente; `base` resta il fondo sempre sovrascrivibile. Con **array**, il runtime aggiunge in coda layer no-op (keyframes vuoti) se servono per avere **almeno 3** voci nelle proprietà `animation*` (workaround motori che con sole 2 animazioni non rispettano la catena). Non servono blocchi `{ to: "", duration: 0 }` manuali. Ogni segmento può avere **`delay`** in ms (oltre al ritardo cumulativo della catena), **`onStart`** su `animationstart`, **`onEnd`** dopo **`delay + duration×iterazioni`** (timer dalla timeline; con `prefers-reduced-motion: reduce` si usa `animationend`). Un blocco con **`to` vuoto** e **`duration` > 0** è un hold sullo stato corrente.
  */
 export interface StyleLayerInput {
 	base?: string | StyleLayerInput | readonly StyleBaseSegment[] | Readonly<Record<string, unknown>>;
@@ -66,7 +68,7 @@ export type ResolvedStyle = {
 	classes: string[];
 	layers: boolean;
 	/** Callback legati ai nomi `@keyframes` applicati (vedi `syncAnimationLifecycle`). */
-	animationLifecycle?: ReadonlyArray<{ name: string; onStart?: () => void; onEnd?: () => void }>;
+	animationLifecycle?: ReadonlyArray<AnimationLifecycleBinding>;
 };
 
 export const VIEWPORT_KEYS: StyleViewport[] = ["mob", "tab", "des"];
@@ -429,10 +431,27 @@ function mergeAnimate(
 	});
 
 	if (built.layers?.length) {
-		const life = built.layers
+		const life: AnimationLifecycleBinding[] = built.layers
 			.filter((l) => l.onStart != null || l.onEnd != null)
-			.map((l) => ({ name: l.name, onStart: l.onStart, onEnd: l.onEnd }));
+			.map((l) => {
+				const endAfterMs = animationLayerEndAfterMs(l);
+				return {
+					name: l.name,
+					onStart: l.onStart,
+					onEnd: l.onEnd,
+					...(endAfterMs !== undefined ? { endAfterMs } : {}),
+				};
+			});
 		if (life.length) {
+			fwAnimateDebugLog("mergeAnimate lifecycle bindings", {
+				count: life.length,
+				items: life.map((b) => ({
+					name: b.name.length > 48 ? `${b.name.slice(0, 48)}…` : b.name,
+					endAfterMs: b.endAfterMs,
+					hasOnEnd: b.onEnd != null,
+					hasOnStart: b.onStart != null,
+				})),
+			});
 			into.animationLifecycle = [...(into.animationLifecycle ?? []), ...life];
 		}
 	}

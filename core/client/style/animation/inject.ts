@@ -22,13 +22,7 @@ export function injectRule(id: string, rule: string): void {
 	if (!sheet) return;
 	try {
 		sheet.insertRule(rule, sheet.cssRules.length);
-	} catch (e) {
-		if (typeof console !== "undefined" && console.warn) {
-			console.warn("[fw:animate] injectRule insertRule failed", {
-				id,
-				error: e,
-				rulePreview: rule.slice(0, 200),
-			});
-		}
+	} catch {
+		/* insertRule fallita (CSS non valido o limite foglio) */
 	}
 }
