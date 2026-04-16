@@ -9,7 +9,7 @@ export default function Menu() {
           mob: "gap-10vw",
           des: "gap-10vw",
           animate: [
-            { to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 1200 },
+            { to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 2200 },
           ],
         }}
       >
