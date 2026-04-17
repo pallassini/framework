@@ -105,8 +105,8 @@ const LAYOUT_ROW_GAP_DES = "4vh";
  */
 const HUB_PAD_TOP = "2.25rem";
 
-/** Mob: meno spazio sopra la pill così la barra orizzontale sale. */
-const HUB_PAD_TOP_MOB = "1.35rem";
+/** Mob: spazio sopra la pill (più basso = barra + testo più su). */
+const HUB_PAD_TOP_MOB = "0.5rem";
 
 /**
  * Stessi termini del vecchio `calc` (slack tra card + coda fin sotto la pill), usati nel fallback SSR.
@@ -463,7 +463,7 @@ export default function Problem() {
       ? "relative overflow-visible mt-7vh w-60vw maxw-72rem gapy-4vh pb-6"
       : "relative overflow-visible mt-7vh w-92vw maxw-76rem px-3vw gapy-3vh pb-6",
     tab: "relative overflow-visible mt-5vh w-96vw maxw-76rem minw-0 px-2vw pb-6 gapy-3vh",
-    mob: "relative overflow-visible mt-4vh w-100% maxw-100% px-3 gapy-5.5vh pb-5",
+    mob: "relative overflow-visible mt-7vh w-100% maxw-100% px-3 gapy-5.5vh pb-5",
   } as const;
 
   return (
@@ -490,16 +490,6 @@ export default function Problem() {
 
       <style dangerouslySetInnerHTML={{ __html: problemConnectorsCss }} />
       <t s={titleS}>SOLDI PER SOFTWARE MEDIOCRI</t>
-      <t
-        s={{
-          base: "text-#ffffff64 font-6",
-          des: "text-8",
-          tab: "text-8 px-1",
-          mob: "text-7 px-1",
-        }}
-      >
-        Ti vendono app
-      </t>
       <div
         className={useConnectorLayout ? "problem-card-col" : undefined}
         data-problem-connector-root={useConnectorLayout ? "" : undefined}
@@ -581,7 +571,12 @@ export default function Problem() {
           }}
         </For>
 
-        <div s={{ base: "col children-center w-100% relative gapy-3", mob: "gapy-2.5" }}>
+        <div
+          s={{
+            base: "col children-center w-100% relative gapy-3",
+            mob: "gapy-2.5 -mt-4vh children-center",
+          }}
+        >
           <div
             className="problem-hub-spacer"
             aria-hidden
