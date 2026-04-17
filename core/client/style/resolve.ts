@@ -45,7 +45,10 @@ function isStyleGroup(x: unknown): x is StyleGroup {
 	return typeof d === "function" || (typeof d === "object" && d !== null);
 }
 
-/** Con `row`/`col`, `justifyContent`/`alignItems` bastano: la variante posizionata aggiungerebbe `left`+`transform` e romperebbe barre `fixed` a tutta larghezza (es. menu). */
+/**
+ * Con `row`/`col` + `center`/`centerx`/`centery`, la variante posizionata aggiungebbe `left`+`transform`
+ * e romperebbe barre `fixed` a tutta larghezza (es. menu).
+ */
 const ALIGN_NO_POSITION_VARIANT_WITH_FLEX = new Set(["centerx", "centery", "centerX", "centerY", "center"]);
 
 function skipPositionVariantForFlex(base: string, variantKey: string, bases: ReadonlySet<string>): boolean {
@@ -54,10 +57,7 @@ function skipPositionVariantForFlex(base: string, variantKey: string, bases: Rea
 	return bases.has("row") || bases.has("col");
 }
 
-/**
- * `left`/`right`/`top`/`bottom` hanno varianti flex (`row`/`col`) e varianti inset (`absolute,fixed,sticky`).
- * Con `fixed` + `row` + `left-0`, entrambe matchavano e `justifyContent: flex-start` annullava `centerX`.
- */
+/** `left`/`right`/`top`/`bottom` hanno varianti flex (`row`/`col`) e varianti inset (`absolute,fixed,sticky`). */
 const INSET_EDGE_BASES = new Set(["left", "right", "top", "bottom"]);
 
 function skipEdgeFlexWhenPositioned(base: string, variantKey: string, bases: ReadonlySet<string>): boolean {
@@ -82,11 +82,13 @@ export function resolveToken<M extends Record<string, unknown>>(
 	bases: ReadonlySet<string>,
 	ctx?: StyleResolverContext,
 ): Properties {
+	const mergedCtx: StyleResolverContext = { ...ctx, bases };
+
 	const raw = map[base as keyof M] as unknown;
 	if (raw == null) return {};
 
 	if (typeof raw === "function") {
-		return applyResolver(raw as StyleResolver, suffix, ctx);
+		return applyResolver(raw as StyleResolver, suffix, mergedCtx);
 	}
 
 	if (isStyleGroup(raw)) {
@@ -97,12 +99,12 @@ export function resolveToken<M extends Record<string, unknown>>(
 				if (!variantKeyMatches(key, bases)) continue;
 				if (skipPositionVariantForFlex(base, key, bases)) continue;
 				if (skipEdgeFlexWhenPositioned(base, key, bases)) continue;
-				if (typeof val === "function") Object.assign(fromVariants, applyResolver(val, suffix, ctx));
+				if (typeof val === "function") Object.assign(fromVariants, applyResolver(val, suffix, mergedCtx));
 				else Object.assign(fromVariants, val);
 			}
 		}
 		if (Object.keys(fromVariants).length > 0) return fromVariants;
-		return applyDefault(raw.default, suffix, ctx);
+		return applyDefault(raw.default, suffix, mergedCtx);
 	}
 
 	return raw as Properties;
@@ -146,7 +148,8 @@ export function resolveClasses<M extends Record<string, unknown>>(
 	let acc: Properties = {};
 	for (const token of tokens) {
 		const { base, suffix, negative } = parseStyleToken(token);
-		Object.assign(acc, resolveToken(map, base, suffix, bases, negative ? { negative: true } : undefined));
+		const ctx: StyleResolverContext | undefined = negative ? { negative: true, bases } : { bases };
+		Object.assign(acc, resolveToken(map, base, suffix, bases, ctx));
 	}
 	applyPositionedInsetDefaults(acc);
 	return acc;

@@ -9,7 +9,7 @@ export default function Stop() {
       {/* 1st */}
       <div
         s={{
-          base: "row center",
+          base: "row children-center",
           mob: "text-5.5vw",
           tab: "text-2vw",
           des: "text-2vw ",
@@ -38,26 +38,26 @@ export default function Stop() {
       <div
         s={{
           base: "font-5 w-100% col",
-          mob: "mt-3vh gapy-2 centerx",
+          mob: "mt-3vh gapy-2 children-centerx",
           tab: "-mt-5vh gapy-2",
           des: "-mt-5vh gapy-2",
         }}
       >
         <div
           s={{
-            mob: "w-100% col gapy-1 centerx",
-            tab: "row wrap centerx bottom",
-            des: "row wrap centerx bottom",
+            mob: "w-100% col gapy-1 children-centerx",
+            tab: "row wrap children-centerx children-bottom",
+            des: "row wrap children-centerx children-bottom",
           }}
         >
-          <div s={{ mob: "w-100% centerx", tab: "contents", des: "contents" }}>
+          <div s={{ mob: "w-100% center children-center", tab: "contents", des: "contents" }}>
             <t s={{ base: muted, mob: "mr-1.5vw", des: "mr-0.5vw" }}>Ti vendono app</t>{" "}
             <t s={hot}>non personalizzate</t>
             <t s={muted} show={() => !mob()}>
               ,
             </t>
           </div>
-          <div s={{ mob: "w-100% centerx", tab: "contents", des: "contents" }}>
+          <div s={{ mob: "w-100% center children-center", tab: "contents", des: "contents" }}>
             <t s={{ base: hot, mob: "mr-0.5vw", des: "mr-0.5vw ml-0.5vw" }}>poco performanti</t>{" "}
             <t s={{ base: muted, mob: "mr-0.5vw", des: "mr-0.5vw" }}> e </t>{" "}
             <t s={hot}> impossibili da scalare</t>
@@ -65,7 +65,7 @@ export default function Stop() {
         </div>
         <div
           s={{
-            base: "row centerx bottom font-5 gapx-2",
+            base: "row children-center children-bottom font-5 gapx-2",
           }}
         >
           <t s={muted}>e te le fanno pagare</t>

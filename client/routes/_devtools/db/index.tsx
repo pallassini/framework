@@ -183,7 +183,7 @@ export default function DB() {
           return (
             <div s={`col round-12px b-#27272a ${cardBg}`}>
               <div s="col gapy-2 px-4 py-4 b-#27272a round-12px">
-                <div s="row gapx-4 gapy-2 centerY">
+                <div s="row gapx-4 gapy-2 children-centery">
                   <t s="text-5 text-#fafafa font-7 minw-100px">{name}</t>
                   <t s="text-3 text-#a78bfa font-6">
                     {`${String(rowCount)} righe${previewNote}`}

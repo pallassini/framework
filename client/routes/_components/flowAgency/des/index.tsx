@@ -94,7 +94,7 @@ export default function FlowAgencyDes() {
             marginLeft: "-52vw",
             top: "37vh",
           }}
-          s={{ base: "col centerX" }}
+          s={{ base: "col children-left" }}
         >
           {/* Fade solo sul titolo; agency: video normale + blend come hero (niente canvas) */}
           <div

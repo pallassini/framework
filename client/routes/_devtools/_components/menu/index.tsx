@@ -9,7 +9,7 @@ const TABS = [
 export default function MenuDevtools() {
   return (
     <>
-      <div s="row gapx-2vw center bg-#1865c2 p-2 font-6">
+      <div s="row gapx-2vw children-center bg-#1865c2 p-2 font-6">
         <For each={TABS}>
           {(tab) => (
             <div

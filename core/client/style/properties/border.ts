@@ -2,8 +2,10 @@ import type { Properties } from "csstype";
 import { resolveColorToken } from "./utils/color";
 import { resolveSpacingToken } from "./utils/units";
 
-/** Larghezza (`b-2vh`, `b-1px`) o colore (`b-#fff`, `b-rgba(...)`). Senza suffisso: `1px solid`. */
-export function border(suffix: string, ctx?: { negative?: boolean }): Properties | undefined {
+type BorderCtx = { negative?: boolean };
+
+/** Larghezza (`b-2vh`, `b-1px`) o solo colore (`b-#fff`). Ordine libero: spessore e colore si sommano; il colore non imposta spessore. Senza suffisso: `1px solid`. */
+export function border(suffix: string, ctx?: BorderCtx): Properties | undefined {
 	if (ctx?.negative) return undefined;
 	if (!suffix) return { borderStyle: "solid", borderWidth: "1px" };
 
@@ -11,7 +13,46 @@ export function border(suffix: string, ctx?: { negative?: boolean }): Properties
 	if (width) return { borderStyle: "solid", borderWidth: width };
 
 	const color = resolveColorToken(suffix);
-	if (color) return { borderStyle: "solid", borderWidth: "1px", borderColor: color };
+	if (color) return { borderColor: color };
 
 	return undefined;
+}
+
+type Side = "Top" | "Right" | "Bottom" | "Left";
+
+function borderOneSide(side: Side, suffix: string, ctx?: BorderCtx): Properties | undefined {
+	if (ctx?.negative) return undefined;
+	const wKey = `border${side}Width` as const;
+	const sKey = `border${side}Style` as const;
+	const cKey = `border${side}Color` as const;
+
+	if (!suffix) return { [sKey]: "solid", [wKey]: "1px" } as Properties;
+
+	const width = resolveSpacingToken(suffix, "box");
+	if (width) return { [sKey]: "solid", [wKey]: width } as Properties;
+
+	const color = resolveColorToken(suffix);
+	if (color) return { [cKey]: color } as Properties;
+
+	return undefined;
+}
+
+/** Bordo superiore: come `b` ma solo `border-top-*` (`bt-1px`, `bt-#fff`). */
+export function borderTop(suffix: string, ctx?: BorderCtx): Properties | undefined {
+	return borderOneSide("Top", suffix, ctx);
+}
+
+/** Bordo destro. */
+export function borderRight(suffix: string, ctx?: BorderCtx): Properties | undefined {
+	return borderOneSide("Right", suffix, ctx);
+}
+
+/** Bordo inferiore. */
+export function borderBottom(suffix: string, ctx?: BorderCtx): Properties | undefined {
+	return borderOneSide("Bottom", suffix, ctx);
+}
+
+/** Bordo sinistro. */
+export function borderLeft(suffix: string, ctx?: BorderCtx): Properties | undefined {
+	return borderOneSide("Left", suffix, ctx);
 }

@@ -2,7 +2,7 @@ import FlowAgency from "./_components/flowAgency";
 import Problem from "./_components/problem";
 import { state, watch } from "client";
 
-const PROBLEM_DELAY_MS = 0;
+const PROBLEM_DELAY_MS = 2200;
 
 export default function Home() {
   const showProblem = state(false);
@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <>
       <FlowAgency />
-      <div show={showProblem} s={{ des: "mt-15vh mb-20vh", mob: "mt-5vh mb-10vh" }}>
+      <div show={true} s={{ des: "mt-15vh mb-20vh", mob: "mt-5vh mb-10vh" }}>
         <Problem />
       </div>
     </>

@@ -67,11 +67,74 @@ import {
 	syncAnimationLifecycle,
 } from "./animation";
 import { condenseConditionalTokenMap, resolveStyleInput, type StyleInput, type StyleLayerInput, type ResolvedStyle } from "./layer-resolve";
-import { styleViewport } from "./viewport";
+import { mob, styleViewport } from "./viewport";
 
 type El = HTMLElement | SVGElement;
 
 const managedStyleKeys = new WeakMap<El, Set<string>>();
+
+const hoverOverlayCleanup = new WeakMap<El, () => void>();
+
+function mobViewport(): boolean {
+	return mob();
+}
+
+function teardownHoverOverlay(el: El): void {
+	const d = hoverOverlayCleanup.get(el);
+	if (d) {
+		d();
+		hoverOverlayCleanup.delete(el);
+	}
+}
+
+/** Merge `resolved.hover` al mouse; solo se `!mob()`. */
+function attachHoverOverlay(el: El, resolved: ResolvedStyle): void {
+	teardownHoverOverlay(el);
+	const ov = resolved.hover;
+	if (!ov) return;
+	const hasHover = Object.keys(ov.style).length > 0;
+	const hoverCls = ov.classes?.filter(Boolean).join(" ").trim() ?? "";
+	if (!hasHover && !hoverCls) return;
+	if (mobViewport()) return;
+
+	const baseStyle = { ...resolved.style };
+	const baseClass = resolved.classes.filter(Boolean).join(" ").trim();
+
+	const applyBase = (): void => {
+		applyMapStyles(el, baseStyle as Properties);
+		if (resolved.layers) el.setAttribute("data-fw-layers", "");
+		else el.removeAttribute("data-fw-layers");
+		if (baseClass) el.setAttribute("class", baseClass);
+		else el.removeAttribute("class");
+	};
+
+	const applyHover = (): void => {
+		applyMapStyles(el, { ...baseStyle, ...ov.style } as Properties);
+		if (resolved.layers || ov.layers) el.setAttribute("data-fw-layers", "");
+		const mergedCls = hoverCls ? (baseClass ? `${baseClass} ${hoverCls}` : hoverCls) : baseClass;
+		if (mergedCls?.trim()) el.setAttribute("class", mergedCls.trim());
+		else el.removeAttribute("class");
+	};
+
+	const onEnter = (): void => {
+		applyHover();
+	};
+	const onLeave = (): void => {
+		applyBase();
+		if (el instanceof HTMLElement) {
+			flushMediaBlendAfterStyle(el);
+			flushVideoEdgeFadeAfterStyle(el);
+		}
+	};
+
+	el.addEventListener("mouseenter", onEnter);
+	el.addEventListener("mouseleave", onLeave);
+	hoverOverlayCleanup.set(el, () => {
+		el.removeEventListener("mouseenter", onEnter);
+		el.removeEventListener("mouseleave", onLeave);
+		applyBase();
+	});
+}
 
 function camelToKebab(prop: string): string {
 	return prop.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -162,6 +225,7 @@ const STYLE_ANIMATE_HOOK_KEYS = new Set(["onStart", "onEnd"]);
 
 function clearS(el: El): void {
 	clearAnimationLifecycle(el);
+	teardownHoverOverlay(el);
 	if (el instanceof HTMLElement) {
 		clearMediaBlend(el);
 		clearVideoEdgeFade(el);
@@ -278,6 +342,8 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 		flushMediaBlendAfterStyle(el);
 		flushVideoEdgeFadeAfterStyle(el);
 	}
+
+	attachHoverOverlay(el, resolved);
 }
 
 /** Applica `s` (stringa, layer oggetto, numero) al viewport corrente. */

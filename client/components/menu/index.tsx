@@ -5,7 +5,7 @@ export default function Menu() {
     <>
       <div
         s={{
-          base: "row center gap-10vw weight-600 w-100% fixed top-0 left-0 z-50 h-6vh bg-background text-#fff font-5 text-3 opacity-0",
+          base: "row children-center gap-10vw weight-600 w-100% fixed top-0 left-0 z-50 h-6vh bg-background text-#fff font-5 text-3 opacity-0",
           mob: "gap-10vw",
           des: "gap-10vw",
           animate: [{ to: "opacity-100", duration: 400, ease: "ease-in-out", delay: 2200 }],

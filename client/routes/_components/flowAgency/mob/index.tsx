@@ -18,7 +18,7 @@ export default function FlowAgencyMob() {
   return (
     <div
       s={{
-        base: "relative col top centerX w-100% mt-12vh gap-3vh",
+        base: "relative col top left w-100% mt-12vh gap-3vh",
       }}
     >
       <div
@@ -78,7 +78,7 @@ export default function FlowAgencyMob() {
 
       <div
         show={logo}
-        s={{ base: "col centerX w-100% mt-8vh gap-0" }}
+        s={{ base: "col children-left w-100% mt-8vh gap-0" }}
       >
         <div
           s={{

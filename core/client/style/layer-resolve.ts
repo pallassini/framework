@@ -55,6 +55,8 @@ export interface StyleLayerInput {
 	mob?: string | StyleLayerInput;
 	tab?: string | StyleLayerInput;
 	des?: string | StyleLayerInput;
+	/** Overlay al passaggio del mouse (applicato solo se non viewport `mob`). */
+	hover?: string | StyleLayerInput;
 	class?: string;
 	animate?: Conditional<AnimateInput>;
 	transition?: Conditional<string | TransitionConfig>;
@@ -69,6 +71,8 @@ export type ResolvedStyle = {
 	layers: boolean;
 	/** Callback legati ai nomi `@keyframes` applicati (vedi `syncAnimationLifecycle`). */
 	animationLifecycle?: ReadonlyArray<AnimationLifecycleBinding>;
+	/** Stile overlay da `hover` nel layer (merge al mouse; solo se non mob). */
+	hover?: ResolvedStyle;
 };
 
 export const VIEWPORT_KEYS: StyleViewport[] = ["mob", "tab", "des"];
@@ -78,6 +82,7 @@ export const RESERVED_LAYER_KEYS = new Set([
 	"mob",
 	"tab",
 	"des",
+	"hover",
 	"class",
 	"animate",
 	"transition",
@@ -273,6 +278,9 @@ function mergeInto(target: ResolvedStyle, source: ResolvedStyle): void {
 	target.layers = target.layers || source.layers;
 	if (source.animationLifecycle?.length) {
 		target.animationLifecycle = [...(target.animationLifecycle ?? []), ...source.animationLifecycle];
+	}
+	if (source.hover) {
+		target.hover = source.hover;
 	}
 }
 
@@ -511,6 +519,16 @@ export function resolveStyleLayer(
 	const anim = unwrapConditional<AnimateInput>(layer.animate);
 	if (!viewportBranchDeclaresAnimate(vpRaw)) {
 		mergeAnimate(anim, result, vp, contextForVp);
+	}
+
+	const hoverRaw = unwrapConditional(layer.hover);
+	if (hoverRaw != null) {
+		const hIn = hoverRaw as string | StyleLayerInput;
+		const hoverResolved =
+			typeof hIn === "string"
+				? resolveStyleString(hIn, vp, contextForVp)
+				: resolveStyleLayer(hIn as StyleLayerInput, vp, contextForVp);
+		result.hover = hoverResolved;
 	}
 
 	applyPositionedInsetDefaultsResolved(result.style);

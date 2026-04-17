@@ -1,7 +1,7 @@
 import type { Properties } from "csstype";
 import { backgroundColor } from "./properties/background";
 import { blur } from "./properties/blur";
-import { border } from "./properties/border";
+import { border, borderBottom, borderLeft, borderRight, borderTop } from "./properties/border";
 import { font } from "./properties/font";
 import * as g from "./properties/gap";
 import { h } from "./properties/h";
@@ -16,6 +16,38 @@ import { round } from "./properties/round";
 import { rotate as rotateFn } from "./properties/rotate";
 import { text } from "./properties/text";
 import { zIndex } from "./properties/zIndex";
+import { gridTemplateColumnsEqual, gridTemplateRowsEqualFlowColumn } from "./properties/grid-axis";
+import { translateX as translateXFn, translateY as translateYFn } from "./properties/translate";
+import { childrenAlign } from "./properties/children-align";
+import { selfAlign } from "./properties/self-align";
+
+/**
+ * `center` / `centerx` / `centery` / `left` / `right` / `top` / `bottom` → solo **posizione di questo box**
+ * (margin auto, inset griglia `layer`, absolute…). Per flex **figli** usa `children-center`, `children-left`, …
+ */
+const CENTERX_GROUP = {
+	default: { marginLeft: "auto", marginRight: "auto" },
+	variants: {
+		"absolute,fixed,sticky": { left: "50%", transform: "translateX(-50%)" },
+		layer: { justifySelf: "center" },
+	},
+};
+
+const CENTERY_GROUP = {
+	default: { marginTop: "auto", marginBottom: "auto" },
+	variants: {
+		"absolute,fixed,sticky": { top: "50%", transform: "translateY(-50%)" },
+		layer: { alignSelf: "center" },
+	},
+};
+
+const CENTER_GROUP = {
+	default: { marginLeft: "auto", marginRight: "auto", marginTop: "auto", marginBottom: "auto" },
+	variants: {
+		"absolute,fixed,sticky": { left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
+		layer: { justifySelf: "center", alignSelf: "center" },
+	},
+};
 
 export const map = styleMap({
   // BASICS
@@ -37,6 +69,10 @@ export const map = styleMap({
   gapx: g.gapx,
   gapy: g.gapy,
   b: border,
+  bt: borderTop,
+  br: borderRight,
+  bb: borderBottom,
+  bl: borderLeft,
   bg: backgroundColor,
   blur: blur,
   text: text,
@@ -53,6 +89,10 @@ export const map = styleMap({
   round: round,
   rotate: rotateFn,
   rotat: rotateFn,
+  /** `tx-12px` / `-tx-50%` → `transform: translateX(…)`. */
+  tx: translateXFn,
+  /** `ty-12px` / `-ty-50%` → `transform: translateY(…)`. */
+  ty: translateYFn,
 
   /** Marcatore per figli di `layers`: abilita varianti `layer` su left/right/top/bottom/center*. */
   layer: {},
@@ -75,77 +115,69 @@ export const map = styleMap({
   },
 
   // DIRECTION
-  row: { display: "flex", flexDirection: "row", flexWrap: "wrap" },
-  col: { display: "flex", flexDirection: "column" },
+  /**
+   * Flex: `row` / `col` senza suffisso.
+   * Griglia: `row-N` / `col-N` con **N intero 1–24** (`col-2` = 2 colonne, ordine a zig-zag per riga;
+   * `row-2` = 2 righe con `grid-auto-flow: column`, stesso schema per colonne).
+   */
+  row: {
+    default: (suffix) => {
+      if (!suffix) return { display: "flex", flexDirection: "row", flexWrap: "wrap" };
+      return gridTemplateRowsEqualFlowColumn(suffix) ?? {
+        display: "flex",
+        flexDirection: "row",
+        flexWrap: "wrap",
+      };
+    },
+  },
+  col: {
+    default: (suffix) => {
+      if (!suffix) return { display: "flex", flexDirection: "column" };
+      return gridTemplateColumnsEqual(suffix) ?? { display: "flex", flexDirection: "column" };
+    },
+  },
   /** I figli partecipano al layout del nonno (utile a “appiattire” gruppi in una `row` su desktop). */
   contents: { display: "contents" },
 
-  // ALIGNMENT
+  // ALIGNMENT (solo il box; figli flex → `children-*`)
   left: {
-    default: { justifyContent: "flex-start" },
+    default: {},
     variants: {
-      row: { justifyContent: "flex-start" },
-      col: { alignItems: "flex-start" },
       "absolute,fixed,sticky": { left: 0 },
       layer: { justifySelf: "start" },
     },
   },
   right: {
-    default: { justifyContent: "flex-end" },
+    default: {},
     variants: {
-      row: { justifyContent: "flex-end" },
-      col: { alignItems: "flex-end" },
       "absolute,fixed,sticky": { right: 0 },
       layer: { justifySelf: "end" },
     },
   },
   top: {
-    default: { alignItems: "flex-start" },
+    default: {},
     variants: {
-      row: { alignItems: "flex-start" },
-      col: { justifyContent: "flex-start" },
       "absolute,fixed,sticky": { top: 0 },
       layer: { alignSelf: "start" },
     },
   },
   bottom: {
-    default: { alignItems: "flex-end" },
+    default: {},
     variants: {
-      row: { alignItems: "flex-end" },
-      col: { justifyContent: "flex-end" },
       "absolute,fixed,sticky": { bottom: 0 },
       layer: { alignSelf: "end" },
     },
   },
-  /** In riga: centra i figli (`justify-content`). Blocco senza flex: `text-align: center`. Con `fixed` senza `row`/`col`: centra il box (`left`+`transform`). */
-  centerx: {
-    default: { justifyContent: "center", textAlign: "center" },
-    variants: {
-      row: { justifyContent: "center" },
-      col: { alignItems: "center" },
-      "absolute,fixed,sticky": { left: "50%", transform: "translateX(-50%)" },
-      layer: { justifySelf: "center" },
-    },
-  },
-  centery: {
-    default: { alignItems: "center" },
-    variants: {
-      row: { alignItems: "center" },
-      col: { justifyContent: "center" },
-      "absolute,fixed,sticky": { top: "50%", transform: "translateY(-50%)" },
-      layer: { alignSelf: "center" },
-    },
-  },
-  /** Solo `center` (senza `row`/`col`/`absolute`/`fixed`/`sticky`): centra il box nel contenitore in flusso (`margin` orizzontale auto + `text-align`). Non usa `fixed`, così lo scroll sposta l’elemento. Con `absolute`/`fixed`/`sticky`: inset + translate come prima. */
-  center: {
-    default: { marginLeft: "auto", marginRight: "auto", textAlign: "center" },
-    variants: {
-      row: { justifyContent: "center", alignItems: "center" },
-      col: { justifyContent: "center", alignItems: "center" },
-      "absolute,fixed,sticky": { left: "50%", top: "50%", transform: "translate(-50%, -50%)" },
-      layer: { justifySelf: "center", alignSelf: "center" },
-    },
-  },
+  /** Allineamento orizzontale nel box (margin / layer / absolute). */
+  centerx: CENTERX_GROUP,
+  centerX: CENTERX_GROUP,
+  centery: CENTERY_GROUP,
+  centerY: CENTERY_GROUP,
+  center: CENTER_GROUP,
+  /** Figli in `row` / `col`: `children-center`, `children-left`, `children-top`, … */
+  children: childrenAlign,
+  /** Questo figlio nel flex genitore: `self-start`, `self-center`, … */
+  self: selfAlign,
 });
 
 // TYPES
@@ -161,7 +193,7 @@ export type StyleVariantKey = MapEntry extends {
   : never;
 
 export type * from "./properties/utils/color";
-export type StyleResolverContext = { negative?: boolean };
+export type StyleResolverContext = { negative?: boolean; bases?: ReadonlySet<string> };
 
 export type StyleResolver = (suffix: string, ctx?: StyleResolverContext) => Properties | undefined;
 
