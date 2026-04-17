@@ -348,6 +348,8 @@ function hasLayersInActive(active: string): boolean {
 	return tokenizeStyleString(active).some((t) => parseStyleToken(t).base === "layers");
 }
 
+const HOVER_PREFIX = "hover:(";
+
 export function resolveStyleString(
 	str: string,
 	vp: StyleViewport,
@@ -360,7 +362,12 @@ export function resolveStyleString(
 	const tokens = tokenizeStyleString(active);
 	const known: string[] = [];
 	const passthrough: string[] = [];
+	const hoverInners: string[] = [];
 	for (const t of tokens) {
+		if (/^hover:\(/i.test(t) && t.endsWith(")")) {
+			hoverInners.push(t.slice(HOVER_PREFIX.length, -1).trim());
+			continue;
+		}
 		if (parseStyleToken(t).base in map) known.push(t);
 		else passthrough.push(t);
 	}
@@ -372,6 +379,12 @@ export function resolveStyleString(
 	result.classes = passthrough;
 	result.layers = hasLayersInActive(active);
 	applyPositionedInsetDefaultsResolved(result.style);
+
+	if (hoverInners.length) {
+		const mergedHover = hoverInners.join(" ");
+		const hoverResolved = resolveStyleString(mergedHover, vp, extraBasesForVariants);
+		result.hover = hoverResolved;
+	}
 	return result;
 }
 

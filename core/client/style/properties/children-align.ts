@@ -1,6 +1,21 @@
 import type { Properties } from "csstype";
 import type { StyleResolver, StyleResolverContext } from "../properties";
 
+/** Centratura flex su asse principale e trasversale; `alignContent` serve anche con `flex-wrap: wrap` e più righe. */
+const flexChildrenCenter: Properties = {
+	justifyContent: "center",
+	alignItems: "center",
+	alignContent: "center",
+};
+
+/** Se manca `row`/`col`, `children-center` deve comunque creare un flex container (come `row` di default). */
+const flexRowChildrenCenter: Properties = {
+	display: "flex",
+	flexDirection: "row",
+	flexWrap: "nowrap",
+	...flexChildrenCenter,
+};
+
 /**
  * Allineamento dei **figli** in un `row` / `col` (`children-center`, `children-left`, …).
  * Usa `ctx.bases` da `resolveToken` per sapere se il contenitore è `row` o `col`.
@@ -11,8 +26,8 @@ export const childrenAlign: StyleResolver = (suffix: string, ctx?: StyleResolver
 	const col = bases?.has("col") ?? false;
 	switch (suffix) {
 		case "center":
-			if (row || col) return { justifyContent: "center", alignItems: "center" };
-			return undefined;
+			if (row || col) return flexChildrenCenter;
+			return flexRowChildrenCenter;
 		case "left":
 			if (row) return { justifyContent: "flex-start" };
 			if (col) return { alignItems: "flex-start" };

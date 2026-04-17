@@ -54,6 +54,7 @@ const ALIGN_NO_POSITION_VARIANT_WITH_FLEX = new Set(["centerx", "centery", "cent
 function skipPositionVariantForFlex(base: string, variantKey: string, bases: ReadonlySet<string>): boolean {
 	if (variantKey !== "absolute,fixed,sticky") return false;
 	if (!ALIGN_NO_POSITION_VARIANT_WITH_FLEX.has(base)) return false;
+	if (!bases.has("fixed")) return false;
 	return bases.has("row") || bases.has("col");
 }
 

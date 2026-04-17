@@ -47,4 +47,30 @@ export const PROJECTS: Project[] = [
       },
     ],
   },
+  {
+    title: "Flight Assistant UI",
+    slides: [
+      {
+        image: asset("./assets/plane/generation-0b0d391a-3094-4628-a1d1-356cd5d255e0.png"),
+        description: "Ricerca voli e filtri rapidi.",
+      },
+      {
+        image: asset("./assets/plane/generation-3284e71d-d7ef-483b-83c1-24f79814aa64.png"),
+        description: "Risultati e confronto prezzi.",
+      },
+    ],
+  },
+  {
+    title: "Flight Assistant UI",
+    slides: [
+      {
+        image: asset("./assets/plane/generation-0b0d391a-3094-4628-a1d1-356cd5d255e0.png"),
+        description: "Ricerca voli e filtri rapidi.",
+      },
+      {
+        image: asset("./assets/plane/generation-3284e71d-d7ef-483b-83c1-24f79814aa64.png"),
+        description: "Risultati e confronto prezzi.",
+      },
+    ],
+  },
 ];

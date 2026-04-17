@@ -20,10 +20,15 @@ import { gridTemplateColumnsEqual, gridTemplateRowsEqualFlowColumn } from "./pro
 import { translateX as translateXFn, translateY as translateYFn } from "./properties/translate";
 import { childrenAlign } from "./properties/children-align";
 import { selfAlign } from "./properties/self-align";
+import { scaleTransform } from "./properties/transform-scale";
+import { easeTiming, transitionDurationToken } from "./properties/transition-tokens";
+import { eventsPointer, noPrefix } from "./properties/pointer-events";
 
 /**
- * `center` / `centerx` / `centery` / `left` / `right` / `top` / `bottom` → solo **posizione di questo box**
- * (margin auto, inset griglia `layer`, absolute…). Per flex **figli** usa `children-center`, `children-left`, …
+ * `center*` / `left` / `right` / `top` / `bottom` → questo box.
+ * `left`/`right`/`top`/`bottom`: con `absolute`/`fixed`/`sticky` → inset; con `layer` → griglia;
+ * altrimenti (static, relative, …) → margini come `centerx`/`centery` (allineamento in flex).
+ * Per **figli** del flex genitore usa `children-*`.
  */
 const CENTERX_GROUP = {
 	default: { marginLeft: "auto", marginRight: "auto" },
@@ -48,6 +53,12 @@ const CENTER_GROUP = {
 		layer: { justifySelf: "center", alignSelf: "center" },
 	},
 };
+
+/** In flusso, `left`/`right`/`top`/`bottom` usano margini (su `static`/`relative` le proprietà CSS `left`/… non hanno effetto). */
+const EDGE_LEFT_FLOW: Properties = { marginLeft: 0, marginRight: "auto" };
+const EDGE_RIGHT_FLOW: Properties = { marginLeft: "auto", marginRight: 0 };
+const EDGE_TOP_FLOW: Properties = { marginTop: 0, marginBottom: "auto" };
+const EDGE_BOTTOM_FLOW: Properties = { marginTop: "auto", marginBottom: 0 };
 
 export const map = styleMap({
   // BASICS
@@ -89,6 +100,14 @@ export const map = styleMap({
   round: round,
   rotate: rotateFn,
   rotat: rotateFn,
+  /** `scale-130` → `transform: scale(1.3)` (numeri > 10 → /100). */
+  scale: scaleTransform,
+  /** `duration-200ms` → `transition-duration`. */
+  duration: transitionDurationToken,
+  /** `ease` / `ease-out` / `ease-in` / `ease-in-out` → `transition-timing-function`. */
+  ease: easeTiming,
+  /** `linear` → `transition-timing-function: linear` (senza `ease-*` il default è `ease` del browser). */
+  linear: { transitionTimingFunction: "linear" },
   /** `tx-12px` / `-tx-50%` → `transform: translateX(…)`. */
   tx: translateXFn,
   /** `ty-12px` / `-ty-50%` → `transform: translateY(…)`. */
@@ -117,7 +136,10 @@ export const map = styleMap({
   /** Box assoluto inset 0 (come layer meteors sotto `relative`). */
   fill: { position: "absolute", inset: "0" },
   "overflow-hidden": { overflow: "hidden" },
-  "no-events": { pointerEvents: "none" },
+  /** `no-events` → `pointer-events: none` (token `no` + suffisso `events`). */
+  no: noPrefix,
+  /** `events-none` / `events-auto` → `pointer-events`. */
+  events: eventsPointer,
   layers: {
     display: "grid",
     gridTemplateColumns: "1fr",
@@ -131,14 +153,15 @@ export const map = styleMap({
    * Flex: `row` / `col` senza suffisso.
    * Griglia: `row-N` / `col-N` con **N intero 1–24** (`col-2` = 2 colonne, ordine a zig-zag per riga;
    * `row-2` = 2 righe con `grid-auto-flow: column`, stesso schema per colonne).
+   * Default `flex-wrap: nowrap` (più comune per barre e file orizzontali); usa `wrap` dopo `row` se serve andare a capo.
    */
   row: {
     default: (suffix) => {
-      if (!suffix) return { display: "flex", flexDirection: "row", flexWrap: "wrap" };
+      if (!suffix) return { display: "flex", flexDirection: "row", flexWrap: "nowrap" };
       return gridTemplateRowsEqualFlowColumn(suffix) ?? {
         display: "flex",
         flexDirection: "row",
-        flexWrap: "wrap",
+        flexWrap: "nowrap",
       };
     },
   },
@@ -150,31 +173,35 @@ export const map = styleMap({
   },
   /** I figli partecipano al layout del nonno (utile a “appiattire” gruppi in una `row` su desktop). */
   contents: { display: "contents" },
+  /** Dopo `row`: forza `flex-wrap: nowrap` (es. se qualche segmento ha impostato `wrap`). */
+  nowrap: { flexWrap: "nowrap" },
+  /** Dopo `row`: `flex-wrap: wrap` (il default di `row` è `nowrap`). Ordine consigliato: `row wrap`. */
+  wrap: { flexWrap: "wrap" },
 
   // ALIGNMENT (solo il box; figli flex → `children-*`)
   left: {
-    default: {},
+    default: EDGE_LEFT_FLOW,
     variants: {
       "absolute,fixed,sticky": { left: 0 },
       layer: { justifySelf: "start" },
     },
   },
   right: {
-    default: {},
+    default: EDGE_RIGHT_FLOW,
     variants: {
       "absolute,fixed,sticky": { right: 0 },
       layer: { justifySelf: "end" },
     },
   },
   top: {
-    default: {},
+    default: EDGE_TOP_FLOW,
     variants: {
       "absolute,fixed,sticky": { top: 0 },
       layer: { alignSelf: "start" },
     },
   },
   bottom: {
-    default: {},
+    default: EDGE_BOTTOM_FLOW,
     variants: {
       "absolute,fixed,sticky": { bottom: 0 },
       layer: { alignSelf: "end" },

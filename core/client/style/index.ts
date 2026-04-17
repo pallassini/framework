@@ -87,6 +87,17 @@ function teardownHoverOverlay(el: El): void {
 	}
 }
 
+/** Base + hover: unisce `transform` (es. `absolute center` + `scale` in hover). */
+function mergeHoverStyle(base: Record<string, string>, hover: Record<string, string>): Record<string, string> {
+	const out = { ...base, ...hover };
+	const bt = base.transform;
+	const ht = hover.transform;
+	if (bt && ht) {
+		out.transform = `${bt} ${ht}`.trim();
+	}
+	return out;
+}
+
 /** Merge `resolved.hover` al mouse; solo se `!mob()`. */
 function attachHoverOverlay(el: El, resolved: ResolvedStyle): void {
 	teardownHoverOverlay(el);
@@ -109,7 +120,8 @@ function attachHoverOverlay(el: El, resolved: ResolvedStyle): void {
 	};
 
 	const applyHover = (): void => {
-		applyMapStyles(el, { ...baseStyle, ...ov.style } as Properties);
+		const merged = mergeHoverStyle(baseStyle, ov.style);
+		applyMapStyles(el, merged as Properties);
 		if (resolved.layers || ov.layers) el.setAttribute("data-fw-layers", "");
 		const mergedCls = hoverCls ? (baseClass ? `${baseClass} ${hoverCls}` : hoverCls) : baseClass;
 		if (mergedCls?.trim()) el.setAttribute("class", mergedCls.trim());
