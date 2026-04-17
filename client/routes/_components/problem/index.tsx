@@ -597,7 +597,7 @@ export default function Problem() {
                 mob: "text-6",
               }}
             >
-              e te le fanno pagare
+              ...e te li fanno pagare
             </t>
             <t
               className="problem-price-euro"
