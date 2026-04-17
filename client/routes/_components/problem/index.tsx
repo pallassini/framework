@@ -5,25 +5,28 @@ const BRUCIARE_MOB = new URL("./BRUCIARE_mob.webm", import.meta.url).href;
 
 const problems = [
   {
+    icon: "receiptEuro",
+    text: "Vendono poco",
+    description:
+      "Porti persone sul sito, ma non comprano. Restano, guardano e poi spariscono. Ogni giorno investi per riempire un secchio bucato: tanto traffico, pochi clienti, cassa che non cresce.",
+  },
+  {
+    icon: "monitor",
+    text: "Utenti in fuga",
+    description:
+      "Si apre lenta, si blocca, fa perdere tempo. Al primo intoppo le persone chiudono e non tornano. Quando arrivano in tanti, il sistema cede proprio nel momento in cui dovresti vendere di piu.",
+  },
+  {
     icon: "palette",
-    text: "Non personalizzate",
-    description: "Template generici, niente brand né UX su misura per il tuo caso.",
-  },
-  {
-    icon: "chartDown",
-    text: "Poco performanti",
-    description: "Lentezza, crash e debito tecnico che ti costano utenti e reputazione.",
-  },
-  {
-    icon: "factory",
-    text: "Impossibili da scalare",
-    description: "Architetture rigide: ogni evoluzione diventa un progetto a parte.",
+    text: "Brand anonimo",
+    description:
+      "Sembri uguale a tutti e il cliente non capisce perche scegliere te. Quando non vede differenze, guarda solo il prezzo. Cosi finisci a scontare per chiudere e il tuo valore sparisce.",
   },
   {
     icon: "clock",
-    text: "Consegne che slittano",
+    text: "Ritardi e soldi bloccati",
     description:
-      "Date che non reggono: il lavoro si allunga e il giorno del lancio slitta più volte.",
+      "Ti promettono una data, poi slitta ancora e ancora. Intanto hai gia versato soldi e resti fermo mentre i concorrenti pubblicano e incassano. Alla fine paghi due volte: denaro bloccato e occasioni perse.",
   },
 ] as const;
 
@@ -91,11 +94,17 @@ const ICON_AXIS_FROM_CARD_LEFT = "calc(3.5rem + 0.75rem + 0.5rem - 0.55rem)";
 const PULSE_CYCLE_S = 2.35;
 const PULSE_STAGGER_S = 0.48;
 
+/**
+ * Card con layout connettori: altezza fissa così il fondo delle card è allineato e le barre verso la pill
+ * dipendono solo dall’indice (distanza verticale), non dalla lunghezza del testo.
+ */
+const CONNECTOR_CARD_ROW_H = "clamp(16rem, 22vh, 34rem)";
+
 /** Altezza minima card + gap (devono coincidere col `calc` delle linee su `des` con layout connettori). */
 function layoutCardRow(useConnectorLayout: boolean): string {
   if (mob()) return "auto";
-  if (tab() || !useConnectorLayout) return "clamp(9rem, 14vh, 18rem)";
-  return "clamp(8.5rem, 11vh, 15rem)";
+  if (useConnectorLayout) return CONNECTOR_CARD_ROW_H;
+  return "clamp(9rem, 14vh, 18rem)";
 }
 
 const LAYOUT_ROW_GAP_DES = "4vh";
@@ -114,67 +123,46 @@ const HUB_PAD_TOP_MOB = "0.5rem";
 const CONNECTOR_BLOCK_HEIGHT_SLACK = "0.32rem";
 const CONNECTOR_MEET_BAR_REM = "1.22rem";
 
-/**
- * La linea deve entrare di qualche px nella pill (altezza rail ~10px); `ceil` evita di accorciare.
- */
-const CONNECTOR_INTO_RAIL_PX = 6;
+/** Punto sulla barra verso cui misurare l’altezza (0.5 centro, 1 bordo inferiore). */
+const CONNECTOR_RAIL_TARGET_RATIO = 0.88;
+const CONNECTOR_RAIL_TARGET_OFFSET_PX_FALLBACK = 5;
+/** Accorcia le linee in modo uniforme (render; la misura DOM è grezza). */
+const CONNECTOR_LENGTH_TRIM_PX = 16;
+/** Ulteriore lunghezza oltre il punto misurato (verso il basso). */
+const CONNECTOR_EXTEND_INTO_RAIL_PX = 32;
 
 /**
- * L’ultima card (indice più alto) coincide spesso con la pill; le altre risultano corte a ritroso:
- * extra lineare verso l’alto (0 = più lunghezza, ultima = 0).
+ * Fallback se non c’è ancora la misura: stima da `layoutCardRow` (può divergere se le card crescono col testo).
  */
-const CONNECTOR_EXTRA_PER_STEP_PX = 12;
-
-/** Un filo in più per tutte le linee (l’ultima poi viene ridotta da `LAST_TRIM`). */
-const CONNECTOR_BUMP_ALL_PX = 16;
-
-/** Solo ultima card: togli di più così non entra troppo nella pill. */
-const CONNECTOR_LAST_TRIM_PX = 22;
-
-/** Taglio uguale su tutte le linee (testi più lunghi = card più alte = linee che si allungano). */
-const CONNECTOR_GLOBAL_SHORTEN_PX = 20;
-
-/**
- * Fallback (primo paint / SSR) se non abbiamo ancora la misura DOM.
- */
-function connectorHeightFallback(index: number, total: number, useConnectorLayout: boolean): string {
+function connectorHeightCalc(index: number, total: number, useConnectorLayout: boolean): string {
   const row = layoutCardRow(useConnectorLayout);
   const gap = LAYOUT_ROW_GAP_DES;
   const blocks = total - 1 - index;
   const block = `(${row} + ${gap} + ${CONNECTOR_BLOCK_HEIGHT_SLACK})`;
-  const stackExtraPx = (total - 1 - index) * CONNECTOR_EXTRA_PER_STEP_PX;
-  const lastTrim = index === total - 1 ? CONNECTOR_LAST_TRIM_PX : 0;
-  const tailPx = CONNECTOR_INTO_RAIL_PX + stackExtraPx + CONNECTOR_BUMP_ALL_PX - lastTrim - CONNECTOR_GLOBAL_SHORTEN_PX;
+  const tailPx =
+    CONNECTOR_RAIL_TARGET_OFFSET_PX_FALLBACK -
+    CONNECTOR_LENGTH_TRIM_PX +
+    CONNECTOR_EXTEND_INTO_RAIL_PX;
   return `calc(${blocks} * ${block} + ${gap} + ${HUB_PAD_TOP} + ${CONNECTOR_MEET_BAR_REM} + ${Math.max(0, tailPx)}px)`;
 }
 
 /**
- * Distanza dal fondo `.problem-cw` (stesso riferimento di `top: 100%` sul track) al bordo superiore della pill,
- * più extra per indice: le card più in alto hanno bisogno di più px per arrivare alla pill come l’ultima.
+ * Solo barre: distanza dal fondo di ogni `.problem-cw` al bordo superiore della pill, senza toccare layout card/icone.
  */
 function measureConnectorHeightsToRail(root: Element): number[] | null {
   const rail = root.querySelector(".problem-hub-rail");
   if (!rail) return null;
-  const railTop = rail.getBoundingClientRect().top;
+  const railRect = rail.getBoundingClientRect();
+  const railTargetY = railRect.top + railRect.height * CONNECTOR_RAIL_TARGET_RATIO;
   const out: number[] = [];
   for (let i = 0; i < N; i++) {
     const cw = root.querySelector(`:scope > .problem-cw[data-problem-card-index="${i}"]`) as HTMLElement | null;
     if (!cw) return null;
     const bottom = cw.getBoundingClientRect().bottom;
-    if (!Number.isFinite(bottom)) return null;
-    const stackExtra = (N - 1 - i) * CONNECTOR_EXTRA_PER_STEP_PX;
-    const lastTrim = i === N - 1 ? CONNECTOR_LAST_TRIM_PX : 0;
-    out.push(
-      Math.max(
-        0,
-        Math.ceil(railTop - bottom) +
-          CONNECTOR_INTO_RAIL_PX +
-          stackExtra +
-          CONNECTOR_BUMP_ALL_PX -
-          lastTrim -
-          CONNECTOR_GLOBAL_SHORTEN_PX,
-      ),
-    );
+    if (!Number.isFinite(bottom) || !Number.isFinite(railTargetY)) return null;
+    /** Distanza grezza card→barra: il trim si applica solo in `connectorTrackStyle` (evita state “congelato”). */
+    const px = railTargetY - bottom;
+    out.push(Math.max(0, px));
   }
   return out;
 }
@@ -188,8 +176,8 @@ function connectorTrackStyle(
   const { grad0, grad1, grad2, inset, outer } = CONNECTOR_TRACK;
   const height =
     heightPx != null && Number.isFinite(heightPx) && heightPx > 0
-      ? `${heightPx}px`
-      : connectorHeightFallback(index, total, useConnectorLayout);
+      ? `${Math.max(0, heightPx - CONNECTOR_LENGTH_TRIM_PX + CONNECTOR_EXTEND_INTO_RAIL_PX)}px`
+      : connectorHeightCalc(index, total, useConnectorLayout);
   return {
     position: "absolute",
     left: ICON_AXIS_FROM_CARD_LEFT,
@@ -307,14 +295,37 @@ const problemConnectorsCss = `
     problem-hub-bg-flow 9s ease-in-out infinite,
     problem-hub-gentle-pulse ${PULSE_CYCLE_S}s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+/* Fascia full-viewport: il padding-top tra barra e testo tappa le linee (il margin no). */
+.problem-hub-text-band {
+  position: relative;
+  z-index: 12;
+  width: 100vw;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding-top: 2.75rem;
+  padding-bottom: calc(1.25rem + 5vh);
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
 .problem-hub-text {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
   gap: 0.1rem 1rem;
-  position: relative;
-  z-index: 5;
+  width: 100%;
+  max-width: min(100%, clamp(24rem, 98%, 80rem));
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-width: 768px) {
+  .problem-hub-text-band {
+    padding-top: 2rem;
+    padding-bottom: calc(1rem + 5vh);
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 .problem-price-euro {
   display: inline-block;
@@ -573,7 +584,7 @@ export default function Problem() {
 
         <div
           s={{
-            base: "col children-center w-100% relative gapy-3",
+            base: "col children-center w-100% relative overflow-visible gapy-0",
             mob: "gapy-2.5 -mt-4vh children-center",
           }}
         >
@@ -588,28 +599,35 @@ export default function Problem() {
               width: "min(100%, clamp(24rem, 98%, 80rem))",
             }}
           />
-          <div className="problem-hub-text">
-            <t
-              s={{
-                base: "text-#ffffffb8 font-6",
-                des: "text-7",
-                tab: "text-7",
-                mob: "text-6",
-              }}
-            >
-              ...e te li fanno pagare
-            </t>
-            <t
-              className="problem-price-euro"
-              s={{
-                base: "weight-700 text-#ff0000",
-                des: "font-7 text-8",
-                tab: "font-7 text-8",
-                mob: "font-7 text-8",
-              }}
-            >
-              20.000€
-            </t>
+          <div
+            className="problem-hub-text-band"
+            s={{
+              base: "bg-background w-100vw relative z-12",
+            }}
+          >
+            <div className="problem-hub-text">
+              <t
+                s={{
+                  base: "text-#ffffffb8 font-6",
+                  des: "text-7",
+                  tab: "text-7",
+                  mob: "text-6",
+                }}
+              >
+                E alla fine paghi tu
+              </t>
+              <t
+                className="problem-price-euro"
+                s={{
+                  base: "weight-700 text-#ff0000",
+                  des: "font-7 text-8",
+                  tab: "font-7 text-8",
+                  mob: "font-7 text-8",
+                }}
+              >
+                20.000€
+              </t>
+            </div>
           </div>
         </div>
       </div>
