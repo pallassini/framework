@@ -93,6 +93,18 @@ export const map = styleMap({
   tx: translateXFn,
   /** `ty-12px` / `-ty-50%` → `transform: translateY(…)`. */
   ty: translateYFn,
+  /** `lx-calc(50%-50vw)` → `left: calc(50% - 50vw)` (normalizza spazi in `calc`). */
+  lx: (suffix: string) => {
+    let s = suffix.trim();
+    if (!s) return undefined;
+    if (s.includes("calc(")) s = s.replace(/%-/g, "% - ");
+    return { left: s };
+  },
+  /** `translate-(-50%,-50%)` → `transform: translate(-50%,-50%)` (suffisso = ciò che va tra parentesi). */
+  translate: (suffix: string) => {
+    const s = suffix.trim();
+    return s ? { transform: `translate${s}` } : undefined;
+  },
 
   /** Marcatore per figli di `layers`: abilita varianti `layer` su left/right/top/bottom/center*. */
   layer: {},

@@ -261,9 +261,6 @@ const problemConnectorsCss = `
   90% { transform: scale(1.05); }
   94%, 100% { transform: scale(1); text-shadow: 0 0 16px rgba(255,0,0,0.45); }
 }
-@keyframes problem-mob-border-rotate {
-  to { transform: rotate(360deg); }
-}
 .problem-connector-pulse {
   animation: problem-pulse-down ${PULSE_CYCLE_S}s cubic-bezier(0.33, 0.9, 0.32, 1) infinite;
   will-change: top, filter, opacity;
@@ -332,34 +329,14 @@ const problemConnectorsCss = `
   animation: problem-price-bump ${PULSE_CYCLE_S}s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 
-.problem-mob-shell {
-  position: relative;
-  border-radius: 20px;
+/** Leggibilità sopra l’alone: vetro leggero */
+.problem-card-glass {
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  background-color: rgba(0, 0, 0, 0.32) !important;
 }
-.problem-mob-shell > .problem-mob-border-spin {
-  position: absolute;
-  inset: -2px;
-  border-radius: 22px;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-.problem-mob-border-spin-inner {
-  position: absolute;
-  inset: -40%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(255,0,0,0.12) 80deg,
-    rgba(255,80,80,0.22) 120deg,
-    transparent 200deg,
-    transparent 360deg
-  );
-  animation: problem-mob-border-rotate 18s linear infinite;
-}
-.problem-mob-shell > .problem-card-inner {
-  position: relative;
-  z-index: 1;
+.problem-card-glass:hover {
+  background-color: rgba(255, 255, 255, 0.07) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .problem-connector-pulse,
@@ -369,9 +346,6 @@ const problemConnectorsCss = `
   }
   .problem-card-face {
     transform: none !important;
-  }
-  .problem-mob-border-spin-inner {
-    animation: none !important;
   }
 }
 
@@ -469,7 +443,7 @@ export default function Problem() {
   } as const;
 
   const problemStackS = {
-    base: "col minw-0",
+    base: "col minw-0 relative z-1",
     des: useConnectorLayout
       ? "relative overflow-visible mt-7vh w-60vw maxw-72rem gapy-4vh pb-6"
       : "relative overflow-visible mt-7vh w-92vw maxw-76rem px-3vw gapy-3vh pb-6",
@@ -480,12 +454,22 @@ export default function Problem() {
   return (
     <div
       s={{
-        base: "col center children-center round-20px",
+        base: "col center children-center round-20px relative",
         des: "w-60vw pb-10vh",
         tab: "w-96vw pb-8vh px-2",
         mob: "w-100% maxw-100% pb-8vh px-3",
       }}
     >
+      <div
+      show={!mob()}
+        s={{
+          base: "absolute z-10 no-events opacity-88 blur-92px round-circle w-32vw h-98vh bg-gradient(circle, rgba(255,85,85,0.62) 22%, rgba(255,0,0,0.82) 40%, rgba(255,45,45,0.48) 58%, rgba(255,0,0,0.2) 76%) lx-calc(50%-50vw) mt-52vh translate-(-50%,-50%)",
+          mob: "w-76vw h-110vh opacity-82 blur-72px mt-96vh",
+          tab: "w-36vw h-102vh opacity-86 blur-84px",
+          des: "w-38vw h-126vh opacity-70 blur-226px mt-100vh",
+        }}
+        aria-hidden
+      />
       <video
         src={des() ? BRUCIARE_DES : BRUCIARE_MOB}
         s={{
@@ -511,7 +495,7 @@ export default function Problem() {
             const tabDes = "py-3vh px-2vw";
             const cwClass = useConnectorLayout ? `problem-cw problem-cw-${index}` : undefined;
             const stagger = useConnectorLayout;
-            const wrapClass = [mob() && "problem-mob-shell", cwClass].filter(Boolean).join(" ") || undefined;
+            const wrapClass = cwClass;
 
             return (
               <div
@@ -529,26 +513,21 @@ export default function Problem() {
                       }
                 }
               >
-                {mob() ? (
-                  <div className="problem-mob-border-spin" aria-hidden>
-                    <div className="problem-mob-border-spin-inner" />
-                  </div>
-                ) : null}
                 <div
                   className={
                     mob()
-                      ? "problem-card-inner relative overflow-visible"
+                      ? "problem-card-inner problem-card-glass relative overflow-visible"
                       : useConnectorLayout
-                        ? "problem-card-face"
-                        : undefined
+                        ? "problem-card-face problem-card-glass"
+                        : "problem-card-glass"
                   }
                   s={{
                     base: "relative overflow-visible b-2px b-#ffffff55 round-20px row pl-3.5rem",
-                    mob: "py-3vh px-3vw pl-4.25rem maxw-32rem mx-auto bg-background",
+                    mob: "py-3vh px-3vw pl-4.25rem maxw-32rem mx-auto",
                     tab: `${tabDes} maxw-32rem`,
                     des: `${tabDes} maxw-32rem`,
                     transition: "all",
-                    hover: "b-#ffffff88 bg-#ffffff06",
+                    hover: "b-#ffffff88",
                   }}
                   style={{
                     ...cardRowNowrapStyle(stagger),
@@ -557,7 +536,7 @@ export default function Problem() {
                 >
                   <div
                     s={{
-                      base: "absolute top left ml-3 z-1 bg-background px-0.2vw -ty-50%",
+                      base: "absolute top left ml-3 z-2 bg-background px-0.2vw -ty-50%",
                       mob: "ml-2.5",
                     }}
                   >
