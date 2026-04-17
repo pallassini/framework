@@ -17,7 +17,7 @@ export const PROJECTS: Project[] = [
     title: "Ecommerce Product Stack",
     slides: [
       {
-        image: asset("./assets/ecommerceProduct/07d5fb87-8b68-460c-80de-4cb45ba108ef.png"),
+        image: asset("./assets/ecommerceProduct/generation-e1e9689b-55e2-4de8-a2c7-b590ed87393e.png"),
         description: "Home e hero orientato alla conversione.",
       },
       {

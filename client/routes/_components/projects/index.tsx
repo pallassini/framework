@@ -38,7 +38,7 @@ export default function Projects() {
                       <img
                         src={item.slides[0].image}
                         alt=""
-                        s="round-20px w-60vw absolute center z-2 duration-200ms ease-out hover:(scale-115)"
+                        s="round-20px w-75vw absolute center z-2 duration-200ms ease-out hover:(scale-105)"
                       />
                     </case>
                     <case when={index === 0}>
