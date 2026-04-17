@@ -25,6 +25,17 @@ export function applyDomProps(el: DomEl, propsObj: DomProps): void {
 			if (v != null && v !== false) el.setAttribute("class", String(v));
 			continue;
 		}
+		if (k === "dangerouslySetInnerHTML") {
+			if (
+				v != null &&
+				typeof v === "object" &&
+				!Array.isArray(v) &&
+				"__html" in (v as object)
+			) {
+				(el as HTMLElement).innerHTML = String((v as { __html: unknown }).__html);
+			}
+			continue;
+		}
 		if (k === "style" && v != null && typeof v === "object" && !Array.isArray(v)) {
 			Object.assign((el as HTMLElement).style, v as Record<string, string | number>);
 			continue;

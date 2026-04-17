@@ -14,6 +14,8 @@ import type { InputProps } from "./tags/input";
 import type { IconProps } from "./tags/icon";
 
 export interface FrameworkIntrinsicElements {
+	/** Foglio CSS nativo (`createElement("style")`), es. `@keyframes`. */
+	style: SharedProps;
 	div: DivProps;
 	t: TProps;
 	table: SharedProps;
