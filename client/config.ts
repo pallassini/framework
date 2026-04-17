@@ -79,52 +79,52 @@ export const clientConfig = {
     /** ~1.08× il testo allo stesso step su `des`; mob/tab più generosi (icone leggibili). */
     icon: {
       "1": {
-        mob: "clamp(1rem, 0.9rem + 0.4vw, 1.1875rem)",
+        mob: "clamp(1.0625rem, 0.95rem + 0.44vw, 1.3125rem)",
         tab: "clamp(1.0625rem, 0.95rem + 0.42vw, 1.25rem)",
         des: "clamp(1.125rem, 1.02rem + 0.34vw, 1.375rem)",
       },
       "2": {
-        mob: "clamp(1.0625rem, 0.95rem + 0.42vw, 1.25rem)",
+        mob: "clamp(1.1813rem, 1.0555rem + 0.46vw, 1.4313rem)",
         tab: "clamp(1.125rem, 1.01rem + 0.44vw, 1.3125rem)",
         des: "clamp(1.25rem, 1.12rem + 0.36vw, 1.5rem)",
       },
       "3": {
-        mob: "clamp(1.125rem, 1rem + 0.45vw, 1.3125rem)",
+        mob: "clamp(1.2986rem, 1.1611rem + 0.5vw, 1.5486rem)",
         tab: "clamp(1.1875rem, 1.06rem + 0.48vw, 1.375rem)",
         des: "clamp(1.375rem, 1.22rem + 0.4vw, 1.625rem)",
       },
       "4": {
-        mob: "clamp(1.1875rem, 1.05rem + 0.5vw, 1.375rem)",
+        mob: "clamp(1.4167rem, 1.2667rem + 0.55vw, 1.6667rem)",
         tab: "clamp(1.25rem, 1.1rem + 0.52vw, 1.5rem)",
         des: "clamp(1.5rem, 1.32rem + 0.44vw, 1.75rem)",
       },
       "5": {
-        mob: "clamp(1.25rem, 1.1rem + 0.55vw, 1.5rem)",
+        mob: "clamp(1.5347rem, 1.3722rem + 0.6vw, 1.8472rem)",
         tab: "clamp(1.375rem, 1.18rem + 0.56vw, 1.625rem)",
         des: "clamp(1.75rem, 1.48rem + 0.48vw, 2rem)",
       },
       "6": {
-        mob: "clamp(1.375rem, 1.18rem + 0.6vw, 1.625rem)",
+        mob: "clamp(1.7153rem, 1.5178rem + 0.66vw, 2.0278rem)",
         tab: "clamp(1.5rem, 1.26rem + 0.6vw, 1.75rem)",
         des: "clamp(2rem, 1.65rem + 0.52vw, 2.25rem)",
       },
       "7": {
-        mob: "clamp(1.5rem, 1.25rem + 0.68vw, 1.75rem)",
+        mob: "clamp(1.8958rem, 1.6533rem + 0.74vw, 2.2083rem)",
         tab: "clamp(1.625rem, 1.34rem + 0.68vw, 1.875rem)",
         des: "clamp(2.25rem, 1.82rem + 0.56vw, 2.625rem)",
       },
       "8": {
-        mob: "clamp(1.625rem, 1.32rem + 0.75vw, 1.875rem)",
+        mob: "clamp(2.0764rem, 1.7889rem + 0.82vw, 2.3889rem)",
         tab: "clamp(1.75rem, 1.42rem + 0.72vw, 2rem)",
         des: "clamp(2.75rem, 2.08rem + 0.7vw, 3.25rem)",
       },
       "9": {
-        mob: "clamp(1.75rem, 1.4rem + 0.82vw, 2rem)",
+        mob: "clamp(2.2569rem, 1.9244rem + 0.9vw, 2.5694rem)",
         tab: "clamp(2rem, 1.52rem + 0.78vw, 2.375rem)",
         des: "clamp(3.25rem, 2.45rem + 0.82vw, 3.75rem)",
       },
       "10": {
-        mob: "clamp(1.875rem, 1.48rem + 0.9vw, 2.25rem)",
+        mob: "clamp(2.4375rem, 2.08rem + 0.98vw, 2.875rem)",
         tab: "clamp(2.25rem, 1.65rem + 0.85vw, 2.875rem)",
         des: "clamp(3.75rem, 2.85rem + 0.95vw, 4.5rem)",
       },

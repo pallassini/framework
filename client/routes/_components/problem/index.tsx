@@ -105,6 +105,9 @@ const LAYOUT_ROW_GAP_DES = "4vh";
  */
 const HUB_PAD_TOP = "2.25rem";
 
+/** Mob: meno spazio sopra la pill così la barra orizzontale sale. */
+const HUB_PAD_TOP_MOB = "1.35rem";
+
 /**
  * Stessi termini del vecchio `calc` (slack tra card + coda fin sotto la pill), usati nel fallback SSR.
  */
@@ -128,6 +131,9 @@ const CONNECTOR_BUMP_ALL_PX = 16;
 /** Solo ultima card: togli di più così non entra troppo nella pill. */
 const CONNECTOR_LAST_TRIM_PX = 22;
 
+/** Taglio uguale su tutte le linee (testi più lunghi = card più alte = linee che si allungano). */
+const CONNECTOR_GLOBAL_SHORTEN_PX = 20;
+
 /**
  * Fallback (primo paint / SSR) se non abbiamo ancora la misura DOM.
  */
@@ -138,8 +144,8 @@ function connectorHeightFallback(index: number, total: number, useConnectorLayou
   const block = `(${row} + ${gap} + ${CONNECTOR_BLOCK_HEIGHT_SLACK})`;
   const stackExtraPx = (total - 1 - index) * CONNECTOR_EXTRA_PER_STEP_PX;
   const lastTrim = index === total - 1 ? CONNECTOR_LAST_TRIM_PX : 0;
-  const tailPx = CONNECTOR_INTO_RAIL_PX + stackExtraPx + CONNECTOR_BUMP_ALL_PX - lastTrim;
-  return `calc(${blocks} * ${block} + ${gap} + ${HUB_PAD_TOP} + ${CONNECTOR_MEET_BAR_REM} + ${tailPx}px)`;
+  const tailPx = CONNECTOR_INTO_RAIL_PX + stackExtraPx + CONNECTOR_BUMP_ALL_PX - lastTrim - CONNECTOR_GLOBAL_SHORTEN_PX;
+  return `calc(${blocks} * ${block} + ${gap} + ${HUB_PAD_TOP} + ${CONNECTOR_MEET_BAR_REM} + ${Math.max(0, tailPx)}px)`;
 }
 
 /**
@@ -161,7 +167,12 @@ function measureConnectorHeightsToRail(root: Element): number[] | null {
     out.push(
       Math.max(
         0,
-        Math.ceil(railTop - bottom) + CONNECTOR_INTO_RAIL_PX + stackExtra + CONNECTOR_BUMP_ALL_PX - lastTrim,
+        Math.ceil(railTop - bottom) +
+          CONNECTOR_INTO_RAIL_PX +
+          stackExtra +
+          CONNECTOR_BUMP_ALL_PX -
+          lastTrim -
+          CONNECTOR_GLOBAL_SHORTEN_PX,
       ),
     );
   }
@@ -452,13 +463,13 @@ export default function Problem() {
       ? "relative overflow-visible mt-7vh w-60vw maxw-72rem gapy-4vh pb-6"
       : "relative overflow-visible mt-7vh w-92vw maxw-76rem px-3vw gapy-3vh pb-6",
     tab: "relative overflow-visible mt-5vh w-96vw maxw-76rem minw-0 px-2vw pb-6 gapy-3vh",
-    mob: "relative overflow-visible mt-4vh w-100% maxw-100% px-3 gapy-4vh pb-5",
+    mob: "relative overflow-visible mt-4vh w-100% maxw-100% px-3 gapy-5.5vh pb-5",
   } as const;
 
   return (
     <div
       s={{
-        base: "col center children-center round-20px bb-2px bb-#ffffff64",
+        base: "col center children-center round-20px",
         des: "w-60vw pb-10vh",
         tab: "w-96vw pb-8vh px-2",
         mob: "w-100% maxw-100% pb-8vh px-3",
@@ -532,7 +543,7 @@ export default function Problem() {
                   }
                   s={{
                     base: "relative overflow-visible b-2px b-#ffffff55 round-20px row pl-3.5rem",
-                    mob: "py-3vh px-3vw maxw-32rem mx-auto bg-background",
+                    mob: "py-3vh px-3vw pl-4.25rem maxw-32rem mx-auto bg-background",
                     tab: `${tabDes} maxw-32rem`,
                     des: `${tabDes} maxw-32rem`,
                     transition: "all",
@@ -543,8 +554,13 @@ export default function Problem() {
                     ...(!mob() ? { minHeight: layoutCardRow(stagger) } : {}),
                   }}
                 >
-                  <div s="absolute top left ml-3 z-1 bg-background px-0.2vw -ty-50%">
-                    <icon name={problem.icon as any} size={8} s="text-#ff0000" />
+                  <div
+                    s={{
+                      base: "absolute top left ml-3 z-1 bg-background px-0.2vw -ty-50%",
+                      mob: "ml-2.5",
+                    }}
+                  >
+                    <icon name={problem.icon as any} size={mob() ? 10 : 8} s="text-#ff0000" />
                   </div>
                   <div s="flex-1 flex row children-left children-top minw-0 w-100%">
                     <div s="col children-left gapy-1 w-100%">
@@ -565,11 +581,11 @@ export default function Problem() {
           }}
         </For>
 
-        <div s="col children-center gapy-3 w-100% relative">
+        <div s={{ base: "col children-center w-100% relative gapy-3", mob: "gapy-2.5" }}>
           <div
             className="problem-hub-spacer"
             aria-hidden
-            style={{ height: HUB_PAD_TOP }}
+            style={{ height: mob() ? HUB_PAD_TOP_MOB : HUB_PAD_TOP }}
           />
           <div
             className="problem-hub-rail"
@@ -594,7 +610,7 @@ export default function Problem() {
                 base: "weight-700 text-#ff0000",
                 des: "font-7 text-8",
                 tab: "font-7 text-8",
-                mob: "font-7 text-7",
+                mob: "font-7 text-8",
               }}
             >
               20.000€
