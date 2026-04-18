@@ -3,7 +3,9 @@ import { PROJECTS } from "./data";
 
 export default function Projects() {
   const current = state(0);
-  const cardHovered = state(false);
+  const slideIndex = state(0);
+  const sideLeftHovered = state(false);
+  const sideRightHovered = state(false);
   const visible = () => {
     const list = PROJECTS;
     const n = list.length;
@@ -12,15 +14,25 @@ export default function Projects() {
     return [list[(c - 1 + n) % n], list[c], list[(c + 1) % n]];
   };
 
+  const centerSlides = () => visible()[1]?.slides ?? [];
+
+  const slideAt = (slides: { image: string }[], i: number): { image: string } | undefined => {
+    const n = slides.length;
+    if (!n) return undefined;
+    return slides[((i % n) + n) % n];
+  };
+
   const goPrev = (): void => {
     const n = PROJECTS.length;
     if (!n) return;
+    slideIndex(0);
     current((i) => (i - 1 + n) % n);
   };
 
   const goNext = (): void => {
     const n = PROJECTS.length;
     if (!n) return;
+    slideIndex(0);
     current((i) => (i + 1) % n);
   };
 
@@ -28,7 +40,7 @@ export default function Projects() {
     <>
       <show when={des()}>
         <div s="relative w-100vw">
-          <div s="row relative w-100vw" hover={cardHovered}>
+          <div s="row relative w-100vw">
             <For each={visible}>
               {(item, index) => {
                 const isCenter = index === 1;
@@ -36,7 +48,7 @@ export default function Projects() {
                   <switch>
                     <case when={isCenter}>
                       <img
-                        src={item.slides[0].image}
+                        src={slideAt(item.slides, slideIndex())?.image ?? ""}
                         alt=""
                         s="round-20px w-75vw absolute center z-2 duration-200ms ease-out hover:(scale-105)"
                       />
@@ -46,7 +58,8 @@ export default function Projects() {
                         src={item.slides[0].image}
                         alt=""
                         click={goPrev}
-                        s="round-20px w-50vw opacity-30 left duration-150ms ease-out hover:(opacity-40)"
+                        hover={sideLeftHovered}
+                        s="round-20px w-50vw opacity-10 left duration-150ms ease-out hover:(opacity-40)"
                       />
                     </case>
                     <case when={index === 2}>
@@ -54,7 +67,8 @@ export default function Projects() {
                         src={item.slides[0].image}
                         alt=""
                         click={goNext}
-                        s="round-20px w-50vw opacity-30 right duration-150ms ease-out hover:(opacity-40)"
+                        hover={sideRightHovered}
+                        s="round-20px w-50vw opacity-10 right duration-150ms ease-out hover:(opacity-40)"
                       />
                     </case>
                   </switch>
@@ -67,18 +81,35 @@ export default function Projects() {
               name="chevronLeft"
               size="6vw"
               s={() => ({
-                base: `left duration-200ms ease-out ${cardHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
+                base: `left duration-200ms ease-out ${sideLeftHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
               })}
             />
             <icon
               name="chevronRight"
               size="6vw"
               s={() => ({
-                base: `right duration-200ms ease-out ${cardHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
+                base: `right duration-200ms ease-out ${sideRightHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
               })}
             />
           </div>
         </div>
+      <div s="row children-center mt-8vh gap-2vw">
+        <For each={centerSlides}>
+          {(slide, i) => {
+            const active = () => i === slideIndex();
+            return (
+              <div click={() => slideIndex(i)}>
+                <img
+                  src={slide.image}
+                  s={() => ({
+                    base: `w-10vw round-20px duration-200 cursor-pointer b-2px ${active() ? "scale-110 opacity-100 b-#fff" : "opacity-55 b-transparent hover:(opacity-90 scale-105)"}`,
+                  })}
+                />
+              </div>
+            );
+          }}
+        </For>
+      </div>
       </show>
       <show when={!des()}></show>
     </>

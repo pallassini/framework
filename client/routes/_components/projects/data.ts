@@ -17,19 +17,19 @@ export const PROJECTS: Project[] = [
     title: "Ecommerce Product Stack",
     slides: [
       {
-        image: asset("./assets/ecommerceProduct/generation-e1e9689b-55e2-4de8-a2c7-b590ed87393e.png"),
+        image: asset("./assets/ecommerceProduct/index.webp"),
         description: "Home e hero orientato alla conversione.",
       },
       {
-        image: asset("./assets/ecommerceProduct/7a6ddb39-820e-4b2d-a65c-8be359075389.png"),
+        image: asset("./assets/ecommerceProduct/duration.webp"),
         description: "Catalogo e scoperta prodotti.",
       },
       {
-        image: asset("./assets/ecommerceProduct/a3bedbdf-b173-401c-8733-6f03c4faf974.png"),
+        image: asset("./assets/ecommerceProduct/details.webp"),
         description: "Scheda prodotto con dettagli e varianti.",
       },
       {
-        image: asset("./assets/ecommerceProduct/cc9ca094-15de-428e-b7a5-da23bb18b6ef.png"),
+        image: asset("./assets/ecommerceProduct/crossSell.webp"),
         description: "Checkout e riepilogo ordine.",
       },
     ],
