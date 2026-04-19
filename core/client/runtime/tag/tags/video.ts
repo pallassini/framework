@@ -38,6 +38,10 @@ export type VideoProps = SharedProps & {
 	 */
 	objectFit?: "contain" | "cover" | "fill" | "none" | "scale-down";
 	/**
+	 * Velocità di riproduzione (`HTMLVideoElement.playbackRate`), es. `0.75`, `1`, `1.25`. Default: `1`.
+	 */
+	speed?: number;
+	/**
 	 * Se impostato, non chiama `play()` finché il segnale non è `true` (disattiva l’autoplay immediato su `loadeddata` / `canplay`).
 	 */
 	playWhen?: Signal<boolean>;
@@ -81,6 +85,7 @@ export function video(props: VideoProps): UiNode {
 		playEnterDelayMs,
 		playLeadMs,
 		autoplay,
+		speed,
 		...rest
 	} = props;
 
@@ -88,6 +93,10 @@ export function video(props: VideoProps): UiNode {
 
 	applyDomProps(el, { ...rest, src, autoplay: playWhen != null ? false : autoplay, children: undefined } as DomProps);
 	el.src = src;
+
+	if (speed != null && Number.isFinite(speed) && speed > 0) {
+		el.playbackRate = speed;
+	}
 
 	if (disablePictureInPicture !== false) {
 		el.disablePictureInPicture = true;

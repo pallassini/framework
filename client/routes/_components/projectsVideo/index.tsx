@@ -14,6 +14,13 @@ export default function ProjectsVideo() {
     return [list[(c - 1 + n) % n], list[c], list[(c + 1) % n]];
   };
 
+  /** Solo slide centrale (mobile: niente laterali). */
+  const centerItemOnly = () => {
+    const v = visible();
+    const m = v[1];
+    return m != null ? [m] : [];
+  };
+
   const goPrev = (): void => {
     const n = PROJECTS.length;
     if (!n) return;
@@ -28,7 +35,7 @@ export default function ProjectsVideo() {
 
   watch(
     () => {
-      if (!des()) return;
+      des();
       current();
       let el: HTMLVideoElement | null = null;
       let cancelled = false;
@@ -74,7 +81,7 @@ export default function ProjectsVideo() {
                 return (
                   <switch>
                     <case when={isCenter}>
-                      <div s="absolute round-20px center minw-0 w-75vw h-42.1875vw overflow-hidden round-20px z-2 duration-200ms ease-out hover:(scale-105)">
+                      <div s="absolute center minw-0 w-75vw h-42.1875vw overflow-hidden round-20px z-2 duration-200ms ease-out hover:(scale-105)">
                         <video
                           id="projects-video-center"
                           key={current()}
@@ -89,6 +96,7 @@ export default function ProjectsVideo() {
                           disablePictureInPicture
                           objectFit="cover"
                           s="round-20px"
+                          speed={1}
                         />
                       </div>
                     </case>
@@ -106,7 +114,7 @@ export default function ProjectsVideo() {
                           objectFit="cover"
                           click={goPrev}
                           hover={sideLeftHovered}
-                          s="opacity-10 duration-150ms ease-out hover:(opacity-40) round-20px"
+                          s="opacity-10 duration-150ms ease-out hover:(opacity-60) round-20px"
                         />
                       </div>
                     </case>
@@ -124,7 +132,7 @@ export default function ProjectsVideo() {
                           objectFit="cover"
                           click={goNext}
                           hover={sideRightHovered}
-                          s="opacity-10 duration-150ms ease-out hover:(opacity-40) round-20px" 
+                          s="opacity-10 duration-150ms ease-out hover:(opacity-60) round-20px" 
                         />
                       </div>
                     </case>
@@ -151,7 +159,35 @@ export default function ProjectsVideo() {
           </div>
         </div>
       </show>
-      <show when={!des()}></show>
+      <show when={!des()}>
+        <div s="col relative w-100vw items-center pb-4 pt-2">
+          <div s="relative w-100vw  h-35.625vh  round-20px">
+            <For each={centerItemOnly}>
+              {(item) => (
+                <video
+                  id="projects-video-center"
+                  key={current()}
+                  src={item.video}
+                  width="100%"
+                  speed={1}
+                  autoplay
+                  muted
+                  playsinline
+                  loop={false}
+                  preload="auto"
+                  disablePictureInPicture
+                  objectFit="cover"
+                  s="round-20px"
+                />
+              )}
+            </For>
+          </div>
+          <div s="row children-center gapx-2vw mt-3vw">
+            <icon name="chevronLeft" size="10vw" click={goPrev} s="opacity-70" />
+            <icon name="chevronRight" size="10vw" click={goNext} s="opacity-70" />
+          </div>
+        </div>
+      </show>
     </>
   );
 }
