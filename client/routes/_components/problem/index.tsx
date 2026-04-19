@@ -461,7 +461,7 @@ export default function Problem() {
       }}
     >
       <div
-      show={!mob()}
+      show={des()}
         s={{
           base: "absolute z-10 no-events opacity-88 blur-92px round-circle w-32vw h-98vh bg-gradient(circle, rgba(255,85,85,0.62) 22%, rgba(255,0,0,0.82) 40%, rgba(255,45,45,0.48) 58%, rgba(255,0,0,0.2) 76%) lx-calc(50%-50vw) mt-52vh translate-(-50%,-50%)",
           mob: "w-76vw h-110vh opacity-82 blur-72px mt-96vh",
