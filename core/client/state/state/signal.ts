@@ -83,6 +83,8 @@ export function signal(): Signal<unknown>;
 export function signal<T>(initial: Promise<T>): Signal<T | undefined>;
 export function signal<T>(initial: PromiseLike<T>): Signal<T | undefined>;
 export function signal<R>(initial: () => Promise<R>): Signal<R | undefined>;
+/** Funzione sincrona → segnale derivato (legge altri signal in `compute`). */
+export function signal<R>(compute: () => R): Signal<R>;
 export function signal<T>(initial: T): Signal<T>;
 export function signal<T>(
 	initial?: T,
@@ -99,9 +101,10 @@ export function signal<T>(
 	}
 
 	if (typeof v === "function") {
+		const compute = v as () => T;
 		let r: unknown;
 		try {
-			r = (v as () => unknown)();
+			r = compute();
 		} catch {
 			const [get, set] = watch.source(v as T);
 			return finalizeSignal(get, set, v as T);
@@ -109,8 +112,15 @@ export function signal<T>(
 		if (isPromiseLike(r)) {
 			return signalFromPromise(r as PromiseLike<Awaited<T>>) as Signal<T | undefined>;
 		}
-		const [get, set] = watch.source(v as T);
-		return finalizeSignal(get, set, v as T);
+		/** Funzione sincrona → segnale derivato (dipendenze da altri signal letti in `compute`). */
+		const [get, set] = watch.source(r as T);
+		watch(
+			() => {
+				set(compute());
+			},
+			{ flush: "sync" },
+		);
+		return finalizeSignal(get, set, r as T);
 	}
 
 	const [get, set] = watch.source(v as T);

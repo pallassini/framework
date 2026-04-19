@@ -54,6 +54,12 @@ export type VideoProps = SharedProps & {
 	 * Anticipo (ms) rispetto a `playEnterDelayMs` (default 100). Ignorato se `playEnterDelayMs` non è impostato (allora `play()` parte appena `playWhen` è true).
 	 */
 	playLeadMs?: number;
+	/** Evento nativo `<video>`: fine riproduzione. */
+	ended?: (ev: HTMLMediaElementEventMap["ended"]) => void;
+	/** Evento nativo `<video>`: frame dati disponibili. */
+	loadeddata?: (ev: HTMLMediaElementEventMap["loadeddata"]) => void;
+	/** Evento nativo `<video>`: abbastanza dati per iniziare la riproduzione. */
+	canplay?: (ev: HTMLMediaElementEventMap["canplay"]) => void;
 };
 
 function dimCss(v: number | string): string {
@@ -93,6 +99,9 @@ export function video(props: VideoProps): UiNode {
 		playLeadMs,
 		autoplay,
 		speed,
+		ended,
+		loadeddata,
+		canplay,
 		...rest
 	} = props;
 
@@ -110,6 +119,20 @@ export function video(props: VideoProps): UiNode {
 		autoplay: playWhen != null ? false : autoplay,
 		children: undefined,
 	} as DomProps);
+
+	const bindVideoEvent = <K extends keyof HTMLMediaElementEventMap>(
+		name: K,
+		handler?: (ev: HTMLMediaElementEventMap[K]) => void,
+	): void => {
+		if (typeof handler !== "function") return;
+		const listener: EventListener = (ev) => handler(ev as HTMLMediaElementEventMap[K]);
+		el.addEventListener(name, listener);
+		onNodeDispose(el, () => el.removeEventListener(name, listener));
+	};
+
+	bindVideoEvent("ended", ended);
+	bindVideoEvent("loadeddata", loadeddata);
+	bindVideoEvent("canplay", canplay);
 
 	const applyPlaybackRate = (): void => {
 		if (speed != null && Number.isFinite(speed) && speed > 0) el.playbackRate = speed;

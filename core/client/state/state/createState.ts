@@ -16,6 +16,8 @@ export type CreateStateFn = {
 	/** Solo tipo: `fn` è un metodo RPC marcato; non viene chiamato. */
 	<F extends (...args: never[]) => Promise<unknown>>(ref: F): Signal<Awaited<ReturnType<F>>>;
 	<U extends Record<string, unknown>>(shape: U): StateMap<U>;
+	/** Funzione sincrona → segnale derivato (legge altri signal in `compute`). */
+	<R>(compute: () => R): Signal<R>;
 	<V>(value: V): Signal<V>;
 };
 
@@ -37,6 +39,7 @@ function createStateImpl(shapeOrValue?: unknown): StateMap<Record<string, unknow
 
 export function createState(): Signal<undefined>;
 export function createState<T extends Record<string, unknown>>(shape: T): CallableStateMap<T>;
+export function createState<R>(compute: () => R): Signal<R>;
 export function createState<T>(value: T): Signal<T>;
 export function createState(shapeOrValue?: unknown): CallableStateMap<Record<string, unknown>> | Signal<unknown> {
 	if (arguments.length === 0 || shapeOrValue === undefined) {
