@@ -14,13 +14,6 @@ export default function ProjectsVideo() {
     return [list[(c - 1 + n) % n], list[c], list[(c + 1) % n]];
   };
 
-  /** Solo slide centrale (mobile: niente laterali). */
-  const centerItemOnly = () => {
-    const v = visible();
-    const m = v[1];
-    return m != null ? [m] : [];
-  };
-
   const goPrev = (): void => {
     const n = PROJECTS.length;
     if (!n) return;
@@ -161,26 +154,21 @@ export default function ProjectsVideo() {
       </show>
       <show when={!des()}>
         <div s="col relative w-100vw items-center pb-4 pt-2">
-          <div s="relative w-100vw  h-35.625vh  round-20px">
-            <For each={centerItemOnly}>
-              {(item) => (
-                <video
-                  id="projects-video-center"
-                  key={current()}
-                  src={item.video}
-                  width="100%"
-                  speed={1}
-                  autoplay
-                  muted
-                  playsinline
-                  loop={false}
-                  preload="auto"
-                  disablePictureInPicture
-                  objectFit="cover"
-                  s="round-20px"
-                />
-              )}
-            </For>
+          <div s="relative w-100vw minw-0 h-35.625vh overflow-hidden round-20px">
+            <video
+              id="projects-video-center"
+              src={() => visible()[1]?.videoMob ?? ""}
+              width="100%"
+              height="100%"
+              speed={1}
+              autoplay
+              muted
+              playsinline
+              loop={false}
+              preload="auto"
+              disablePictureInPicture
+              objectFit="cover"
+            />
           </div>
           <div s="row children-center gapx-2vw mt-3vw">
             <icon name="chevronLeft" size="10vw" click={goPrev} s="opacity-70" />

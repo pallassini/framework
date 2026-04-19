@@ -19,5 +19,7 @@ export type RouteAssetInlineSrc =
 	| "routes/_components/projects/assets/ecommerceProduct/index.webp"
 	| "routes/_components/projects/assets/plane/generation-0b0d391a-3094-4628-a1d1-356cd5d255e0.png"
 	| "routes/_components/projects/assets/plane/generation-3284e71d-d7ef-483b-83c1-24f79814aa64.png"
+	| "routes/_components/projectsVideo/assets/ecommerce.mob.webm"
 	| "routes/_components/projectsVideo/assets/ecommerce.webm"
+	| "routes/_components/projectsVideo/assets/realEstate.mob.webm"
 	| "routes/_components/projectsVideo/assets/realEstate.webm";

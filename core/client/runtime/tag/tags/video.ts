@@ -2,13 +2,14 @@ import { toNodes } from "../../logic/children";
 import { applyDomProps } from "../../logic/dom-props";
 import { onNodeDispose } from "../../logic/lifecycle";
 import { watch } from "../../../state/effect";
-import type { Signal } from "../../../state";
+import { isSignal, type Signal } from "../../../state";
 import type { DomProps, SharedProps, UiNode } from "../props";
 import { applyMediaBlendEffect, clearMediaBlend, type MediaBlendLevel } from "./media/blend";
 import { applyVideoEdgeFade, clearVideoEdgeFade, type VideoEdgeFadeOptions } from "./media/video-edge-fade";
 
 export type VideoProps = SharedProps & {
-	src: string;
+	/** URL statico, oppure funzione/Signal reattivo (stesso elemento `<video>`, niente remount al cambio slide). */
+	src: string | (() => string) | Signal<string>;
 	poster?: string;
 	width?: number | string;
 	height?: number | string;
@@ -59,6 +60,12 @@ function dimCss(v: number | string): string {
 	return typeof v === "number" ? `${v}px` : String(v);
 }
 
+function readVideoSrc(src: string | (() => string) | Signal<string>): string {
+	if (isSignal(src)) return String(src());
+	if (typeof src === "function") return (src as () => string)();
+	return String(src);
+}
+
 function applyVideoSize(el: HTMLVideoElement, width?: number | string, height?: number | string): void {
 	const hasW = width != null;
 	const hasH = height != null;
@@ -89,13 +96,47 @@ export function video(props: VideoProps): UiNode {
 		...rest
 	} = props;
 
+	const srcReactive = isSignal(src) || typeof src === "function";
+	const wantAutoplay = autoplay === true && playWhen == null;
+
 	if (playsinline !== false) el.playsInline = true;
 
-	applyDomProps(el, { ...rest, src, autoplay: playWhen != null ? false : autoplay, children: undefined } as DomProps);
-	el.src = src;
+	if ((wantAutoplay || playWhen != null) && props.muted !== false) el.muted = true;
+	if (props.preload == null) el.preload = wantAutoplay || playWhen != null ? "auto" : "metadata";
 
-	if (speed != null && Number.isFinite(speed) && speed > 0) {
-		el.playbackRate = speed;
+	applyDomProps(el, {
+		...rest,
+		...(srcReactive ? {} : { src }),
+		autoplay: playWhen != null ? false : autoplay,
+		children: undefined,
+	} as DomProps);
+
+	const applyPlaybackRate = (): void => {
+		if (speed != null && Number.isFinite(speed) && speed > 0) el.playbackRate = speed;
+	};
+
+	const scheduleAutoplay = (): void => {
+		if (!wantAutoplay) return;
+		const tryPlay = (): void => {
+			void el.play().catch(() => {});
+		};
+		el.addEventListener("loadeddata", tryPlay, { once: true });
+		el.addEventListener("canplay", tryPlay, { once: true });
+		queueMicrotask(tryPlay);
+	};
+
+	const bindReactiveSrc = (): void => {
+		el.src = readVideoSrc(src);
+		applyPlaybackRate();
+		scheduleAutoplay();
+	};
+
+	if (srcReactive) {
+		const stopSrc = watch(bindReactiveSrc, { flush: "sync" });
+		onNodeDispose(el, stopSrc);
+	} else {
+		el.src = readVideoSrc(src);
+		applyPlaybackRate();
 	}
 
 	if (disablePictureInPicture !== false) {
@@ -105,10 +146,6 @@ export function video(props: VideoProps): UiNode {
 		tokens.add("nopictureinpicture");
 		el.setAttribute("controlsList", [...tokens].join(" "));
 	}
-
-	const wantAutoplay = autoplay === true && playWhen == null;
-	if ((wantAutoplay || playWhen != null) && props.muted !== false) el.muted = true;
-	if (props.preload == null) el.preload = wantAutoplay || playWhen != null ? "auto" : "metadata";
 
 	const blendObjectFit = objectFit ?? "cover";
 
@@ -169,13 +206,8 @@ export function video(props: VideoProps): UiNode {
 			stop();
 			if (timeoutId != null) clearTimeout(timeoutId);
 		});
-	} else if (wantAutoplay) {
-		const tryPlay = () => {
-			void el.play().catch(() => {});
-		};
-		el.addEventListener("loadeddata", tryPlay, { once: true });
-		el.addEventListener("canplay", tryPlay, { once: true });
-		queueMicrotask(tryPlay);
+	} else if (wantAutoplay && !srcReactive) {
+		scheduleAutoplay();
 	}
 
 	applyVideoSize(el, width, height);
