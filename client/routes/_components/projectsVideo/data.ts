@@ -6,17 +6,20 @@ export type Project = {
   videoMob: string;
 };
 
-const asset = (relativePath: string): string => new URL(relativePath, import.meta.url).href;
-
+/**
+ * Percorsi come `new URL("./assets/…", import.meta.url)` letterali — così Vite in produzione
+ * include i file in `build/web/assets` con hash. Una wrapper `asset(path)` dinamica non viene
+ * risolta in build e i video risultano rotti nelle pagine deployate.
+ */
 export const PROJECTS: Project[] = [
   {
     title: "Ecommerce Product Stack",
-    video: asset("./assets/ecommerce.webm"),
-    videoMob: asset("./assets/ecommerce.mob.webm"),
+    video: new URL("./assets/ecommerce.webm", import.meta.url).href,
+    videoMob: new URL("./assets/ecommerce.mob.webm", import.meta.url).href,
   },
   {
     title: "Flight Assistant UI",
-    video: asset("./assets/realEstate.webm"),
-    videoMob: asset("./assets/realEstate.mob.webm"),
+    video: new URL("./assets/realEstate.webm", import.meta.url).href,
+    videoMob: new URL("./assets/realEstate.mob.webm", import.meta.url).href,
   },
 ];
