@@ -4,10 +4,6 @@ import { PROJECTS } from "./data";
 const CENTER_VIDEO_ID = "projects-video-center";
 const PROJECTS_COUNT = PROJECTS.length;
 
-/**
- * `state(x)` sul root client crea un nuovo signal a ogni chiamata: stato locale del componente
- * va tenuto fuori dalla funzione (modulo) o in uno store con shape, altrimenti ogni re-run resetta.
- */
 const current = state(0);
 const sideLeftHovered = state(false);
 const sideRightHovered = state(false);
@@ -33,10 +29,10 @@ function goNext(): void {
 function onCenterEnded(): void {
   const n = PROJECTS_COUNT;
   if (!n) return;
+  if (n <= 1) return;
   current((c) => (c + 1) % n);
 }
 
-/** Identità di funzione stabile: il tag `video` non deve ricevere `() => …` nuovo a ogni render. */
 const srcDesktopLeft = (): string => PROJECTS[idx(current() - 1)]?.video ?? "";
 const srcDesktopCenter = (): string => PROJECTS[idx(current())]?.video ?? "";
 const srcDesktopRight = (): string => PROJECTS[idx(current() + 1)]?.video ?? "";
@@ -49,7 +45,7 @@ export default function ProjectsVideo() {
     <>
       <show when={des()}>
         <div s="relative w-100vw overflow-hidden">
-          <div s="row relative w-100vw children-centery">
+          <div s="row relative w-100vw min-h-42.1875vw children-centery">
             <div s="relative minw-0 w-50vw h-33.125vw overflow-hidden round-20px">
               <video
                 src={srcDesktopLeft}
@@ -57,7 +53,7 @@ export default function ProjectsVideo() {
                 height="100%"
                 muted
                 playsinline
-                preload="none"
+                preload="metadata"
                 loop={false}
                 disablePictureInPicture
                 objectFit="cover"
@@ -91,7 +87,7 @@ export default function ProjectsVideo() {
                 height="100%"
                 muted
                 playsinline
-                preload="none"
+                preload="metadata"
                 loop={false}
                 disablePictureInPicture
                 objectFit="cover"
@@ -101,18 +97,20 @@ export default function ProjectsVideo() {
               />
             </div>
           </div>
-          <div s="absolute row z-3 center w-100vw px-3vw events-none">
+          <div s="absolute row z-3 center w-100vw px-3vw no-events">
             <icon
               name="chevronLeft"
               size="6vw"
-              click={goPrev}
-              s="left events-auto cursor-pointer opacity-70 duration-200ms ease-out hover:(opacity-100 scale-110)"
+              s={() => ({
+                base: `left duration-200ms ease-out ${sideLeftHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
+              })}
             />
             <icon
               name="chevronRight"
               size="6vw"
-              click={goNext}
-              s="right events-auto cursor-pointer opacity-70 duration-200ms ease-out hover:(opacity-100 scale-110)"
+              s={() => ({
+                base: `right duration-200ms ease-out ${sideRightHovered() ? "scale-130 opacity-100" : "scale-100 opacity-50"}`,
+              })}
             />
           </div>
         </div>
