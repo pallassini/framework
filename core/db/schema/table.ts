@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { v } from "../../client/validator";
+import { FIELD_UNIQUE } from "../../client/validator/field-meta";
 import type { InputSchema } from "../../client/validator/properties/defs";
 import type { CatalogJson } from "./defineSchema";
 
@@ -69,11 +70,28 @@ function fkFromShape(shape: Record<string, InputSchema<unknown>>): TableMeta["fk
 	return Object.keys(fk).length ? fk : undefined;
 }
 
-function mergeTableMeta(shapeFk: TableMeta["fk"] | undefined, user: TableMeta): TableMeta {
+function uniqueFromShape(shape: Record<string, InputSchema<unknown>>): string[] {
+	const cols: string[] = [];
+	for (const [col, sch] of Object.entries(shape)) {
+		if (typeof sch === "object" && sch !== null && FIELD_UNIQUE in sch && Reflect.get(sch, FIELD_UNIQUE) === true) {
+			cols.push(col);
+		}
+	}
+	return cols;
+}
+
+function mergeTableMeta(
+	shape: Record<string, InputSchema<unknown>>,
+	shapeFk: TableMeta["fk"] | undefined,
+	user: TableMeta,
+): TableMeta {
 	const fk = { ...(user.fk ?? {}), ...(shapeFk ?? {}) };
+	const fromFields = uniqueFromShape(shape);
+	const uniq = [...new Set([...(user.unique ?? []), ...fromFields])];
 	return {
 		...user,
 		fk: Object.keys(fk).length ? fk : undefined,
+		unique: uniq.length ? uniq : undefined,
 	};
 }
 
@@ -213,7 +231,7 @@ export function table(
 		if (isTableShape(rowOrShape)) {
 			const normalized = normalizeShapeFields(rowOrShape as Record<string, unknown>);
 			const withId = injectId(normalized);
-			const merged = mergeTableMeta(fkFromShape(withId), meta);
+			const merged = mergeTableMeta(withId, fkFromShape(withId), meta);
 			return defineTableCore(name, v.object(withId), merged);
 		}
 		return defineTableCore(name, rowOrShape as InputSchema<unknown>, meta);
@@ -288,7 +306,7 @@ export function bundle<const T extends Record<string, unknown>>(defs: T): Bundle
 			const raw = val.shape as Record<string, unknown>;
 			const normalized = normalizeShapeFields(raw);
 			const withId = injectId(normalized);
-			const merged = mergeTableMeta(fkFromShape(withId), val.meta);
+			const merged = mergeTableMeta(withId, fkFromShape(withId), val.meta);
 			t = defineTableCore(name, v.object(withId), merged);
 		} else if (isFwTable(val)) {
 			if (val.name !== name) {

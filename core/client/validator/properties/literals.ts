@@ -1,11 +1,14 @@
+import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
 /** Stringa che deve essere una delle opzioni (controllo runtime + tipo `T[number]`). */
-export function literals<const T extends readonly [string, ...string[]]>(
-	allowed: T,
-): InputSchema<T[number]> {
+export type LiteralsSchema<T extends readonly [string, ...string[]]> = InputSchema<T[number]> & {
+	optional(): InputSchema<T[number] | undefined>;
+};
+
+export function literals<const T extends readonly [string, ...string[]]>(allowed: T): LiteralsSchema<T> {
 	const set = new Set<string>(allowed);
-	return {
+	const base: InputSchema<T[number]> = {
 		parse(raw) {
 			if (typeof raw !== "string" || !set.has(raw)) {
 				throw new ValidationError(`expected one of: ${allowed.join(", ")}`);
@@ -13,4 +16,9 @@ export function literals<const T extends readonly [string, ...string[]]>(
 			return raw as T[number];
 		},
 	};
+	return Object.assign(base, {
+		optional() {
+			return optionalKeepingFieldMeta(base);
+		},
+	}) as LiteralsSchema<T>;
 }

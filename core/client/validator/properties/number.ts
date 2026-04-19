@@ -1,7 +1,12 @@
+import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
-export function number(): InputSchema<number> {
-	return {
+export type NumberSchema = InputSchema<number> & {
+	optional(): InputSchema<number | undefined>;
+};
+
+export function number(): NumberSchema {
+	const base: InputSchema<number> = {
 		parse(raw) {
 			if (typeof raw !== "number" || Number.isNaN(raw)) {
 				throw new ValidationError("expected number");
@@ -9,15 +14,9 @@ export function number(): InputSchema<number> {
 			return raw;
 		},
 	};
-}
-
-export function integer(): InputSchema<number> {
-	return {
-		parse(raw) {
-			if (typeof raw !== "number" || !Number.isFinite(raw) || !Number.isInteger(raw)) {
-				throw new ValidationError("expected integer");
-			}
-			return raw;
+	return Object.assign(base, {
+		optional() {
+			return optionalKeepingFieldMeta(base);
 		},
-	};
+	});
 }

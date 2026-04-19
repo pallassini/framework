@@ -5,15 +5,27 @@ import { ValidationError, type InputSchema } from "../../core/client/validator/p
 export type DbRequest =
 	| { op: "probe" }
 	| { op: "users.list" }
-	| { op: "users.create"; payload: { email?: string; name?: string; role?: string } }
-	| { op: "users.update"; id: string; patch: { email?: string; name?: string; role?: string } }
+	| {
+			op: "users.create";
+			payload: { email?: string; password?: string; username?: string; role?: "admin" | "user" };
+	  }
+	| { op: "users.update"; id: string; patch: { email?: string; password?: string; username?: string; role?: "admin" | "user" } }
 	| { op: "users.delete"; id: string };
 
-function looseUserFields(p: Record<string, unknown>) {
+function looseUserFields(p: Record<string, unknown>): {
+	email?: string;
+	password?: string;
+	username?: string;
+	role?: "admin" | "user";
+} {
+	const roleRaw = p.role;
+	const role: "admin" | "user" | undefined =
+		roleRaw === "admin" || roleRaw === "user" ? roleRaw : undefined;
 	return {
 		email: typeof p.email === "string" ? p.email : undefined,
-		name: typeof p.name === "string" ? p.name : undefined,
-		role: typeof p.role === "string" ? p.role : undefined,
+		password: typeof p.password === "string" ? p.password : undefined,
+		username: typeof p.username === "string" ? p.username : undefined,
+		role,
 	};
 }
 
@@ -74,8 +86,8 @@ export default s({
 			case "users.list":
 				return { ok: true as const, op: input.op, users: await db.users.find() };
 			case "users.create": {
-				const { email = "", name = "", role } = input.payload;
-				const rows = await db.users.create({ email, name, role });
+				const { email = "", password = "", username, role = "user" } = input.payload;
+				const rows = await db.users.create({ email, password, username, role });
 				return { ok: true as const, op: input.op, rows };
 			}
 			case "users.update": {
