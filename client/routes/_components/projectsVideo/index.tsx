@@ -66,55 +66,67 @@ export default function ProjectsVideo() {
   return (
     <>
       <show when={des()}>
-        <div s="relative w-100vw">
-          <div s="row relative w-100vw">
+        <div s="relative w-100vw overflow-hidden">
+          <div s="row relative w-100vw children-centery">
             <For each={visible}>
               {(item, index) => {
                 const isCenter = index === 1;
                 return (
                   <switch>
                     <case when={isCenter}>
-                      <video
-                        id="projects-video-center"
-                        key={current()}
-                        src={item.video}
-                        autoplay
-                        muted
-                        playsinline
-                        loop={false}
-                        preload="auto"
-                        disablePictureInPicture
-                        objectFit="cover"
-                        s="round-20px w-75vw absolute center z-2 duration-200ms ease-out hover:(scale-105)"
-                      />
+                      <div s="absolute round-20px center minw-0 w-75vw h-42.1875vw overflow-hidden round-20px z-2 duration-200ms ease-out hover:(scale-105)">
+                        <video
+                          id="projects-video-center"
+                          key={current()}
+                          src={item.video}
+                          width="100%"
+                          height="100%"
+                          autoplay
+                          muted
+                          playsinline
+                          loop={false}
+                          preload="auto"
+                          disablePictureInPicture
+                          objectFit="cover"
+                          s="round-20px"
+                        />
+                      </div>
                     </case>
                     <case when={index === 0}>
-                      <video
-                        src={item.video}
-                        muted
-                        playsinline
-                        preload="metadata"
-                        loop={false}
-                        disablePictureInPicture
-                        objectFit="cover"
-                        click={goPrev}
-                        hover={sideLeftHovered}
-                        s="round-20px w-50vw opacity-10 left duration-150ms ease-out hover:(opacity-40)"
-                      />
+                      <div s="relative minw-0 w-50vw h-33.125vw overflow-hidden round-20px">
+                        <video
+                          src={item.video}
+                          width="100%"
+                          height="100%"
+                          muted
+                          playsinline
+                          preload="metadata"
+                          loop={false}
+                          disablePictureInPicture
+                          objectFit="cover"
+                          click={goPrev}
+                          hover={sideLeftHovered}
+                          s="opacity-10 duration-150ms ease-out hover:(opacity-40) round-20px"
+                        />
+                      </div>
                     </case>
                     <case when={index === 2}>
-                      <video
-                        src={item.video}
-                        muted
-                        playsinline
-                        preload="metadata"
-                        loop={false}
-                        disablePictureInPicture
-                        objectFit="cover"
-                        click={goNext}
-                        hover={sideRightHovered}
-                        s="round-20px w-50vw opacity-10 right duration-150ms ease-out hover:(opacity-40)"
-                      />
+                      <div s="relative minw-0 w-50vw h-33.125vw overflow-hidden round-20px">
+                        <video
+                          src={item.video}
+                          width="100%"
+                          height="100%"
+                          muted
+                          playsinline
+                          preload="metadata"
+                          loop={false}
+                          disablePictureInPicture
+                          objectFit="cover"
+                          click={goNext}
+                          hover={sideRightHovered}
+                          s="opacity-10 duration-150ms ease-out hover:(opacity-40) round-20px" 
+                        />
+                      </div>
                     </case>
                   </switch>
                 );
