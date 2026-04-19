@@ -1,7 +1,7 @@
 import FlowAgency from "./_components/flowAgency";
 import Problem from "./_components/problem";
 import { state, watch } from "client";
-import Projects from "./_components/projects";
+import ProjectsVideo from "./_components/projectsVideo";
 
 const PROBLEM_DELAY_MS = 2200;
 
@@ -19,8 +19,8 @@ export default function Home() {
       <div show={true} s={{ des: "mt-15vh", mob: "mt-5vh" }}>
         <Problem />
       </div>
-      <div s={{ des: "mt-20vh mb-20vh", mob: "mt-10vh mb-10vh" }}>
-        <Projects />
+      <div s={{ des: "mt-10vh mb-20vh", mob: "mt-8vh mb-12vh" }}>
+        <ProjectsVideo />
       </div>
     </>
   );

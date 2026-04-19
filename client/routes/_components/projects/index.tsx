@@ -93,23 +93,23 @@ export default function Projects() {
             />
           </div>
         </div>
-      <div s="row children-center mt-8vh gap-2vw">
-        <For each={centerSlides}>
-          {(slide, i) => {
-            const active = () => i === slideIndex();
-            return (
-              <div click={() => slideIndex(i)}>
-                <img
-                  src={slide.image}
-                  s={() => ({
-                    base: `w-10vw round-20px duration-200 cursor-pointer b-2px ${active() ? "scale-110 opacity-100 b-#fff" : "opacity-55 b-transparent hover:(opacity-90 scale-105)"}`,
-                  })}
-                />
-              </div>
-            );
-          }}
-        </For>
-      </div>
+        <div s="row children-center mt-8vh gap-2vw">
+          <For each={centerSlides}>
+            {(slide, i) => {
+              const active = () => i === slideIndex();
+              return (
+                <div click={() => slideIndex(i)}>
+                  <img
+                    src={slide.image}
+                    s={() => ({
+                      base: `w-10vw round-20px duration-200 cursor-pointer b-2px ${active() ? "scale-110 opacity-100 b-#fff" : "opacity-55 b-transparent hover:(opacity-90 scale-105)"}`,
+                    })}
+                  />
+                </div>
+              );
+            }}
+          </For>
+        </div>
       </show>
       <show when={!des()}></show>
     </>
