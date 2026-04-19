@@ -115,9 +115,15 @@ export function video(props: VideoProps): UiNode {
 		if (speed != null && Number.isFinite(speed) && speed > 0) el.playbackRate = speed;
 	};
 
+	/** Evita play() obsoleti quando si cambia `src` in rapida successione (tap su freccia, mobile). */
+	let autoplaySession = 0;
+
 	const scheduleAutoplay = (): void => {
 		if (!wantAutoplay) return;
+		autoplaySession++;
+		const session = autoplaySession;
 		const tryPlay = (): void => {
+			if (session !== autoplaySession) return;
 			void el.play().catch(() => {});
 		};
 		el.addEventListener("loadeddata", tryPlay, { once: true });
@@ -126,7 +132,13 @@ export function video(props: VideoProps): UiNode {
 	};
 
 	const bindReactiveSrc = (): void => {
-		el.src = readVideoSrc(src);
+		const next = readVideoSrc(src);
+		if (!next) return;
+		/** Stessa sorgente (es. watch ridondante): non resettare il decoder. */
+		if (el.src === next) return;
+
+		el.pause();
+		el.src = next;
 		applyPlaybackRate();
 		scheduleAutoplay();
 	};

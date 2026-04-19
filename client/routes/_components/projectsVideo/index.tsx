@@ -165,10 +165,9 @@ export default function ProjectsVideo() {
               muted
               playsinline
               loop={false}
-              preload="auto"
+              preload="metadata"
               disablePictureInPicture
               objectFit="cover"
-              s="round-20px"
             />
           </div>
           <div s="row children-center gapx-2vw mt-3vw">
