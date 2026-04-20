@@ -31,7 +31,7 @@ export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 export { viewport, device, mob, tab, des, onlyDes, setSmoothScrollInteractionLock } from "./client/style";
 
 // JSX COMPONENTS
-export { For } from "./client/runtime/tag";
+export { For, icon } from "./client/runtime/tag";
 
 // FORM
 export * from "./client/form";

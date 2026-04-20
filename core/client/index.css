@@ -66,3 +66,25 @@ html {
 *::-webkit-scrollbar-thumb:hover {
 	background-color: rgba(255, 255, 255, 0.18);
 }
+
+/* Opt-in: scrollbar orizzontale visibile (es. tabelle devtools). */
+.fw-hscroll {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.fw-hscroll::-webkit-scrollbar,
+.fw-hscroll::-webkit-scrollbar:horizontal {
+	display: block;
+	width: 8px;
+	height: 8px;
+}
+.fw-hscroll::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.22);
+	border-radius: 9999px;
+}
+.fw-hscroll::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.32);
+}
+.fw-hscroll::-webkit-scrollbar-track {
+	background: transparent;
+}

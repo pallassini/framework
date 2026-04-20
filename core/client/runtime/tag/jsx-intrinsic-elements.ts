@@ -33,4 +33,10 @@ export interface FrameworkIntrinsicElements {
 	img: ImgProps;
 	video: VideoProps;
 	input: InputProps;
+	/** SVG nativo (icone inline devtools, ecc.). */
+	svg: SharedProps;
+	path: SharedProps;
+	circle: SharedProps;
+	span: SharedProps;
+	pre: SharedProps;
 }

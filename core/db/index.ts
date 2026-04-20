@@ -61,6 +61,11 @@ export const db: Db = createServerDbUtilities(
 	() => liveBundle,
 );
 
+/** Accessor live: le FwTables del bundle corrente (aggiornate ad ogni HMR schema). */
+export function getLiveFwTables() {
+	return liveBundle.fwTables;
+}
+
 const projectRoot = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
 if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
 	startDevDbSchemaWatch(projectRoot, {

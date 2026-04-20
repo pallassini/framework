@@ -1,13 +1,25 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { v } from "../../client/validator";
-import { FIELD_UNIQUE } from "../../client/validator/field-meta";
+import { FIELD_OPTIONAL, FIELD_UNIQUE } from "../../client/validator/field-meta";
 import { fk, REF, type RefMeta } from "../../client/validator/fk";
 import type { InputSchema } from "../../client/validator/properties/defs";
 import type { CatalogJson } from "./defineSchema";
+import { sortDbColumnKeys } from "./sortColumnKeys";
 
 /** Brand per riconoscere gli export tabella in `db push`. */
 export const FW_TABLE = Symbol.for("framework.db.table");
+
+/** Chiavi colonna dallo shape (`table({ ... })`) — usato da devtools quando non ci sono righe. */
+export const FW_TABLE_COLUMN_KEYS = Symbol.for("framework.db.columnKeys");
+
+/** Colonne dallo shape con metadati (`optional`, …) — usato da devtools per i badge. */
+export const FW_TABLE_COLUMNS = Symbol.for("framework.db.columns");
+
+export type FwColumnMeta = {
+	readonly key: string;
+	readonly optional: boolean;
+};
 
 export { REF, type RefMeta };
 
@@ -56,6 +68,14 @@ function normalizeShapeFields(raw: Record<string, unknown>): Record<string, Inpu
 function injectId(shape: Record<string, InputSchema<unknown>>): Record<string, InputSchema<unknown>> {
 	if ("id" in shape) return shape;
 	return { id: v.string(), ...shape };
+}
+
+/** Aggiunto a ogni tabella se non dichiarato (timestamps opzionali). */
+function injectTimestamps(shape: Record<string, InputSchema<unknown>>): Record<string, InputSchema<unknown>> {
+	const out = { ...shape };
+	if (!("createdAt" in out)) out.createdAt = v.datetime().optional();
+	if (!("updatedAt" in out)) out.updatedAt = v.datetime().optional();
+	return out;
 }
 
 function fkFromShape(shape: Record<string, InputSchema<unknown>>): TableMeta["fk"] | undefined {
@@ -134,6 +154,29 @@ export type FwTable<R = unknown> = {
 	readonly ref: (opts?: { onDelete?: "restrict" | "cascade" }) => InputSchema<string>;
 };
 
+/** Chiavi colonna dallo shape, se la tabella è definita con `table("name", { ... })`. */
+export function getFwTableColumnKeys(t: FwTable<unknown>): string[] | undefined {
+	const k = Reflect.get(t as object, FW_TABLE_COLUMN_KEYS) as readonly string[] | undefined;
+	return k ? [...k] : undefined;
+}
+
+/** Colonne complete dallo shape con metadati (`optional`), se disponibile. */
+export function getFwTableColumns(t: FwTable<unknown>): FwColumnMeta[] | undefined {
+	const c = Reflect.get(t as object, FW_TABLE_COLUMNS) as readonly FwColumnMeta[] | undefined;
+	return c ? c.map((x) => ({ key: x.key, optional: x.optional })) : undefined;
+}
+
+function isOptionalSchema(s: unknown): boolean {
+	return typeof s === "object" && s !== null && FIELD_OPTIONAL in s;
+}
+
+function columnsFromShape(shape: Record<string, InputSchema<unknown>>): FwColumnMeta[] {
+	return Object.keys(shape).map((key) => ({
+		key,
+		optional: isOptionalSchema(shape[key]),
+	}));
+}
+
 type AppDbExports = typeof import("../../../db/index");
 type AppDbTableKey<K> = K extends string ? (K extends "default" | `_${string}` ? never : K) : never;
 
@@ -210,8 +253,15 @@ export function table(
 		if (isTableShape(rowOrShape)) {
 			const normalized = normalizeShapeFields(rowOrShape as Record<string, unknown>);
 			const withId = injectId(normalized);
-			const merged = mergeTableMeta(withId, fkFromShape(withId), meta);
-			return defineTableCore(name, v.object(withId), merged);
+			const withTs = injectTimestamps(withId);
+			const merged = mergeTableMeta(withTs, fkFromShape(withTs), meta);
+			return defineTableCore(
+				name,
+				v.object(withTs),
+				merged,
+				sortDbColumnKeys(Object.keys(withTs)),
+				columnsFromShape(withTs),
+			);
 		}
 		return defineTableCore(name, rowOrShape as InputSchema<unknown>, meta);
 	}
@@ -246,6 +296,8 @@ function defineTableCore<const R, const Name extends string>(
 	name: Name,
 	row: InputSchema<R>,
 	meta: TableMeta,
+	columnKeys?: readonly string[],
+	columns?: readonly FwColumnMeta[],
 ): FwTable<R> {
 	const catalogRow = catalogRowForTable(name, meta);
 	const def = {
@@ -257,6 +309,20 @@ function defineTableCore<const R, const Name extends string>(
 		},
 	} as unknown as FwTable<R>;
 	Object.defineProperty(def, "_catalogRow", { value: catalogRow, enumerable: false });
+	if (columnKeys?.length) {
+		Object.defineProperty(def, FW_TABLE_COLUMN_KEYS, {
+			value: Object.freeze([...columnKeys]),
+			enumerable: false,
+			configurable: false,
+		});
+	}
+	if (columns?.length) {
+		Object.defineProperty(def, FW_TABLE_COLUMNS, {
+			value: Object.freeze(columns.map((c) => Object.freeze({ ...c }))),
+			enumerable: false,
+			configurable: false,
+		});
+	}
 	return attachFkHelpers(def);
 }
 
@@ -285,8 +351,15 @@ export function bundle<const T extends Record<string, unknown>>(defs: T): Bundle
 			const raw = val.shape as Record<string, unknown>;
 			const normalized = normalizeShapeFields(raw);
 			const withId = injectId(normalized);
-			const merged = mergeTableMeta(withId, fkFromShape(withId), val.meta);
-			t = defineTableCore(name, v.object(withId), merged);
+			const withTs = injectTimestamps(withId);
+			const merged = mergeTableMeta(withTs, fkFromShape(withTs), val.meta);
+			t = defineTableCore(
+				name,
+				v.object(withTs),
+				merged,
+				sortDbColumnKeys(Object.keys(withTs)),
+				columnsFromShape(withTs),
+			);
 		} else if (isFwTable(val)) {
 			if (val.name !== name) {
 				throw new Error(`[db] bundle: chiave "${name}" ≠ tabella.name "${val.name}"`);
@@ -316,6 +389,8 @@ export function bundleTables(tables: readonly FwTable<unknown>[]): {
 	catalog: CatalogJson;
 	tableNames: string[];
 	pkByTable: Record<string, string>;
+	/** FwTable istanziate (con simboli `FW_TABLE_COLUMNS` ecc.) — usate dai devtools. */
+	fwTables: readonly FwTable<unknown>[];
 	toJSON(): string;
 	toJSONPretty(): string;
 	writeCatalogSync(dir: string): void;
@@ -346,6 +421,7 @@ export function bundleTables(tables: readonly FwTable<unknown>[]): {
 		catalog,
 		tableNames,
 		pkByTable,
+		fwTables: [...tables],
 		toJSON(): string {
 			return JSON.stringify(catalog);
 		},

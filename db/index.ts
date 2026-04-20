@@ -16,36 +16,39 @@ export const sessions = table({
   revokedAt: v.datetime().optional(),
 });
 
+// ───────────────────────────────────────────────────────────────────────────────
 // BOOKING
+// ───────────────────────────────────────────────────────────────────────────────
 const bookingOthers = v.object({});
 export const bookings = table({
-  date: v.datetime(),
-  items: v.array(
-    v.object({
-      itemId: v.fk("items"),
-      price: v.number().optional(),
-    }),
-  ),
+  //DATE TIME
+  startAt: v.datetime(),
+  endAt: v.datetime(),
+  //STATUS
+  status: v.enum(["pending", "confirmed", "cancelled", "done"]),
+  items: v.array(v.fk("items")),
   others: bookingOthers,
 });
 
+// ───────────────────────────────────────────────────────────────────────────────
 // ITEM
+// ───────────────────────────────────────────────────────────────────────────────
 const itemOthers = v.object({});
 
 export const items = table({
   name: v.string(),
   description: v.string().optional(),
   price: v.number().optional(),
-  type: v.enum(["normal", "bundle"]),
-  parentItemId: v.fk("items").optional(),
+  duration: v.number().optional(), //MINUTES
   relations: v
     .array(
       v.object({
         itemId: v.fk("items"),
-        kind: v.enum(["upSell", "crossSell"]),
+        // COMPONENT: l'item è un pezzo del bundle
+        kind: v.enum(["upSell", "crossSell", "component"]),
       }),
     )
     .optional(),
-  others: itemOthers,
   active: v.boolean(),
+  others: itemOthers,
 });

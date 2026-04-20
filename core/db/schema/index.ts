@@ -7,12 +7,17 @@ export {
 	type TableSchemaInput,
 } from "./defineSchema";
 export { defineDb, t, type Field, type FkField, type StrField } from "./dsl";
+export { sortDbColumnKeys } from "./sortColumnKeys";
 export {
 	bundle,
 	bundleTables,
 	defineTable,
 	FW_TABLE,
+	FW_TABLE_COLUMN_KEYS,
+	FW_TABLE_COLUMNS,
 	fk,
+	getFwTableColumnKeys,
+	getFwTableColumns,
 	isFwTable,
 	isTableBuilder,
 	ref,
@@ -23,6 +28,7 @@ export {
 	type Bundled,
 	type DbBundleSchema,
 	type FullRow,
+	type FwColumnMeta,
 	type FwTable,
 	type RefMeta,
 	type TableBuilder,
