@@ -2,16 +2,14 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { v } from "../../client/validator";
 import { FIELD_UNIQUE } from "../../client/validator/field-meta";
+import { fk, REF, type RefMeta } from "../../client/validator/fk";
 import type { InputSchema } from "../../client/validator/properties/defs";
 import type { CatalogJson } from "./defineSchema";
 
 /** Brand per riconoscere gli export tabella in `db push`. */
 export const FW_TABLE = Symbol.for("framework.db.table");
 
-/** Metadati FK su uno schema creato con `ref()`. */
-export const REF = Symbol.for("framework.db.ref");
-
-export type RefMeta = { table: string; onDelete: "restrict" | "cascade" };
+export { REF, type RefMeta };
 
 type InferTableVal<V> = V extends InputSchema<infer U> ? U : V extends string ? string : never;
 
@@ -103,30 +101,11 @@ export function ref(
 	table: FwTable<unknown>,
 	opts?: { onDelete?: "restrict" | "cascade" },
 ): InputSchema<string> {
-	const inner = v.string();
-	const onDelete = opts?.onDelete ?? "cascade";
-	return {
-		parse(raw: unknown) {
-			return inner.parse(raw);
-		},
-		[REF]: { table: table.name, onDelete },
-	} as InputSchema<string>;
+	return fk(table.name, opts);
 }
 
 /** FK per nome tabella (uso tipico dentro `bundle({ ... })` dove non hai ancora la const). */
-export function fk(
-	tableName: string,
-	opts?: { onDelete?: "restrict" | "cascade" },
-): InputSchema<string> {
-	const inner = v.string();
-	const onDelete = opts?.onDelete ?? "cascade";
-	return {
-		parse(raw: unknown) {
-			return inner.parse(raw);
-		},
-		[REF]: { table: tableName, onDelete },
-	} as InputSchema<string>;
-}
+export { fk };
 
 export const TABLE_BUILDER = Symbol.for("framework.db.tableBuilder");
 

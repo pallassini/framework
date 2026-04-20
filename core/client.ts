@@ -18,9 +18,12 @@ export { server } from "./client/server";
 import type { ServerPath, ServerRouteOut } from "./client/server";
 export type server<P extends ServerPath> = ServerRouteOut<P>;
 
+// AUTH (`auth.login`, `auth.register`, `auth.me`, `auth.logout`)
+export { auth } from "./client/auth";
+
 // DESKTOP
 export { desktop } from "./client/desktop";
-export { FW_DB_SCHEMA_RELOAD_EVENT } from "./fw-db-schema-reload-event";
+export { FW_DB_DATA_CHANGED_EVENT, FW_DB_SCHEMA_RELOAD_EVENT } from "./fw-db-schema-reload-event";
 import type { DesktopPath, DesktopRouteOut } from "./client/desktop";
 export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 

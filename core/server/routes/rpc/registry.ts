@@ -91,11 +91,17 @@ function buildFn(
 	return (rawInput, ctx) => logMw(ctx, () => pipeline(rawInput, ctx));
 }
 
+function mergeMiddlewares(def: { auth?: boolean; middlewares?: Middleware[] }): Middleware[] {
+	const user = def.middlewares ?? [];
+	if (def.auth) return [routeMw.requireAuth(), ...user];
+	return user;
+}
+
 function sWithInput<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O> {
-	const middlewares = def.middlewares ?? [];
+	const middlewares = mergeMiddlewares(def);
 	const fn = buildFn(
 		def.input as InputSchema<unknown>,
-		(inp, _ctx) => def.run(inp as I),
+		(inp, ctx) => def.run(inp as I, ctx),
 		{
 			middlewares,
 			rateLimit: def.rateLimit,
@@ -116,10 +122,10 @@ function sWithInput<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, 
 }
 
 function sNoInput<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O> {
-	const middlewares = def.middlewares ?? [];
+	const middlewares = mergeMiddlewares(def);
 	const fn = buildFn(
 		undefined,
-		(_inp, _ctx) => def.run(),
+		(_inp, ctx) => def.run(ctx),
 		{
 			middlewares,
 			rateLimit: def.rateLimit,

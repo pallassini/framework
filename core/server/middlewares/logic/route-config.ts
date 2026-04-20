@@ -1,5 +1,6 @@
 import type { InputSchema } from "../../../client/validator/properties/defs";
 import type { CorsRule } from "../cors";
+import type { ServerContext } from "../../routes/context";
 import type { ConcurrencyOpts, RateLimitOpts, SizeLimitOpts } from "./opts";
 import type { Middleware } from "./types";
 
@@ -11,8 +12,10 @@ export function timeoutMs(timeout: number | { ms: number } | undefined): number 
 /** Opzioni `s({ ... })` con body in ingresso. */
 export type RouteInputConfig<I, O> = {
 	input: InputSchema<I>;
-	/** Stesso `I` di `input: v.object(…)` → `run: (input) =>` tipizzato senza annotazioni. */
-	run: (input: I) => O | Promise<O>;
+	/** Stesso `I` di `input: v.object(…)` → `ctx` dalla richiesta RPC. */
+	run: (input: I, ctx: ServerContext) => O | Promise<O>;
+	/** Equivale a `middlewares: [routeMw.requireAuth(), …]` — sessione controllata per prima. */
+	auth?: boolean;
 	middlewares?: Middleware[];
 	rateLimit?: RateLimitOpts;
 	timeout?: number | { ms: number };
@@ -24,7 +27,9 @@ export type RouteInputConfig<I, O> = {
 
 /** Opzioni `s({ ... })` senza body RPC. */
 export type RouteNoInputConfig<O> = {
-	run: () => O | Promise<O>;
+	run: (ctx: ServerContext) => O | Promise<O>;
+	/** Equivale a `middlewares: [routeMw.requireAuth(), …]` — sessione controllata per prima. */
+	auth?: boolean;
 	middlewares?: Middleware[];
 	rateLimit?: RateLimitOpts;
 	timeout?: number | { ms: number };

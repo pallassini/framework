@@ -6,6 +6,7 @@ import { createLogger, defineConfig } from "vite-plus";
 import { desktopConfig } from "../../desktop/config";
 import { SERVER_RPC_HOST, SERVER_RPC_PORT } from "../server/routes/config";
 import { genDesktopRoutes } from "./desktop-routes-gen";
+import { genFwDbDataWatch } from "./vite-plugin-fwdb-data-watch";
 import { genServerRoutes } from "./server-routes-gen";
 import { lazyCaseChildrenPlugin } from "./vite-plugin-lazy-case-children";
 import { routeAssetSrcPlugin } from "./vite-plugin-route-asset-src";
@@ -51,6 +52,7 @@ export default defineConfig({
 		lazyCaseChildrenPlugin(root),
 		routeAssetSrcPlugin(root),
 		genServerRoutes(root),
+		genFwDbDataWatch(root),
 		genDesktopRoutes(root),
 		mkcert(),
 	] as PluginOption[],

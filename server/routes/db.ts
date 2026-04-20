@@ -79,7 +79,7 @@ async function runProbe() {
 
 export default s({
 	input: dbInputSchema,
-	run: async (input) => {
+	run: async (input, _ctx) => {
 		switch (input.op) {
 			case "probe":
 				return runProbe();
@@ -109,7 +109,7 @@ export const rowUpdate = s({
 		field: v.string(),
 		value: v.unknown(),
 	}),
-	run: async (inp) => {
+	run: async (inp, _ctx) => {
 		await db.table(inp.table).update(
 			{ id: inp.id } as never,
 			{ [inp.field]: inp.value } as never,
@@ -120,7 +120,7 @@ export const rowUpdate = s({
 
 export const rowDelete = s({
 	input: v.object({ table: db, id: v.string() }),
-	run: async (inp) => {
+	run: async (inp, _ctx) => {
 		await db.table(inp.table).delete({ id: inp.id } as never);
 		return { ok: true as const };
 	},

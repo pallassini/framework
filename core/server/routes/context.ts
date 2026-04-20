@@ -35,6 +35,11 @@ export interface ServerContext {
 	rpcPayloadSizes?: { in: number; out: number };
 	/** Impostato da middleware `timeout` (ms) per hint in log errore. */
 	rpcTimeoutMs?: number;
+	/** Impostato da middleware `requireAuth` dopo sessione valida. */
+	auth?: {
+		userId: string;
+		sessionId: string;
+	};
 }
 
 export function createContext(req: Request, routeName: string): ServerContext {

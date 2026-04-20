@@ -1,4 +1,11 @@
-import { desktop, For, FW_DB_SCHEMA_RELOAD_EVENT, state, watch } from "client";
+import {
+  For,
+  FW_DB_DATA_CHANGED_EVENT,
+  FW_DB_SCHEMA_RELOAD_EVENT,
+  server,
+  state,
+  watch,
+} from "client";
 
 const tableBaseStyle = {
   width: "100%",
@@ -92,32 +99,55 @@ function coerceEditValue(draft: string, previous: unknown): unknown {
 }
 
 export default function DB() {
-  const tables = state(desktop._devtools.db);
+  const tables = state(server._devtools.db);
   const [getEdit, setEdit] = watch.source<EditCell | null>(null);
 
   const refetch = (): void => {
-    void tables(desktop._devtools.db());
+    void tables(server._devtools.db());
   };
 
   watch(() => {
     let refetchDebounce: ReturnType<typeof setTimeout> | undefined;
-    const onReload = (): void => {
+    const scheduleRefetch = (): void => {
       if (refetchDebounce != null) clearTimeout(refetchDebounce);
       refetchDebounce = setTimeout(() => {
         refetchDebounce = undefined;
         if (import.meta.env.DEV) {
-          console.log("[devtools.db] evento schema reload → refetch RPC (debounced)");
+          console.log("[devtools.db] refetch (schema o dati su disco)");
         }
         refetch();
       }, 250);
     };
+
     if (import.meta.env.DEV) {
-      console.log("[devtools.db] in ascolto su", FW_DB_SCHEMA_RELOAD_EVENT);
+      console.log(
+        "[devtools.db] ascolto:",
+        FW_DB_SCHEMA_RELOAD_EVENT,
+        "+",
+        FW_DB_DATA_CHANGED_EVENT,
+        "(HMR)",
+      );
     }
-    globalThis.addEventListener(FW_DB_SCHEMA_RELOAD_EVENT, onReload);
+
+    globalThis.addEventListener(FW_DB_SCHEMA_RELOAD_EVENT, scheduleRefetch);
+
+    const onFwDbDataHmr = (): void => {
+      scheduleRefetch();
+    };
+    if (import.meta.env.DEV && import.meta.hot) {
+      import.meta.hot.on(FW_DB_DATA_CHANGED_EVENT, onFwDbDataHmr);
+    }
+
     watch.onCleanup(() => {
       if (refetchDebounce != null) clearTimeout(refetchDebounce);
-      globalThis.removeEventListener(FW_DB_SCHEMA_RELOAD_EVENT, onReload);
+      globalThis.removeEventListener(FW_DB_SCHEMA_RELOAD_EVENT, scheduleRefetch);
+      const hot = import.meta.hot;
+      if (hot && typeof (hot as { off?: (e: string, fn: () => void) => void }).off === "function") {
+        (hot as { off: (e: string, fn: () => void) => void }).off(
+          FW_DB_DATA_CHANGED_EVENT,
+          onFwDbDataHmr,
+        );
+      }
     });
   });
 
@@ -141,7 +171,7 @@ export default function DB() {
       return;
     }
     try {
-      await desktop._devtools.db.rowUpdate({
+      await server._devtools.db.rowUpdate({
         table: tableName as never,
         id: recordId,
         field,
@@ -157,10 +187,11 @@ export default function DB() {
   return (
     <div s="col gapy-5 p-5 bg-#09090b minw-100%">
       <div s="col gapy-2">
-        <t s="text-7 text-#fafafa font-7 tracking-tight">desktop._devtools.db</t>
+        <t s="text-7 text-#fafafa font-7 tracking-tight">server._devtools.db</t>
         <t s="text-3 text-#71717a">
-          Clic su una cella (non PK) per modificare · Elimina su ogni riga · max
-          100 righe in anteprima
+          Stesso DB del processo RPC (`auth.*`) · aggiornamento automatico quando
+          cambiano i file in `core/db/data` (dev) · clic cella · Elimina · max 100
+          righe
         </t>
       </div>
 
@@ -336,7 +367,7 @@ export default function DB() {
                                   click={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      await desktop._devtools.db.rowDelete({
+                                      await server._devtools.db.rowDelete({
                                         table: name as never,
                                         id: rid,
                                       });

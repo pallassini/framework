@@ -11,6 +11,7 @@ import { number } from "./properties/number";
 import { string } from "./properties/string";
 import { unknown } from "./properties/unknown";
 import { uuid } from "./properties/uuid";
+import { fk } from "./fk";
 
 export const v = {
 	uuid,
@@ -28,4 +29,6 @@ export const v = {
 	nullable,
 	array,
 	object,
+	/** FK verso `tableName.id` (stesso comportamento di `fk()` da `core/db/schema/table`). */
+	fk,
 } as const;

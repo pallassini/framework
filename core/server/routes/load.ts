@@ -68,7 +68,7 @@ export async function loadServerRoutes(root: string): Promise<void> {
 				mod = (await import(url)) as Record<string, unknown>;
 			} catch (e) {
 				importFailed = true;
-				console.warn(`[server/routes] import fallito, reload annullato: ${file}`, e);
+				console.warn(`[server/routes] import fallito (saltato), altre route possono restare valide: ${file}`, e);
 				continue;
 			}
 
@@ -96,9 +96,9 @@ export async function loadServerRoutes(root: string): Promise<void> {
 	}
 
 	if (importFailed) {
-		console.warn("[server/routes] registry invariato (correggi errori nei file route e salva di nuovo).");
-		routesState.loaded = true;
-		return;
+		console.warn(
+			"[server/routes] alcuni file non importati; registry aggiornato solo con le route caricate correttamente.",
+		);
 	}
 
 	applyRouteRegistrySwap(nextRegistry, nextCors, nextMeta);

@@ -1,3 +1,4 @@
+import { requireAuth } from "./auth";
 import { createCacheWrapper } from "./cache";
 import { createConcurrencyWrapper } from "./concurrency";
 import { limit } from "./limit";
@@ -19,6 +20,7 @@ export const routeMw = {
 	timeout,
 	cache: createCacheWrapper,
 	concurrency: createConcurrencyWrapper,
+	requireAuth,
 } as const;
 
 export type { Middleware, Next } from "./logic/types";

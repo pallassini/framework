@@ -1,4 +1,5 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
+import { getAuthHeaders } from "../auth/headers";
 import { markRpcRun } from "../../desktop/rpc-ref";
 
 export type RpcSettledResult<O> =
@@ -53,7 +54,10 @@ async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallback
 	try {
 		res = await fetch(`${base}/_server/${pathSeg}`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				...getAuthHeaders(),
+			},
 			body: JSON.stringify({ input }),
 		});
 	} catch (e) {

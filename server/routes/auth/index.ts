@@ -9,12 +9,24 @@ export async function verifyPassword(plain: string, passwordHash: string): Promi
 	return Bun.password.verify(plain, passwordHash);
 }
 
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function createSession(userId: string) {
+	const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+	const rows = await db.sessions.create({
+		userId,
+		expiresAt,
+		revokedAt: undefined,
+	});
+	return rows[0]!;
+}
+
 export const login = s({
 	input: v.object({
 		email: v.string(),
 		password: v.string(),
 	}),
-	run: async (input) => {
+	run: async (input, _ctx) => {
 		const rows = await db.users.find({ email: { $eq: input.email } }, { limit: 1 });
 		const user = rows[0];
 		if (!user) {
@@ -24,6 +36,7 @@ export const login = s({
 		if (!ok) {
 			error("UNAUTHORIZED", "Credenziali non valide");
 		}
+		const sess = await createSession(user.id);
 		return {
 			user: {
 				id: user.id,
@@ -31,6 +44,7 @@ export const login = s({
 				username: user.username,
 				role: user.role,
 			},
+			sessionId: sess.id,
 		};
 	},
 });
@@ -42,7 +56,7 @@ export const register = s({
 		username: v.string().optional(),
 		role: v.enum(["admin", "user"]).optional(),
 	}),
-	run: async (input) => {
+	run: async (input, _ctx) => {
 		const password = await hashPassword(input.password);
 		const rows = await db.users.create({
 			email: input.email,
@@ -50,13 +64,34 @@ export const register = s({
 			username: input.username,
 			role: input.role ?? "user",
 		});
-		const user = rows[0];
+		const user = rows[0]!;
+		const sess = await createSession(user.id);
 		return {
 			user: {
 				id: user.id,
 				email: user.email as string,
 				username: user.username,
 				role: user.role,
+			},
+			sessionId: sess.id,
+		};
+	},
+});
+
+/** Utente corrente da sessione (header `Authorization` / `x-session-id`). */
+export const me = s({
+	auth: true,
+	run: async (ctx) => {
+		const uid = ctx.auth!.userId;
+		const rows = await db.users.find({ id: { $eq: uid } }, { limit: 1 });
+		const u = rows[0];
+		if (!u) error("NOT_FOUND", "User");
+		return {
+			user: {
+				id: u.id,
+				email: u.email as string,
+				username: u.username,
+				role: u.role,
 			},
 		};
 	},
