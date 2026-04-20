@@ -14,6 +14,7 @@ export const clientConfig = {
   // PERSIST STATE
   persistState: {
     id: v.uuid(),
+    
     devtools: {
       menu: "db" as "db" | "state",
     },
