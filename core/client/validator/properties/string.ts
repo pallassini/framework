@@ -1,4 +1,4 @@
-import { FIELD_UNIQUE } from "../field-meta";
+import { FIELD_UNIQUE, tagFieldType } from "../field-meta";
 import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -42,9 +42,11 @@ export function string(): StringSchema {
 					return u as StringSchemaUnique;
 				},
 			};
+			tagFieldType(u, { kind: "string" });
 			return u as StringSchemaUnique;
 		},
 	});
 
+	tagFieldType(out, { kind: "string" });
 	return out as StringSchema;
 }

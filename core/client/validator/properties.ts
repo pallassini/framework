@@ -1,5 +1,6 @@
 import { array } from "./properties/array";
 import { date, datetime } from "./properties/date";
+import { time } from "./properties/time";
 import { nullable } from "./properties/nullable";
 import { optional } from "./properties/optional";
 import { object } from "./properties/object";
@@ -19,6 +20,7 @@ export const v = {
 	number,
 	date,
 	datetime,
+	time,
 	boolean,
 	empty,
 	unknown,

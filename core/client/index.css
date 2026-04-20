@@ -88,3 +88,94 @@ html {
 .fw-hscroll::-webkit-scrollbar-track {
 	background: transparent;
 }
+
+/* Devtools DB: compact, aligned badges for PK / FK / type / optional. */
+.fw-db-badge {
+	position: relative;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 18px;
+	min-height: 18px;
+	padding: 0 6px;
+	border-radius: 4px;
+	border: 1px solid transparent;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 9.5px;
+	font-weight: 600;
+	line-height: 1;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+	vertical-align: middle;
+	flex-shrink: 0;
+	cursor: default;
+}
+.fw-db-badge__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 11px;
+	height: 11px;
+	flex-shrink: 0;
+	line-height: 0;
+}
+.fw-db-badge__label {
+	display: inline-flex;
+	align-items: center;
+	line-height: 1;
+}
+.fw-db-badge__label--truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 68px;
+}
+.fw-db-badge--pk {
+	width: 18px;
+	min-width: 18px;
+	padding: 0;
+	color: #4ade80;
+	background: rgba(74, 222, 128, 0.14);
+	border-color: rgba(74, 222, 128, 0.38);
+}
+.fw-db-badge--fk {
+	color: #c4b5fd;
+	background: rgba(167, 139, 250, 0.14);
+	border-color: rgba(167, 139, 250, 0.42);
+	max-width: 130px;
+}
+.fw-db-badge--opt {
+	min-width: 18px;
+	padding: 0 5px;
+	border-radius: 9999px;
+	color: #a1a1aa;
+	background: rgba(161, 161, 170, 0.08);
+	border-color: rgba(161, 161, 170, 0.28);
+	font-family: inherit;
+	font-size: 10.5px;
+}
+/* Floating hover panel (rendered at root level, positioned by JS with position: fixed). */
+.fw-db-col-panel {
+	position: fixed;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 14rem;
+	max-width: min(28rem, 92vw);
+	max-height: min(70vh, 26rem);
+	overflow: auto;
+	padding: 12px 14px;
+	border-radius: 10px;
+	background: #18181b;
+	border: 1px solid #3f3f46;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+	text-align: left;
+	font-family: inherit;
+	font-weight: 400;
+	letter-spacing: 0;
+	white-space: normal;
+	pointer-events: auto;
+}

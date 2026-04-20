@@ -1,3 +1,4 @@
+import { tagFieldType } from "../field-meta";
 import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -14,9 +15,11 @@ export function number(): NumberSchema {
 			return raw;
 		},
 	};
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		optional() {
 			return optionalKeepingFieldMeta(base);
 		},
 	});
+	tagFieldType(out, { kind: "number" });
+	return out;
 }

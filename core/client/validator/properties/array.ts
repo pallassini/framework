@@ -1,3 +1,4 @@
+import { readFieldType, tagFieldType, type FieldTypeDesc } from "../field-meta";
 import { optional } from "./optional";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -6,23 +7,26 @@ export type ArraySchema<I> = InputSchema<I[]> & {
 	optional(): InputSchema<I[] | undefined>;
 };
 
-function makeArraySchema<I>(parseImpl: (raw: unknown) => I[]): ArraySchema<I> {
+function makeArraySchema<I>(parseImpl: (raw: unknown) => I[], itemType: FieldTypeDesc): ArraySchema<I> {
 	const base: InputSchema<I[]> = { parse: parseImpl };
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		default(def: I[]) {
 			return makeArraySchema((raw) => {
 				if (raw === undefined) return def.slice();
 				return parseImpl(raw);
-			});
+			}, itemType);
 		},
 		optional() {
 			return optional(base);
 		},
 	}) as ArraySchema<I>;
+	tagFieldType(out, { kind: "array", of: itemType });
+	return out;
 }
 
 export function array<I>(item: InputSchema<I>): ArraySchema<I> {
-	return makeArraySchema((raw) => {
+	const itemType = readFieldType(item) ?? { kind: "unknown" };
+	return makeArraySchema<I>((raw) => {
 		if (!Array.isArray(raw)) throw new ValidationError("expected array");
 		return raw.map((el, i) => {
 			try {
@@ -34,5 +38,5 @@ export function array<I>(item: InputSchema<I>): ArraySchema<I> {
 				throw e;
 			}
 		});
-	});
+	}, itemType);
 }

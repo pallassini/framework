@@ -15,3 +15,29 @@ export function sortDbColumnKeys(keys: readonly string[]): string[] {
 	}
 	return out;
 }
+
+/**
+ * Ordine colonne devtools: prima come nello schema (`db/index.ts` + id/timestamp iniettati),
+ * poi eventuali colonne extra (solo dati) con `sortDbColumnKeys`.
+ */
+export function orderColumnsBySchema(
+	schemaOrder: readonly string[] | undefined,
+	allKeys: readonly string[],
+): string[] {
+	const present = new Set(allKeys);
+	const out: string[] = [];
+	const seen = new Set<string>();
+	if (schemaOrder) {
+		for (const k of schemaOrder) {
+			if (present.has(k) && !seen.has(k)) {
+				out.push(k);
+				seen.add(k);
+			}
+		}
+	}
+	const schemaSet = new Set(schemaOrder ?? []);
+	const rest = allKeys.filter((k) => !seen.has(k));
+	const extra = rest.filter((k) => !schemaSet.has(k));
+	out.push(...sortDbColumnKeys(extra));
+	return out;
+}

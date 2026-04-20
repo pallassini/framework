@@ -1,3 +1,4 @@
+import { tagFieldType } from "../field-meta";
 import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -13,7 +14,7 @@ function makeLiteralsSchema<const T extends readonly [string, ...string[]]>(
 	parseImpl: (raw: unknown) => T[number],
 ): LiteralsSchema<T> {
 	const base: InputSchema<T[number]> = { parse: parseImpl };
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		optional() {
 			return optionalKeepingFieldMeta(base);
 		},
@@ -27,6 +28,8 @@ function makeLiteralsSchema<const T extends readonly [string, ...string[]]>(
 			});
 		},
 	}) as LiteralsSchema<T>;
+	tagFieldType(out, { kind: "enum", options: [...allowed] });
+	return out;
 }
 
 export function literals<const T extends readonly [string, ...string[]]>(allowed: T): LiteralsSchema<T> {

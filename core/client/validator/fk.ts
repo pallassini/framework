@@ -1,4 +1,5 @@
 import { REF } from "./db-ref";
+import { tagFieldType } from "./field-meta";
 import type { InputSchema } from "./properties/defs";
 import { optional } from "./properties/optional";
 import { string } from "./properties/string";
@@ -25,9 +26,12 @@ export function fk(tableName: string, opts?: { onDelete?: "restrict" | "cascade"
 		},
 		[REF]: { table: tableName, onDelete } satisfies RefMeta,
 	};
-	return Object.assign(base, {
+	tagFieldType(base, { kind: "fk", table: tableName });
+	const out = Object.assign(base, {
 		optional() {
 			return optional(base as InputSchema<string>);
 		},
 	}) as FkSchema;
+	tagFieldType(out, { kind: "fk", table: tableName });
+	return out;
 }

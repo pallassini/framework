@@ -1,3 +1,4 @@
+import { tagFieldType } from "../field-meta";
 import { optional } from "./optional";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -8,7 +9,7 @@ export type BooleanSchema = InputSchema<boolean> & {
 
 function makeBooleanSchema(parseImpl: (raw: unknown) => boolean): BooleanSchema {
 	const base: InputSchema<boolean> = { parse: parseImpl };
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		optional() {
 			return optional(base);
 		},
@@ -19,6 +20,8 @@ function makeBooleanSchema(parseImpl: (raw: unknown) => boolean): BooleanSchema 
 			});
 		},
 	}) as BooleanSchema;
+	tagFieldType(out, { kind: "boolean" });
+	return out;
 }
 
 export function boolean(): BooleanSchema {

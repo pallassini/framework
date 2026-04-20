@@ -6,7 +6,7 @@ import {
   state,
   watch,
 } from "client";
-import { sortDbColumnKeys } from "../../../../core/db/schema/sortColumnKeys";
+import { orderColumnsBySchema } from "../../../../core/db/schema/sortColumnKeys";
 
 const cellBreakStyle = {
   wordBreak: "break-word" as const,
@@ -14,18 +14,9 @@ const cellBreakStyle = {
   verticalAlign: "top" as const,
 };
 
-/** Primary accent — green (row counts, PK). */
+/** Primary accent — green (row counts). Badges live in `fw-db-badge*` in core/client/index.css. */
 const primaryGreen = "#4ade80";
-const pkGreen = "#4ade80";
-const pkGreenBg = "rgba(74, 222, 128, 0.15)";
-/** FK badges — violet. */
-const fkFg = "#c4b5fd";
-const fkBg = "rgba(167, 139, 250, 0.16)";
-const fkBorder = "rgba(167, 139, 250, 0.45)";
-/** Optional badges — sottili e grigie. */
-const optFg = "#a1a1aa";
-const optBg = "rgba(161, 161, 170, 0.1)";
-const optBorder = "rgba(161, 161, 170, 0.28)";
+
 
 type EditCell = {
   key: string;
@@ -55,7 +46,22 @@ function columnKeysFromRows(rows: readonly Record<string, unknown>[]): string[] 
   return [...keys];
 }
 
-type ColumnInfo = { key: string; optional: boolean };
+type FieldTypeDesc =
+  | { kind: "string" }
+  | { kind: "number" }
+  | { kind: "boolean" }
+  | { kind: "datetime" }
+  | { kind: "date" }
+  | { kind: "time" }
+  | { kind: "enum"; options: readonly string[] }
+  | { kind: "array"; of: FieldTypeDesc }
+  | { kind: "object"; shape?: Record<string, FieldTypeDesc> }
+  | { kind: "fk"; table: string }
+  | { kind: "unknown" };
+
+type ColumnInfo = { key: string; optional: boolean; type: FieldTypeDesc };
+
+const UNKNOWN_TYPE: FieldTypeDesc = { kind: "unknown" };
 
 function buildColumnList(
   columns: unknown,
@@ -68,11 +74,15 @@ function buildColumnList(
   if (Array.isArray(columns)) {
     for (const c of columns as ColumnInfo[]) {
       if (typeof c?.key !== "string") continue;
-      byKey.set(c.key, { key: c.key, optional: !!c.optional });
+      byKey.set(c.key, {
+        key: c.key,
+        optional: !!c.optional,
+        type: (c.type ?? UNKNOWN_TYPE) as FieldTypeDesc,
+      });
     }
   }
   const addKey = (k: string): void => {
-    if (!byKey.has(k)) byKey.set(k, { key: k, optional: false });
+    if (!byKey.has(k)) byKey.set(k, { key: k, optional: false, type: UNKNOWN_TYPE });
   };
   if (Array.isArray(fieldKeys)) {
     for (const k of fieldKeys as string[]) {
@@ -89,8 +99,168 @@ function buildColumnList(
   }
   addKey("createdAt");
   addKey("updatedAt");
-  const ordered = sortDbColumnKeys([...byKey.keys()]);
+  const schemaOrder = Array.isArray(columns)
+    ? (columns as ColumnInfo[])
+        .map((c) => c.key)
+        .filter((k): k is string => typeof k === "string")
+    : undefined;
+  const ordered = orderColumnsBySchema(schemaOrder, [...byKey.keys()]);
   return ordered.map((k) => byKey.get(k)!);
+}
+
+/** Etichetta breve per il badge tipo (es. "string", "array<object>", "enum"). */
+function typeLabel(t: FieldTypeDesc): string {
+  switch (t.kind) {
+    case "array":
+      return `array<${typeLabel(t.of)}>`;
+    case "enum":
+      return "enum";
+    case "object":
+      return "object";
+    case "fk":
+      return "fk";
+    default:
+      return t.kind;
+  }
+}
+
+/** Colore per ogni tipo — coerente con la palette del DB devtools. */
+function typeColors(t: FieldTypeDesc): { fg: string; bg: string; border: string } {
+  switch (t.kind) {
+    case "string":
+      return { fg: "#7dd3fc", bg: "rgba(125, 211, 252, 0.1)", border: "rgba(125, 211, 252, 0.32)" };
+    case "number":
+      return { fg: "#f0abfc", bg: "rgba(240, 171, 252, 0.1)", border: "rgba(240, 171, 252, 0.32)" };
+    case "boolean":
+      return { fg: "#fca5a5", bg: "rgba(252, 165, 165, 0.1)", border: "rgba(252, 165, 165, 0.32)" };
+    case "datetime":
+    case "date":
+    case "time":
+      return { fg: "#fdba74", bg: "rgba(253, 186, 116, 0.1)", border: "rgba(253, 186, 116, 0.32)" };
+    case "enum":
+      return { fg: "#86efac", bg: "rgba(134, 239, 172, 0.1)", border: "rgba(134, 239, 172, 0.32)" };
+    case "array":
+      return { fg: "#5eead4", bg: "rgba(94, 234, 212, 0.1)", border: "rgba(94, 234, 212, 0.32)" };
+    case "object":
+      return { fg: "#d8b4fe", bg: "rgba(216, 180, 254, 0.1)", border: "rgba(216, 180, 254, 0.32)" };
+    case "fk":
+      return { fg: "#c4b5fd", bg: "rgba(196, 181, 253, 0.1)", border: "rgba(196, 181, 253, 0.32)" };
+    default:
+      return { fg: "#a1a1aa", bg: "rgba(161, 161, 170, 0.1)", border: "rgba(161, 161, 170, 0.28)" };
+  }
+}
+
+/** Full type string for header (monospace). */
+function formatTypeFull(t: FieldTypeDesc): string {
+  switch (t.kind) {
+    case "array":
+      return `array<${formatTypeFull(t.of)}>`;
+    case "enum":
+      return t.options.map((o) => `"${o}"`).join(" | ");
+    case "object":
+      return "object";
+    case "fk":
+      return `"${t.table}"`;
+    case "unknown":
+      return "unknown";
+    default:
+      return t.kind;
+  }
+}
+
+/** Color (foreground) for a value at a given kind. */
+function valueColor(t: FieldTypeDesc): string {
+  return typeColors(t).fg;
+}
+
+/** Whether the hover panel has rich content for this type. */
+function hasInspect(t: FieldTypeDesc): boolean {
+  if (t.kind === "array") return hasInspect(t.of);
+  return t.kind === "object" || t.kind === "enum" || t.kind === "fk";
+}
+
+// ─── Imperative hover panel (bypasses reactive state so it never re-fetches RPC) ────
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function inspectHtml(t: FieldTypeDesc): string {
+  if (t.kind === "array") return inspectHtml(t.of);
+  if (t.kind === "object") {
+    const entries = Object.entries(t.shape ?? {});
+    if (entries.length === 0) {
+      return `<span style="color:#71717a;line-height:1.4;font-family:ui-monospace,monospace;font-size:0.78rem">{ }</span>`;
+    }
+    const rows = entries
+      .map(([key, sub]) => {
+        const col = valueColor(sub);
+        return (
+          `<div style="display:flex;gap:8px;align-items:flex-start;line-height:1.45">` +
+          `<span style="color:#fafafa;font-weight:600;font-family:ui-monospace,monospace;font-size:0.78rem;flex-shrink:0">${escapeHtml(key)}:</span>` +
+          `<span style="color:${col};font-family:ui-monospace,monospace;font-size:0.78rem;word-break:break-word">${escapeHtml(formatTypeFull(sub))}</span>` +
+          `</div>`
+        );
+      })
+      .join("");
+    return `<div style="display:flex;flex-direction:column;gap:4px">${rows}</div>`;
+  }
+  if (t.kind === "enum" || t.kind === "fk") {
+    return `<span style="color:${valueColor(t)};font-family:ui-monospace,monospace;font-size:0.78rem;line-height:1.45;word-break:break-word">${escapeHtml(formatTypeFull(t))}</span>`;
+  }
+  return "";
+}
+
+let hoverPanelEl: HTMLDivElement | null = null;
+let hoverHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+function cancelHoverHide(): void {
+  if (hoverHideTimer != null) {
+    clearTimeout(hoverHideTimer);
+    hoverHideTimer = undefined;
+  }
+}
+
+function scheduleHoverHide(): void {
+  cancelHoverHide();
+  hoverHideTimer = setTimeout(() => {
+    if (hoverPanelEl) hoverPanelEl.style.display = "none";
+  }, 120);
+}
+
+function ensureHoverPanel(): HTMLDivElement {
+  if (hoverPanelEl && hoverPanelEl.isConnected) return hoverPanelEl;
+  const el = document.createElement("div");
+  el.className = "fw-db-col-panel";
+  el.style.display = "none";
+  el.addEventListener("mouseenter", cancelHoverHide);
+  el.addEventListener("mouseleave", scheduleHoverHide);
+  document.body.appendChild(el);
+  hoverPanelEl = el;
+  return el;
+}
+
+function showHoverPanel(ev: Event, type: FieldTypeDesc): void {
+  const target = ev.currentTarget as HTMLElement | null;
+  if (!target) return;
+  const html = inspectHtml(type);
+  if (!html) return;
+  const el = ensureHoverPanel();
+  el.innerHTML = html;
+  cancelHoverHide();
+  el.style.display = "flex";
+  const r = target.getBoundingClientRect();
+  const margin = 8;
+  const maxWidth = 28 * 16;
+  let x = r.left;
+  if (x + maxWidth > window.innerWidth - margin) {
+    x = Math.max(margin, window.innerWidth - margin - maxWidth);
+  }
+  el.style.left = `${String(x)}px`;
+  el.style.top = `${String(r.bottom + 6)}px`;
 }
 
 function cellText(v: unknown): string {
@@ -242,6 +412,7 @@ export default function DB() {
             );
             const keys = columns.map((c) => c.key);
             const optionalByKey = new Map(columns.map((c) => [c.key, c.optional]));
+            const typeByKey = new Map(columns.map((c) => [c.key, c.type]));
           const previewNote =
             rowCount > sampleRows.length
               ? ` · sample ${String(sampleRows.length)} / ${String(rowCount)}`
@@ -263,7 +434,7 @@ export default function DB() {
                 className="fw-hscroll"
                 style={{
                   overflowX: "auto",
-                  overflowY: "hidden",
+                  overflowY: "visible",
                   maxWidth: "100%",
                   minWidth: 0,
                   display: "block",
@@ -286,6 +457,10 @@ export default function DB() {
                             const isPk = k === pkField;
                             const fkRef = fkTargetForColumn(foreignKeys, k);
                             const isOptional = optionalByKey.get(k) === true && !isPk;
+                            const colType = typeByKey.get(k) ?? UNKNOWN_TYPE;
+                            const showTypeBadge =
+                              !isPk && !fkRef && colType.kind !== "unknown";
+                            const tColors = typeColors(colType);
                             return (
                               <th
                                 style={{
@@ -295,91 +470,72 @@ export default function DB() {
                                 }}
                                 s="py-3 px-3 b-#3f3f46"
                               >
-                                <div s="row gapx-2 gapy-1 items-center flex-wrap">
-                                  <t s="text-#e4e4e7 font-7">{k}</t>
+                                <div
+                                  s="row gapx-2 items-center"
+                                  style={{ minHeight: 20 }}
+                                >
+                                  <t
+                                    s="text-#e4e4e7 font-7 text-3"
+                                    style={{ lineHeight: 1, whiteSpace: "nowrap" }}
+                                  >
+                                    {k}
+                                  </t>
                                   {isPk ? (
                                     <div
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        padding: "2px 8px 2px 6px",
-                                        borderRadius: "6px",
-                                        color: pkGreen,
-                                        backgroundColor: pkGreenBg,
-                                        border: `1px solid ${pkGreen}55`,
-                                      }}
+                                      className="fw-db-badge fw-db-badge--pk"
                                       title="Primary key"
                                     >
-                                      <div
-                                        style={{
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          flexShrink: 0,
-                                          width: 14,
-                                          height: 14,
-                                          lineHeight: 0,
-                                        }}
-                                      >
-                                        <icon name="key" size={14} />
-                                      </div>
-                                      <t s="text-2 font-7 leading-none">PK</t>
+                                      <span className="fw-db-badge__icon">
+                                        <icon name="key" size={11} />
+                                      </span>
                                     </div>
                                   ) : null}
                                   {fkRef ? (
                                     <div
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        padding: "2px 8px 2px 6px",
-                                        borderRadius: "6px",
-                                        color: fkFg,
-                                        backgroundColor: fkBg,
-                                        border: `1px solid ${fkBorder}`,
-                                      }}
-                                      title={`FK → ${fkRef}.id`}
+                                      className="fw-db-badge fw-db-badge--fk"
+                                      title={fkRef}
                                     >
-                                      <div
-                                        style={{
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          flexShrink: 0,
-                                          width: 14,
-                                          height: 14,
-                                          lineHeight: 0,
-                                        }}
-                                      >
-                                        <icon name="link2" size={14} />
-                                      </div>
-                                      <t s="text-2 font-6 leading-none">{fkRef}</t>
+                                      <span className="fw-db-badge__icon">
+                                        <icon name="link2" size={11} />
+                                      </span>
+                                      <span className="fw-db-badge__label fw-db-badge__label--truncate">
+                                        {fkRef}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {showTypeBadge ? (
+                                    <div
+                                      className="fw-db-badge"
+                                      style={{
+                                        color: tColors.fg,
+                                        background: tColors.bg,
+                                        borderColor: tColors.border,
+                                      }}
+                                      {...(hasInspect(colType)
+                                        ? {}
+                                        : { title: formatTypeFull(colType) })}
+                                      mouseenter={
+                                        hasInspect(colType)
+                                          ? (e: Event) => showHoverPanel(e, colType)
+                                          : undefined
+                                      }
+                                      mouseleave={
+                                        hasInspect(colType)
+                                          ? scheduleHoverHide
+                                          : undefined
+                                      }
+                                    >
+                                      <span className="fw-db-badge__label">
+                                        {typeLabel(colType)}
+                                      </span>
                                     </div>
                                   ) : null}
                                   {isOptional ? (
                                     <div
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        boxSizing: "border-box",
-                                        minWidth: 22,
-                                        height: 18,
-                                        padding: "0 6px",
-                                        borderRadius: "9999px",
-                                        color: optFg,
-                                        backgroundColor: optBg,
-                                        border: `1px solid ${optBorder}`,
-                                        fontSize: "11px",
-                                        fontWeight: 700,
-                                        lineHeight: 1,
-                                        letterSpacing: 0,
-                                        paddingBottom: "2px",
-                                      }}
-                                      title="Optional field"
+                                      className="fw-db-badge fw-db-badge--opt"
+                                      title="Optional"
                                     >
-                                      ?
+                                      <span className="fw-db-badge__label">?</span>
                                     </div>
                                   ) : null}
                                 </div>

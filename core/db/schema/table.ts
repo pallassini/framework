@@ -1,11 +1,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { v } from "../../client/validator";
-import { FIELD_OPTIONAL, FIELD_UNIQUE } from "../../client/validator/field-meta";
+import {
+	FIELD_OPTIONAL,
+	FIELD_UNIQUE,
+	readFieldType,
+	type FieldTypeDesc,
+} from "../../client/validator/field-meta";
 import { fk, REF, type RefMeta } from "../../client/validator/fk";
 import type { InputSchema } from "../../client/validator/properties/defs";
 import type { CatalogJson } from "./defineSchema";
-import { sortDbColumnKeys } from "./sortColumnKeys";
 
 /** Brand per riconoscere gli export tabella in `db push`. */
 export const FW_TABLE = Symbol.for("framework.db.table");
@@ -19,6 +23,7 @@ export const FW_TABLE_COLUMNS = Symbol.for("framework.db.columns");
 export type FwColumnMeta = {
 	readonly key: string;
 	readonly optional: boolean;
+	readonly type: FieldTypeDesc;
 };
 
 export { REF, type RefMeta };
@@ -160,20 +165,25 @@ export function getFwTableColumnKeys(t: FwTable<unknown>): string[] | undefined 
 	return k ? [...k] : undefined;
 }
 
-/** Colonne complete dallo shape con metadati (`optional`), se disponibile. */
+/** Colonne complete dallo shape con metadati (`optional`, `type`), se disponibile. */
 export function getFwTableColumns(t: FwTable<unknown>): FwColumnMeta[] | undefined {
 	const c = Reflect.get(t as object, FW_TABLE_COLUMNS) as readonly FwColumnMeta[] | undefined;
-	return c ? c.map((x) => ({ key: x.key, optional: x.optional })) : undefined;
+	return c ? c.map((x) => ({ key: x.key, optional: x.optional, type: x.type })) : undefined;
 }
 
 function isOptionalSchema(s: unknown): boolean {
 	return typeof s === "object" && s !== null && FIELD_OPTIONAL in s;
 }
 
+function typeOfSchema(s: InputSchema<unknown>): FieldTypeDesc {
+	return readFieldType(s) ?? { kind: "unknown" };
+}
+
 function columnsFromShape(shape: Record<string, InputSchema<unknown>>): FwColumnMeta[] {
 	return Object.keys(shape).map((key) => ({
 		key,
 		optional: isOptionalSchema(shape[key]),
+		type: typeOfSchema(shape[key]),
 	}));
 }
 
@@ -259,7 +269,7 @@ export function table(
 				name,
 				v.object(withTs),
 				merged,
-				sortDbColumnKeys(Object.keys(withTs)),
+				Object.keys(withTs),
 				columnsFromShape(withTs),
 			);
 		}
@@ -357,7 +367,7 @@ export function bundle<const T extends Record<string, unknown>>(defs: T): Bundle
 				name,
 				v.object(withTs),
 				merged,
-				sortDbColumnKeys(Object.keys(withTs)),
+				Object.keys(withTs),
 				columnsFromShape(withTs),
 			);
 		} else if (isFwTable(val)) {

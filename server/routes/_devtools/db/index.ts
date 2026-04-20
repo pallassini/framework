@@ -1,10 +1,11 @@
 import { getLiveFwTables } from "../../../../core/db/index";
+import type { FieldTypeDesc } from "../../../../core/client/validator/field-meta";
 import {
 	getFwTableColumnKeys,
 	getFwTableColumns,
 	type FwColumnMeta,
 } from "../../../../core/db/schema/table";
-import { sortDbColumnKeys } from "../../../../core/db/schema/sortColumnKeys";
+import { orderColumnsBySchema } from "../../../../core/db/schema/sortColumnKeys";
 import { db } from "db";
 import { s, v } from "server";
 
@@ -12,12 +13,12 @@ const PREVIEW = 100;
 
 type Tab = Exclude<keyof typeof db.tables, "$">;
 
-type ColumnInfo = { key: string; optional: boolean };
+type ColumnInfo = { key: string; optional: boolean; type: FieldTypeDesc };
 
 function columnKeysFromRows(rows: readonly Record<string, unknown>[]): string[] {
 	const keys = new Set<string>();
 	for (const r of rows) for (const k of Object.keys(r)) keys.add(k);
-	return sortDbColumnKeys([...keys]);
+	return [...keys];
 }
 
 function mergeFieldKeys(
@@ -26,7 +27,7 @@ function mergeFieldKeys(
 ): string[] {
 	const set = new Set<string>(schemaKeys ?? []);
 	for (const k of columnKeysFromRows(sampleRows)) set.add(k);
-	return sortDbColumnKeys([...set]);
+	return orderColumnsBySchema(schemaKeys, [...set]);
 }
 
 function buildColumns(
@@ -36,15 +37,17 @@ function buildColumns(
 ): ColumnInfo[] {
 	const byKey = new Map<string, ColumnInfo>();
 	for (const c of schemaCols ?? []) {
-		byKey.set(c.key, { key: c.key, optional: c.optional });
+		byKey.set(c.key, { key: c.key, optional: c.optional, type: c.type });
 	}
+	const unknownType: FieldTypeDesc = { kind: "unknown" };
 	for (const k of schemaKeys ?? []) {
-		if (!byKey.has(k)) byKey.set(k, { key: k, optional: false });
+		if (!byKey.has(k)) byKey.set(k, { key: k, optional: false, type: unknownType });
 	}
 	for (const k of columnKeysFromRows(sampleRows)) {
-		if (!byKey.has(k)) byKey.set(k, { key: k, optional: false });
+		if (!byKey.has(k)) byKey.set(k, { key: k, optional: false, type: unknownType });
 	}
-	const ordered = sortDbColumnKeys([...byKey.keys()]);
+	const schemaOrder = schemaCols?.map((c) => c.key);
+	const ordered = orderColumnsBySchema(schemaOrder, [...byKey.keys()]);
 	return ordered.map((k) => byKey.get(k)!);
 }
 

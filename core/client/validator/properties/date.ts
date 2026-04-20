@@ -1,3 +1,4 @@
+import { tagFieldType } from "../field-meta";
 import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
@@ -27,11 +28,13 @@ export function date(): DateOnlySchema {
 			throw new ValidationError("expected date");
 		},
 	};
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		optional() {
 			return optionalKeepingFieldMeta(base);
 		},
 	});
+	tagFieldType(out, { kind: "date" });
+	return out;
 }
 
 /** Data e ora: `Date`, stringa ISO, o numero (ms Unix). */
@@ -59,9 +62,11 @@ export function datetime(): DateTimeSchema {
 			throw new ValidationError("expected datetime");
 		},
 	};
-	return Object.assign(base, {
+	const out = Object.assign(base, {
 		optional() {
 			return optionalKeepingFieldMeta(base);
 		},
 	});
+	tagFieldType(out, { kind: "datetime" });
+	return out;
 }

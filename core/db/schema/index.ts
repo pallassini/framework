@@ -7,7 +7,7 @@ export {
 	type TableSchemaInput,
 } from "./defineSchema";
 export { defineDb, t, type Field, type FkField, type StrField } from "./dsl";
-export { sortDbColumnKeys } from "./sortColumnKeys";
+export { orderColumnsBySchema, sortDbColumnKeys } from "./sortColumnKeys";
 export {
 	bundle,
 	bundleTables,
