@@ -560,7 +560,7 @@ export default function DB() {
       const level = d + 1;
       out.push({
         level,
-        label: level === 1 ? "Root schemas" : `L${String(level)}`,
+        label: level === 1 ? "Root" : `L${String(level)}`,
         items: group.map((n) => ({
           ...n,
           active: current != null && pathEq(n.path, current),

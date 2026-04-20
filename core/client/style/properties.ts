@@ -21,6 +21,7 @@ import { translateX as translateXFn, translateY as translateYFn } from "./proper
 import { childrenAlign } from "./properties/children-align";
 import { selfAlign } from "./properties/self-align";
 import { scaleTransform } from "./properties/transform-scale";
+import { transformOrigin } from "./properties/transform-origin";
 import { easeTiming, transitionDurationToken } from "./properties/transition-tokens";
 import { eventsPointer, noPrefix } from "./properties/pointer-events";
 
@@ -102,6 +103,8 @@ export const map = styleMap({
   rotat: rotateFn,
   /** `scale-130` → `transform: scale(1.3)` (numeri > 10 → /100). */
   scale: scaleTransform,
+  /** `origin-left|right|top|bottom|center|tl|tr|bl|br` → `transform-origin`. Combina con `scale-*` per scalare verso un lato. */
+  origin: transformOrigin,
   /** `duration-200ms` → `transition-duration`. */
   duration: transitionDurationToken,
   /** `ease` / `ease-out` / `ease-in` / `ease-in-out` → `transition-timing-function`. */

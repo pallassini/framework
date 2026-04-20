@@ -1,8 +1,10 @@
 import { ValidationError, type InputSchema } from "../../client/validator/properties/defs";
+import { object as vObject } from "../../client/validator/properties/object";
+import { FIELD_OPTIONAL } from "../../client/validator/field-meta";
 import { CustomDb, type TablesMap } from "../core/customDb";
 import type { TableAccessor } from "../core/types";
 import type { TxApi } from "../core/tx";
-import type { DbBundleSchema } from "../schema/table";
+import { getFwTableShape, type DbBundleSchema } from "../schema/table";
 import type { ServerTables } from "..";
 
 export type { ServerTables };
@@ -44,6 +46,133 @@ export function syncDbTableShortcuts(util: unknown): void {
 	if (typeof fn === "function") (fn as () => void)();
 }
 
+/** Nomi riservati sull'accessor: non sovrascrivibili da colonne con stesso nome. */
+const ACC_RESERVED = new Set([
+	"create",
+	"find",
+	"byId",
+	"update",
+	"delete",
+	"count",
+	"clear",
+	"pick",
+	"omit",
+	"partial",
+	"parse",
+]);
+
+function isOptionalSchema(s: InputSchema<unknown>): boolean {
+	return typeof s === "object" && s !== null && FIELD_OPTIONAL in (s as object);
+}
+
+function toOptionalSchema(s: InputSchema<unknown>): InputSchema<unknown> {
+	if (isOptionalSchema(s)) return s;
+	const maybe = (s as { optional?: () => InputSchema<unknown> }).optional;
+	return typeof maybe === "function" ? maybe.call(s) : s;
+}
+
+/**
+ * L'accessor tabellare è una `function`; `name` / `length` (e altre) sono read-only
+ * con assegnazione diretta → usare defineProperty per le colonne omonime.
+ */
+function defineOnAccessor(acc: object, key: string, value: unknown): void {
+	Object.defineProperty(acc, key, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true,
+	});
+}
+
+/**
+ * Collega `pick`, `omit` e i campi direttamente sull'accessor:
+ *   `db.items.name`, `db.resources.active.optional()`, `db.items.pick("name", …)`.
+ */
+function attachShapeHelpers(
+	acc: Record<string, unknown>,
+	shape: Record<string, InputSchema<unknown>>,
+): void {
+	for (const [k, s] of Object.entries(shape)) {
+		if (ACC_RESERVED.has(k)) {
+			console.warn(
+				`[db] colonna "${k}" in conflitto con un metodo dell'accessor: campo non esposto come property. Usa db.table.pick("${k}") o rinomina la colonna.`,
+			);
+			continue;
+		}
+		defineOnAccessor(acc, k, s);
+	}
+
+	// `db.items` è un InputSchema<CreateInput<T>> per la create singola.
+	// Per input array usare `v.array(db.items)`.
+	const createShape: Record<string, InputSchema<unknown>> = {};
+	for (const [k, s] of Object.entries(shape)) {
+		createShape[k] = k === "id" || k === "createdAt" || k === "updatedAt" ? toOptionalSchema(s) : s;
+	}
+	const createObj = vObject(createShape);
+	defineOnAccessor(acc, "parse", (raw: unknown) => createObj.parse(raw));
+	defineOnAccessor(acc, "pick", (...keys: string[]) => {
+		if (keys.length === 0) throw new Error("[db.pick] nessun campo indicato");
+		const picked: Record<string, InputSchema<unknown>> = {};
+		for (const k of keys) {
+			const sch = shape[k];
+			if (!sch) throw new Error(`[db.pick] campo sconosciuto: ${k}`);
+			picked[k] = sch;
+		}
+		return vObject(picked);
+	});
+	defineOnAccessor(acc, "omit", (...keys: string[]) => {
+		const drop = new Set(keys);
+		const kept: Record<string, InputSchema<unknown>> = {};
+		for (const [k, s] of Object.entries(shape)) {
+			if (!drop.has(k)) kept[k] = s;
+		}
+		if (Object.keys(kept).length === 0) throw new Error("[db.omit] non restano campi");
+		return vObject(kept);
+	});
+	defineOnAccessor(
+		acc,
+		"partial",
+		(opts?: {
+			omit?: readonly string[];
+			with?: Record<string, InputSchema<unknown>>;
+			min?: number;
+		}) => {
+			// `id` / `createdAt` / `updatedAt` non sono mai "patchati": esclusi di default.
+			const drop = new Set<string>(["id", "createdAt", "updatedAt", ...(opts?.omit ?? [])]);
+			const extra = opts?.with ?? {};
+			const min = opts?.min ?? 0;
+
+			const partialShape: Record<string, InputSchema<unknown>> = {};
+			for (const [k, s] of Object.entries(shape)) {
+				if (drop.has(k)) continue;
+				partialShape[k] = toOptionalSchema(s);
+			}
+			const partialKeys = Object.keys(partialShape);
+			const merged: Record<string, InputSchema<unknown>> = { ...partialShape };
+			for (const [k, s] of Object.entries(extra)) merged[k] = s;
+
+			const obj = vObject(merged);
+			if (min <= 0) return obj;
+
+			return {
+				parse(raw: unknown): unknown {
+					const parsed = obj.parse(raw) as Record<string, unknown>;
+					let count = 0;
+					for (const k of partialKeys) {
+						if (parsed[k] !== undefined) count++;
+					}
+					if (count < min) {
+						throw new ValidationError(
+							`almeno ${min} campo/i tra [${partialKeys.join(", ")}] richiesto/i`,
+						);
+					}
+					return parsed;
+				},
+			};
+		},
+	);
+}
+
 export function createServerDbUtilities<Tables extends TablesMap>(
 	db: CustomDb<Tables>,
 	getTableNames: () => readonly (keyof Tables & string)[],
@@ -72,8 +201,16 @@ export function createServerDbUtilities<Tables extends TablesMap>(
 			if (!nameSet.has(k)) delete out[k];
 		}
 		const tablesAcc: Record<string, unknown> = {};
+		const bundle = getSchema();
+		const shapeByName = new Map<string, Record<string, InputSchema<unknown>>>();
+		for (const fw of bundle.fwTables) {
+			const s = getFwTableShape(fw);
+			if (s) shapeByName.set(fw.name, s);
+		}
 		for (const t of names) {
-			const acc = db.table(t as never);
+			const acc = db.table(t as never) as Record<string, unknown>;
+			const shape = shapeByName.get(t);
+			if (shape) attachShapeHelpers(acc, shape);
 			out[t] = acc;
 			tablesAcc[t] = acc;
 		}

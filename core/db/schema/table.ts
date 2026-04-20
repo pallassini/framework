@@ -20,6 +20,9 @@ export const FW_TABLE_COLUMN_KEYS = Symbol.for("framework.db.columnKeys");
 /** Colonne dallo shape con metadati (`optional`, …) — usato da devtools per i badge. */
 export const FW_TABLE_COLUMNS = Symbol.for("framework.db.columns");
 
+/** Shape completo (colName → InputSchema) — esposto come `db.<t>.fields.<col>`. */
+export const FW_TABLE_SHAPE = Symbol.for("framework.db.shape");
+
 export type FwColumnMeta = {
 	readonly key: string;
 	readonly optional: boolean;
@@ -30,12 +33,25 @@ export { REF, type RefMeta };
 
 type InferTableVal<V> = V extends InputSchema<infer U> ? U : V extends string ? string : never;
 
+/**
+ * Se lo schema è `.optional()`, `U` include `undefined` → la chiave diventa opzionale
+ * (`field?` invece di obbligare `field: T | undefined`).
+ */
 type InferTableRow<S extends Record<string, InputSchema<unknown> | string>> = {
-	-readonly [K in keyof S]: InferTableVal<S[K]>;
+	[K in keyof S as undefined extends InferTableVal<S[K]> ? K : never]?: InferTableVal<S[K]>;
+} & {
+	[K in keyof S as undefined extends InferTableVal<S[K]> ? never : K]: InferTableVal<S[K]>;
 };
 
-/** Riga con `id` sempre presente (iniettato se non dichiarato nello shape). */
-export type FullRow<S extends Record<string, InputSchema<unknown> | string>> = { id: string } & InferTableRow<S>;
+/**
+ * Riga con `id` sempre presente e timestamps sempre disponibili come opzionali
+ * (iniettati a runtime se non dichiarati). Esposti qui così `pick`/`omit` li accettano.
+ */
+export type FullRow<S extends Record<string, InputSchema<unknown> | string>> = {
+	id: string;
+	createdAt?: Date;
+	updatedAt?: Date;
+} & InferTableRow<S>;
 
 function isFieldSchema(x: unknown): x is InputSchema<unknown> {
 	return (
@@ -171,6 +187,12 @@ export function getFwTableColumns(t: FwTable<unknown>): FwColumnMeta[] | undefin
 	return c ? c.map((x) => ({ key: x.key, optional: x.optional, type: x.type })) : undefined;
 }
 
+/** Shape completo (colName → InputSchema) — per `db.<t>.fields` / `pick` / `omit`. */
+export function getFwTableShape(t: FwTable<unknown>): Record<string, InputSchema<unknown>> | undefined {
+	const s = Reflect.get(t as object, FW_TABLE_SHAPE) as Record<string, InputSchema<unknown>> | undefined;
+	return s;
+}
+
 function isOptionalSchema(s: unknown): boolean {
 	return typeof s === "object" && s !== null && FIELD_OPTIONAL in s;
 }
@@ -271,6 +293,7 @@ export function table(
 				merged,
 				Object.keys(withTs),
 				columnsFromShape(withTs),
+				withTs,
 			);
 		}
 		return defineTableCore(name, rowOrShape as InputSchema<unknown>, meta);
@@ -308,6 +331,7 @@ function defineTableCore<const R, const Name extends string>(
 	meta: TableMeta,
 	columnKeys?: readonly string[],
 	columns?: readonly FwColumnMeta[],
+	shape?: Record<string, InputSchema<unknown>>,
 ): FwTable<R> {
 	const catalogRow = catalogRowForTable(name, meta);
 	const def = {
@@ -329,6 +353,13 @@ function defineTableCore<const R, const Name extends string>(
 	if (columns?.length) {
 		Object.defineProperty(def, FW_TABLE_COLUMNS, {
 			value: Object.freeze(columns.map((c) => Object.freeze({ ...c }))),
+			enumerable: false,
+			configurable: false,
+		});
+	}
+	if (shape) {
+		Object.defineProperty(def, FW_TABLE_SHAPE, {
+			value: Object.freeze({ ...shape }),
 			enumerable: false,
 			configurable: false,
 		});
@@ -369,6 +400,7 @@ export function bundle<const T extends Record<string, unknown>>(defs: T): Bundle
 				merged,
 				Object.keys(withTs),
 				columnsFromShape(withTs),
+				withTs,
 			);
 		} else if (isFwTable(val)) {
 			if (val.name !== name) {

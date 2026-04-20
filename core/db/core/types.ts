@@ -121,9 +121,21 @@ export type Projected<T, S extends readonly string[]> =
 		? { [K in keyof R]: R[K] } & { id: string }
 		: never;
 
-// ─── TableAccessor (con overload object-form) ────────────────────────────────
+// ─── Field schemas (validator per-campo dallo shape tabella) ─────────────────
 
-export type TableAccessor<T extends DbRow> = ((where?: Where<T>) => Promise<T[]>) & {
+type AnyInputSchema = { parse(raw: unknown): unknown };
+
+/**
+ * Validator per-campo. Se il campo è già opzionale (`V` include `undefined`),
+ * niente `.optional()`; altrimenti `.optional()` restituisce la variante opzionale.
+ */
+export type FieldSchema<V> = AnyInputSchema & { parse(raw: unknown): V } & (undefined extends V
+		? unknown
+		: { optional(): FieldSchema<V | undefined> });
+
+// ─── TableAccessor (con overload object-form + campi direct-access) ──────────
+
+type TableAccessorMethods<T extends DbRow> = {
 	create(rows: OneOrMany<Omit<T, "id"> & Partial<Pick<T, "id">>>): Promise<T[]>;
 
 	/** Legacy: `find(where?, opts?)`. */
@@ -153,4 +165,53 @@ export type TableAccessor<T extends DbRow> = ((where?: Where<T>) => Promise<T[]>
 	count(opts: CountOpts<T>): Promise<number>;
 
 	clear(): Promise<number>;
+
+	/** Sotto-oggetto coi soli campi indicati (mantiene opzionalità/default). */
+	pick<K extends keyof T & string>(
+		...keys: readonly [K, ...K[]]
+	): AnyInputSchema & { parse(raw: unknown): { [P in K]: T[P] } };
+
+	/** Sotto-oggetto con tutti i campi tranne quelli indicati. */
+	omit<K extends keyof T & string>(
+		...keys: readonly [K, ...K[]]
+	): AnyInputSchema & { parse(raw: unknown): Omit<T, K> };
+
+	/**
+	 * Tutti i campi resi opzionali. Utile per input di `update`.
+	 * `id` / `createdAt` / `updatedAt` sono esclusi di default (non si patchano mai).
+	 * - `omit`: campi aggiuntivi da escludere.
+	 * - `with`: campi extra da aggiungere (required).
+	 * - `min`: almeno N campi (tra i partial, escludendo `with`) devono essere presenti.
+	 */
+	partial<
+		K extends keyof T & string = never,
+		R extends Record<string, AnyInputSchema> = Record<string, never>,
+	>(opts?: {
+		omit?: readonly K[];
+		with?: R;
+		min?: number;
+	}): AnyInputSchema & {
+		parse(raw: unknown): Partial<Omit<T, "id" | "createdAt" | "updatedAt" | K>> & {
+			[P in keyof R]: R[P] extends { parse(raw: unknown): infer V } ? V : never;
+		};
+	};
 };
+
+/** Campi esposti direttamente sull'accessor (es. `db.items.name`, `db.resources.active`). */
+type TableAccessorFields<T extends DbRow> = {
+	[K in Exclude<keyof T, keyof TableAccessorMethods<T> | "parse"> & string]: FieldSchema<T[K]>;
+};
+
+/** Input per `create` (singola riga): campi dichiarati + `id`/`createdAt`/`updatedAt` opzionali. */
+export type CreateInput<T extends DbRow> = Omit<T, "id"> & Partial<Pick<T, "id">>;
+
+/**
+ * Accessor tabellare. È:
+ *   1. Chiamabile come `db.items(where?)` → alias di `find`.
+ *   2. Un `InputSchema<CreateInput<T>>`, usabile direttamente come `input:` in `s({...})`.
+ *      Per un input array: `v.array(db.items)`.
+ *   3. Esposizione diretta dei campi: `db.items.name.optional()`.
+ */
+export type TableAccessor<T extends DbRow> = ((where?: Where<T>) => Promise<T[]>) &
+	TableAccessorMethods<T> &
+	TableAccessorFields<T> & { parse(raw: unknown): CreateInput<T> };

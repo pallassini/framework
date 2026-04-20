@@ -29,6 +29,11 @@ import { bundleTables, type DbBundleSchema } from "./schema/table";
 export type DbDevReloadContext = {
 	core: CustomDb<TablesMap>;
 	applyBundle: (next: DbBundleSchema) => void;
+	/**
+	 * Dopo un reload riuscito: export map di `db/index.ts` appena importata (HMR).
+	 * Serve perché `import * as AppDb` nel bundle core resta il modulo iniziale; schemi / ordine export vanno letti da qui.
+	 */
+	onDbIndexModule?: (mod: Record<string, unknown>) => void;
 	/** true se ha notificato almeno una UI; false/void se non c'è alcun subscriber nel processo. */
 	onReloaded?: () => boolean | void;
 };
@@ -489,6 +494,7 @@ export async function reloadDevDbSchema(
 		ctx.core.reloadAfterCatalogWrite(next.tableNames, next.pkByTable, next.catalog);
 		traceSchema("reload:fase2 applyBundle", { flushId, flushIter });
 		ctx.applyBundle(next);
+		ctx.onDbIndexModule?.(mod);
 		traceSchema("reload:fase2 ok", { flushId, flushIter });
 	} catch (e) {
 		const error = fmtReloadErr(e);

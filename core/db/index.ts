@@ -26,6 +26,8 @@ export type ServerTables = {
 };
 
 let liveBundle = bundleTables(collectModuleTables(AppDb as Record<string, unknown>));
+/** Ultimo `db/index` visto (import statico all’avvio; dopo ogni HMR = modulo dinamico da `reloadDevDbSchema`). */
+let liveDbIndexModule: Record<string, unknown> = AppDb as Record<string, unknown>;
 let devSchemaReloadNotifier: (() => void) | undefined;
 
 /** Processo desktop: callback eseguito dopo ogni `reloadDevDbSchema` con `{ ok: true }`. */
@@ -75,11 +77,10 @@ export function getLiveFwTables() {
 
 /**
  * Accessor live: l'albero degli `schema(...)` dichiarati in `db/index.ts`.
- * Viene ricostruito ad ogni chiamata rileggendo i binding live di `AppDb`,
- * così l'HMR si propaga ai devtools senza cache stantie.
+ * Usa `liveDbIndexModule` (aggiornato ad ogni reload HMR riuscito), non l'import statico `AppDb`.
  */
 export function getLiveDbSchemaTree(): readonly SchemaNode[] {
-	return collectModuleSchemas(AppDb as Record<string, unknown>).tree;
+	return collectModuleSchemas(liveDbIndexModule).tree;
 }
 
 /**
@@ -87,7 +88,7 @@ export function getLiveDbSchemaTree(): readonly SchemaNode[] {
  * Usato dai devtools per mostrare tabelle e colonne come sono scritte nel file.
  */
 export function getLiveDbTableOrder(): readonly string[] {
-	return collectModuleTableOrder(AppDb as Record<string, unknown>);
+	return collectModuleTableOrder(liveDbIndexModule);
 }
 
 const projectRoot = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
@@ -97,6 +98,9 @@ if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
 		applyBundle: (next) => {
 			liveBundle = next;
 			syncDbTableShortcuts(db);
+		},
+		onDbIndexModule: (mod) => {
+			liveDbIndexModule = mod;
 		},
 		onReloaded: () => {
 			const fn = devSchemaReloadNotifier;
