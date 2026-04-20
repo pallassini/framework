@@ -1,6 +1,6 @@
 import { For, persistState, state } from "client";
 
-export const tab = persistState<"prenotations" | "services" | "resources">("prenotations");
+export const tab = persistState<"prenotations" | "services" | "resources">("resources");
 
 export default function AdminMenu() {
   const open = state(false);
@@ -14,7 +14,7 @@ export default function AdminMenu() {
     <div
       hover={open}
       s={{
-        des: "col left h-100vh br-1px br-#1b1b1b w-3vw hover:(w-12vw) duration-300 gapy-8vh pl-0vw pt-20vh",
+        des: "col fixed left h-100vh br-1px br-#1b1b1b w-3vw hover:(w-12vw) duration-300 gapy-8vh pl-0vw pt-20vh bg-background z-1000",
       }}
     >
       <For each={items}>

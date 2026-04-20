@@ -150,13 +150,33 @@ function attachShapeHelpers(
 			const partialKeys = Object.keys(partialShape);
 			const merged: Record<string, InputSchema<unknown>> = { ...partialShape };
 			for (const [k, s] of Object.entries(extra)) merged[k] = s;
+			const extraKeys = new Set(Object.keys(extra));
 
-			const obj = vObject(merged);
-			if (min <= 0) return obj;
+			/** PATCH: solo chiavi presenti nel payload (più i `with` obbligatori). Evita `dayOfWeek: undefined` ecc. che col merge distruggono la riga. */
+			const parseSparse = (raw: unknown): Record<string, unknown> => {
+				if (typeof raw !== "object" || raw === null) {
+					throw new ValidationError("expected object");
+				}
+				const rawObj = raw as Record<string, unknown>;
+				const res: Record<string, unknown> = {};
+				for (const [k, sch] of Object.entries(merged)) {
+					if (extraKeys.has(k)) {
+						res[k] = sch.parse(rawObj[k]);
+						continue;
+					}
+					if (!Object.prototype.hasOwnProperty.call(rawObj, k)) continue;
+					res[k] = sch.parse(rawObj[k]);
+				}
+				return res;
+			};
+
+			if (min <= 0) {
+				return { parse: parseSparse };
+			}
 
 			return {
 				parse(raw: unknown): unknown {
-					const parsed = obj.parse(raw) as Record<string, unknown>;
+					const parsed = parseSparse(raw);
 					let count = 0;
 					for (const k of partialKeys) {
 						if (parsed[k] !== undefined) count++;

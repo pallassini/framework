@@ -16,6 +16,17 @@ body,
 	font-family: "Outfit", system-ui, sans-serif;
 	background: var(--background, #050505);
 	color: #f5f5f5;
+	/* Controlli nativi (input / select / time picker / scrollbar) rispettano il tema scuro: senza questo Chrome usa "light" → input con sfondo bianco, testo quasi invisibile. */
+	color-scheme: dark;
+}
+
+/* Reset minimo sui form controls: colore/font ereditati dal tema, così `color: #f5f5f5` arriva al testo; restano cliccabili e accessibili. */
+input,
+textarea,
+select,
+button {
+	color: inherit;
+	font: inherit;
 }
 
 /* Stacking: figli con z-index negativo (es. Meteors `fill`) restano sopra lo sfondo di #root. */

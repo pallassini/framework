@@ -1,3 +1,4 @@
+import { compactUndefinedKeys } from "./compact-patch";
 import { applyFindWindow, extractEqAtoms, matchWhere } from "./where";
 import type {
 	DeleteResult,
@@ -132,9 +133,12 @@ export class IndexedTable<T extends DbRow> {
 		const hit = this.find(where);
 		const out: T[] = [];
 		for (const row of hit) {
-			const nextPatch =
+			const nextPatchRaw =
 				typeof patch === "function" ? patch(row) : patch;
-			if (!nextPatch) continue;
+			if (!nextPatchRaw) continue;
+			const nextPatch = compactUndefinedKeys(nextPatchRaw as Record<string, unknown>) as Partial<
+				Omit<T, "id">
+			>;
 			this.removeFromIndex(row.id, row);
 			const next = { ...row, ...nextPatch, id: row.id } as T;
 			this.rows.set(row.id, next);

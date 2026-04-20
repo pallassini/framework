@@ -4,17 +4,17 @@
  */
 
 import { isRpcRunRef } from "../../../desktop/rpc-ref";
-import { signal, type Signal } from "./signal";
+import { signal, type AutoSignal, type Signal } from "./signal";
 import { buildStore, isPlainObject, type StateMap } from "../utils/store";
 import { withCallableStore } from "../utils/withCallableStore";
 
 export type CreateStateFn = {
 	<T = unknown>(): Signal<T>;
-	<T>(initial: Promise<T>): Signal<T | undefined>;
-	<T>(initial: PromiseLike<T>): Signal<T | undefined>;
-	<R>(initial: () => Promise<R>): Signal<R | undefined>;
+	<T>(initial: Promise<T>): AutoSignal<T | undefined>;
+	<T>(initial: PromiseLike<T>): AutoSignal<T | undefined>;
+	<R>(initial: () => Promise<R>): AutoSignal<R | undefined>;
 	/** Solo tipo: `fn` è un metodo RPC marcato; non viene chiamato. */
-	<F extends (...args: never[]) => Promise<unknown>>(ref: F): Signal<Awaited<ReturnType<F>>>;
+	<F extends (...args: never[]) => Promise<unknown>>(ref: F): AutoSignal<Awaited<ReturnType<F>>>;
 	<U extends Record<string, unknown>>(shape: U): StateMap<U>;
 	/** Funzione sincrona → segnale derivato (legge altri signal in `compute`). */
 	<R>(compute: () => R): Signal<R>;
@@ -43,7 +43,7 @@ export function createState<R>(compute: () => R): Signal<R>;
 export function createState<T>(value: T): Signal<T>;
 export function createState(shapeOrValue?: unknown): CallableStateMap<Record<string, unknown>> | Signal<unknown> {
 	if (arguments.length === 0 || shapeOrValue === undefined) {
-		return signal(undefined) as Signal<undefined>;
+		return signal(undefined) as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue as object)) {
 		const store = buildStore(shapeOrValue as Record<string, unknown>);

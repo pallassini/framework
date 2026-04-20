@@ -1,10 +1,13 @@
 import { watch } from "../effect";
+import type { Signal } from "../state/signal";
 import { enqueueAsyncChain } from "../utils/asyncChain";
 import { persistLog, persistShortJson } from "../utils/persistDebug";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { broadcastPersistUpdate, createPersistBroadcast, getPersistState, setPersistState } from "./idb";
 
 const DEBOUNCE_MS = 300;
+/** Wrapper scalare per distinguere nell'IDB i valori persistiti come scalari (vs store). */
+const SCALAR_TAG = "__fw_scalar__";
 
 export function bindPersistIdb(store: Record<string, unknown>, key: string): void {
 	/**
@@ -93,6 +96,89 @@ export function bindPersistIdb(store: Record<string, unknown>, key: string): voi
 		if (tid !== null || writing) {
 			broadcastHydrateDeferred = true;
 			persistLog(`broadcast DEFER hydrate (debounce attivo o idb write in corso) key=${key}`);
+			return;
+		}
+		idbWriteTail = enqueueAsyncChain(idbWriteTail, () =>
+			getPersistState(key).then((snapshot) => hydrate("after-broadcast", snapshot)),
+		);
+	});
+}
+
+/**
+ * Persistenza per signal scalari (stringa, numero, boolean, array, ecc.).
+ * Stesso comportamento di `bindPersistIdb` ma su un singolo `Signal<T>`:
+ * - hydrate iniziale da IDB (se non c'è stata già una mutazione reattiva in memoria)
+ * - scritture debounced su disco + broadcast cross-tab
+ * Il valore è serializzato come `{ [SCALAR_TAG]: true, v: T }`.
+ */
+export function bindPersistScalarIdb<T>(sig: Signal<T>, key: string): void {
+	let bootHydrateOpen = true;
+	let persistWatchRuns = 0;
+	let idbWriteTail = Promise.resolve();
+	let broadcastHydrateDeferred = false;
+	let writing = false;
+
+	const hydrate = (reason: string, snapshot: unknown): void => {
+		if (snapshot && typeof snapshot === "object" && (snapshot as Record<string, unknown>)[SCALAR_TAG]) {
+			const val = (snapshot as { v?: T }).v;
+			watch.batch(() => {
+				sig(val as T);
+			});
+			persistLog(`hydrate scalar ${reason} key=${key} v=${persistShortJson(val)}`);
+		}
+	};
+
+	void getPersistState(key).then((snapshot) => {
+		if (!bootHydrateOpen) return;
+		bootHydrateOpen = false;
+		hydrate("boot-idb", snapshot);
+	});
+
+	let tid: ReturnType<typeof setTimeout> | null = null;
+	const flush = (source: string): void => {
+		if (tid != null) clearTimeout(tid);
+		tid = null;
+		idbWriteTail = enqueueAsyncChain(idbWriteTail, async () => {
+			writing = true;
+			try {
+				const v = sig();
+				const snap = { [SCALAR_TAG]: true, v };
+				persistLog(`idb PUT scalar start key=${key} src=${source} v=${persistShortJson(v)}`);
+				try {
+					await setPersistState(key, snap);
+					broadcastPersistUpdate(key);
+				} catch (err) {
+					persistLog(`idb PUT scalar FAIL key=${key} err=${String(err)}`);
+				}
+			} finally {
+				writing = false;
+				if (broadcastHydrateDeferred) {
+					broadcastHydrateDeferred = false;
+					const snapshot = await getPersistState(key);
+					hydrate("after-broadcast-deferred", snapshot);
+				}
+			}
+		});
+	};
+
+	watch(() => {
+		sig();
+		persistWatchRuns++;
+		if (persistWatchRuns > 1) bootHydrateOpen = false;
+		if (tid != null) clearTimeout(tid);
+		tid = setTimeout(() => flush("debounce"), DEBOUNCE_MS);
+	});
+
+	if (typeof window !== "undefined") {
+		window.addEventListener("beforeunload", () => flush("beforeunload"));
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "hidden") flush("hidden-tab");
+		});
+	}
+
+	createPersistBroadcast(key, () => {
+		if (tid !== null || writing) {
+			broadcastHydrateDeferred = true;
 			return;
 		}
 		idbWriteTail = enqueueAsyncChain(idbWriteTail, () =>

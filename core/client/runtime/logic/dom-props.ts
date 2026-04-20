@@ -11,6 +11,7 @@ const SKIP = new Set([
 	"key",
 	"pick",
 	"bind",
+	"wrap",
 ]);
 
 export function applyDomProps(el: DomEl, propsObj: DomProps): void {

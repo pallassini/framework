@@ -40,7 +40,7 @@ export function createSessionState(
 	options?: SessionStateOptions,
 ): StateMap<Record<string, unknown>> & CreateSessionStateFn | Signal<unknown> {
 	if (arguments.length === 0 || shapeOrValue === undefined) {
-		return createState() as Signal<undefined>;
+		return createState() as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
 		return createState(shapeOrValue) as Signal<unknown>;

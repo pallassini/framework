@@ -23,8 +23,11 @@ export type DomProps = Record<string, unknown> & { children?: unknown };
 
 export type ClientEventName = (typeof CLIENT_EVENT_NAMES)[number];
 
+/** Handler DOM: funzione (anche `async`) oppure Promise/thenable eseguito al click (vedi `normalizeDomEventHandler`). */
 export type ClientEvents = {
-	[K in ClientEventName]?: (ev: HTMLElementEventMap[K]) => void;
+	[K in ClientEventName]?:
+		| ((ev: HTMLElementEventMap[K]) => void | Promise<void>)
+		| Promise<unknown>;
 };
 
 export type SharedProps = ClientEvents & {

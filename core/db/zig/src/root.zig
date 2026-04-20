@@ -164,6 +164,38 @@ fn pkFromJson(al: std.mem.Allocator, json: []const u8, pk_col: []const u8) !?[]u
 	return try jsonFieldKey(al, json, pk_col);
 }
 
+/// Merge superficiale `patch_json` su `base_json` (solo oggetti). Le chiavi presenti solo in `base` restano.
+/// Serve per `row_put(replace=1)`: il client può inviare un sottoinsieme di campi senza cancellare il resto della riga.
+fn mergeShallowRowJson(parent: std.mem.Allocator, base_json: []const u8, patch_json: []const u8) ![]u8 {
+	var arena = std.heap.ArenaAllocator.init(parent);
+	defer arena.deinit();
+	const a = arena.allocator();
+
+	var base_dom = try std.json.parseFromSlice(std.json.Value, a, base_json, .{ .allocate = .alloc_always });
+	var patch_dom = try std.json.parseFromSlice(std.json.Value, a, patch_json, .{ .allocate = .alloc_always });
+
+	if (base_dom.value != .object or patch_dom.value != .object) return error.JsonMerge;
+
+	const base_obj = &base_dom.value.object;
+	const patch_obj = &patch_dom.value.object;
+
+	var patch_keys = std.ArrayListUnmanaged([]const u8){};
+	defer patch_keys.deinit(a);
+	{
+		var pit = patch_obj.iterator();
+		while (pit.next()) |pe| {
+			try patch_keys.append(a, pe.key_ptr.*);
+		}
+	}
+	for (patch_keys.items) |k| {
+		const grabbed = patch_obj.fetchSwapRemove(k) orelse continue;
+		_ = base_obj.fetchSwapRemove(grabbed.key);
+		try base_obj.put(grabbed.key, grabbed.value);
+	}
+
+	return try std.json.Stringify.valueAlloc(parent, base_dom.value, .{});
+}
+
 fn indexAdd(table: *Table, al: std.mem.Allocator, iname: []const u8, col: []const u8, unique: bool, val: []const u8, pk: []const u8) !void {
 	const iname_owned = try dup(al, iname);
 	const gop = try table.indexes.getOrPut(al, iname_owned);
@@ -339,9 +371,24 @@ fn truncateWal(e: *Engine) !void {
 fn ingestRow(e: *Engine, tname: []const u8, pk: []const u8, json: []const u8, replace: bool, skip_wal: bool) !void {
 	const al = e.allocator();
 	const tbl = e.tables.getPtr(tname) orelse return error.NoTable;
+
+	var merged_buf: ?[]u8 = null;
+	defer if (merged_buf) |m| al.free(m);
+
+	const effective_json: []const u8 = blk: {
+		if (replace) {
+			if (tbl.rows.get(pk)) |old_row_json| {
+				const m = try mergeShallowRowJson(al, old_row_json, json);
+				merged_buf = m;
+				break :blk m;
+			}
+		}
+		break :blk json;
+	};
+
 	if (tbl.spec.fks.len > 0) {
 		for (tbl.spec.fks) |fk| {
-			const refv = (try jsonFieldKey(al, json, fk.col)) orelse continue;
+			const refv = (try jsonFieldKey(al, effective_json, fk.col)) orelse continue;
 			defer al.free(refv);
 			const pt = e.tables.get(fk.parent_table) orelse return error.NoTable;
 			if (pt.rows.get(refv) == null) return error.FkViol;
@@ -361,24 +408,24 @@ fn ingestRow(e: *Engine, tname: []const u8, pk: []const u8, json: []const u8, re
 			}
 		}
 		al.free(ent.value_ptr.*);
-		const json_owned = try dup(al, json);
+		const json_owned = try dup(al, effective_json);
 		ent.value_ptr.* = json_owned;
 	} else {
 		const pk_owned = try dup(al, pk);
 		errdefer al.free(pk_owned);
-		const json_owned = try dup(al, json);
+		const json_owned = try dup(al, effective_json);
 		try tbl.rows.put(al, pk_owned, json_owned);
 	}
 	for (tbl.spec.indexes) |ix| {
 		if (ix.cols.len != 1) continue;
-		const v = (try jsonFieldKey(al, json, ix.cols[0])) orelse continue;
+		const v = (try jsonFieldKey(al, effective_json, ix.cols[0])) orelse continue;
 		defer al.free(v);
 		indexAdd(tbl, al, ix.name, ix.cols[0], ix.unique, v, pk) catch |err| {
 			if (err == error.UniqueViol) return error.UniqueViol;
 			return err;
 		};
 	}
-	if (!skip_wal) try appendWal(e, .put, tname, pk, json);
+	if (!skip_wal) try appendWal(e, .put, tname, pk, effective_json);
 }
 
 fn ingestDelete(e: *Engine, tname: []const u8, pk: []const u8, skip_wal: bool) !void {

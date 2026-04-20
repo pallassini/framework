@@ -1,4 +1,5 @@
 import { ptr } from "bun:ffi";
+import { compactUndefinedKeys } from "./compact-patch";
 import { applyFindWindow, matchWhere } from "./where";
 import type {
 	DeleteResult,
@@ -182,8 +183,11 @@ export class ZigTable<T extends DbRow> {
 		const tb = u8(this.table);
 		const cache = this.rows();
 		for (const row of hit) {
-			const nextPatch = typeof patch === "function" ? patch(row) : patch;
-			if (!nextPatch) continue;
+			const nextPatchRaw = typeof patch === "function" ? patch(row) : patch;
+			if (!nextPatchRaw) continue;
+			const nextPatch = compactUndefinedKeys(nextPatchRaw as Record<string, unknown>) as Partial<
+				Omit<T, "id">
+			>;
 			const curPk = this.rowPk(row);
 			const merged = { ...row, ...nextPatch, [this.pkField]: curPk } as T;
 			const payload = u8(JSON.stringify(merged));

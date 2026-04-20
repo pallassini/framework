@@ -21,6 +21,27 @@ type SignalBase<T> = {
 export type Signal<T> = SignalBase<T> &
 	(T extends string | number | boolean ? T : Record<string, never>);
 
+/**
+ * `AutoSignal<T>`: Signal con accesso reattivo alle property. Per es.
+ * con `state(promise)` → `data.resources` è un Signal derivato che estrae
+ * `v?.resources` dal valore corrente. Le property sono create lazy alla
+ * prima lettura e memoizzate.
+ */
+type AutoProps<T> =
+	NonNullable<T> extends readonly unknown[]
+		? {}
+		: NonNullable<T> extends object
+			? {
+					readonly [K in Exclude<
+						keyof NonNullable<T>,
+						// keys riservate a SignalBase (shadowing)
+						"value" | "valueOf" | "toString" | "get" | "reset"
+					>]-?: AutoSignal<NonNullable<T>[K] | Extract<T, null | undefined>>;
+				}
+			: {};
+
+export type AutoSignal<T> = SignalBase<T> & AutoProps<T>;
+
 export function isSignal(x: unknown): x is Signal<unknown> {
 	return (
 		typeof x === "function" &&
@@ -66,7 +87,7 @@ function finalizeSignal<T>(
 	return signalFn as Signal<T>;
 }
 
-function signalFromPromise<T>(p: PromiseLike<T>): Signal<T | undefined> {
+function signalFromPromise<T>(p: PromiseLike<T>): AutoSignal<T | undefined> {
 	const [get, set] = watch.source(undefined as T | undefined);
 	void Promise.resolve(p).then(
 		(v) => {
@@ -76,13 +97,60 @@ function signalFromPromise<T>(p: PromiseLike<T>): Signal<T | undefined> {
 			set(undefined);
 		},
 	);
-	return finalizeSignal(get, set, undefined as T | undefined);
+	const sig = finalizeSignal(get, set, undefined as T | undefined);
+	return autoDeriveProxy(sig) as AutoSignal<T | undefined>;
+}
+
+/**
+ * Property sul signal riservate al core (non creano derived signal).
+ * Note: `then/catch/finally` sono escluse per non far confondere il
+ * proxy con un thenable (rompe `await sig`).
+ */
+const RESERVED_STRING_KEYS = new Set<string>([
+	"value",
+	"valueOf",
+	"toString",
+	"get",
+	"reset",
+	"length",
+	"name",
+	"prototype",
+	"apply",
+	"call",
+	"bind",
+	"then",
+	"catch",
+	"finally",
+	"constructor",
+]);
+
+function autoDeriveProxy<T>(sig: Signal<T>): Signal<T> {
+	const cache = new Map<string, Signal<unknown>>();
+	return new Proxy(sig as unknown as object, {
+		get(target, prop, receiver) {
+			if (typeof prop === "symbol" || RESERVED_STRING_KEYS.has(prop)) {
+				return Reflect.get(target, prop, receiver);
+			}
+			const key = prop;
+			let derived = cache.get(key);
+			if (!derived) {
+				derived = signal(() => {
+					const v = (sig as () => unknown)();
+					if (v == null) return undefined;
+					return (v as Record<string, unknown>)[key];
+				}) as Signal<unknown>;
+				derived = autoDeriveProxy(derived);
+				cache.set(key, derived);
+			}
+			return derived;
+		},
+	}) as Signal<T>;
 }
 
 export function signal(): Signal<unknown>;
-export function signal<T>(initial: Promise<T>): Signal<T | undefined>;
-export function signal<T>(initial: PromiseLike<T>): Signal<T | undefined>;
-export function signal<R>(initial: () => Promise<R>): Signal<R | undefined>;
+export function signal<T>(initial: Promise<T>): AutoSignal<T | undefined>;
+export function signal<T>(initial: PromiseLike<T>): AutoSignal<T | undefined>;
+export function signal<R>(initial: () => Promise<R>): AutoSignal<R | undefined>;
 /** Funzione sincrona → segnale derivato (legge altri signal in `compute`). */
 export function signal<R>(compute: () => R): Signal<R>;
 export function signal<T>(initial: T): Signal<T>;

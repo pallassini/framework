@@ -1,7 +1,7 @@
 export default function Prenotations() {
   return (
-    <div>
-      <t>Resources Prenotations</t>
-    </div>
+    <>
+      <t s={{ des: "ml-10vw b-1px" }}>Prenotazioni</t>
+    </>
   );
 }

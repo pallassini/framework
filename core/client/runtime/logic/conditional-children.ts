@@ -13,8 +13,15 @@ export function watchConditionalChildren(
 	children: unknown,
 	fallback?: unknown,
 ): () => void {
+	// `children` / `fallback` sono DOM nodes preesistenti (con watch di stili, eventi, ecc.).
+	// Swappare i figli solo quando il ramo cambia: altrimenti `replaceChildrenWithDispose`
+	// dispone gli stili del ramo correntemente mostrato e al ritick lo si rimonta “nudo”.
+	let prev: "unset" | "on" | "off" = "unset";
 	return watch(() => {
 		const allowed = readWhen(when);
+		const next: "on" | "off" = allowed ? "on" : "off";
+		if (next === prev) return;
+		prev = next;
 		replaceChildrenWithDispose(el);
 		if (allowed) {
 			const nodes = toNodes(children);

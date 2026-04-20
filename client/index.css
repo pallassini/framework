@@ -1,7 +1,44 @@
 :root {
  --background: #050505;
  --primary: #00f3d2;
+ --secondary: #1b1b1b;
+ --round: 15px;
 }
+
+/* ───────────────────────────────────────────────────────────────
+   <input type="time"> — tema scuro, niente icona, outline off.
+   L'apertura del picker è forzata via `showPicker()` al click.
+   ─────────────────────────────────────────────────────────────── */
+input[type="time"] {
+	color-scheme: dark;
+	color: #e6e6e6;
+	font-family: inherit;
+	caret-color: var(--primary);
+	outline: none;
+	cursor: pointer;
+	accent-color: var(--primary);
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+	display: none;
+	appearance: none;
+	-webkit-appearance: none;
+}
+input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+input[type="time"]::-webkit-datetime-edit-minute-field:focus,
+input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
+	background: var(--primary);
+	color: var(--background);
+	outline: none;
+	border-radius: 4px;
+}
+input[type="time"]::-webkit-datetime-edit {
+	padding: 0;
+}
+input[type="time"]::selection {
+	background: var(--primary);
+	color: var(--background);
+}
+
 
 /* Meteors (come frameworkMappazzone): --meteor-angle, --meteor-dist per elemento */
 @keyframes meteor-fall {

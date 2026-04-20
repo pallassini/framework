@@ -4,7 +4,34 @@ import { toNodes } from "../../logic/children";
 import type { DomProps, SharedProps, UiNode } from "../props";
 import { resolveFieldBinding, type FieldBinding } from "../../../form/form";
 
-export type InputProps = SharedProps & {
+/**
+ * Eventi su `<input>` per cui il primo argomento del handler è **il valore corrente** (stringa).
+ * L’evento nativo resta passato come **secondo** argomento, se serve (es. `preventDefault`).
+ */
+const VALUE_EVENT_PROPS = ["input", "change", "blur", "focusout"] as const;
+
+function wrapValueHandler(
+	el: HTMLInputElement,
+	handler: unknown,
+): ((ev: Event) => void) | undefined {
+	if (typeof handler !== "function") return undefined;
+	const fn = handler as (value: string, ev: Event) => unknown;
+	return (ev: Event): void => {
+		fn(el.value, ev);
+	};
+}
+
+/**
+ * Handler su `<input>` per `input` / `change` / `blur` / `focusout`:
+ * il primo argomento è **il valore corrente** dell’input; l’evento nativo resta come secondo argomento.
+ */
+type ValueHandler<E extends Event> = (value: string, ev: E) => void;
+
+export type InputProps = Omit<SharedProps, "input" | "change" | "blur" | "focusout"> & {
+	input?: ValueHandler<Event>;
+	change?: ValueHandler<Event>;
+	blur?: ValueHandler<FocusEvent>;
+	focusout?: ValueHandler<FocusEvent>;
 	bind?: FieldBinding;
 	type?: HTMLInputElement["type"];
 	/** Valore mostrato (imposta la proprietà `value` dell’elemento, non solo un attributo generico). */
@@ -60,20 +87,39 @@ export function input(props: InputProps): UiNode {
 	if (step != null) el.step = String(step);
 	if (pattern != null) el.pattern = pattern;
 
+	const restWithValueHandlers = { ...rest } as Record<string, unknown>;
+	for (const name of VALUE_EVENT_PROPS) {
+		if (name === "input") continue; // gestito a parte sotto (anche per `bind`)
+		if (name in restWithValueHandlers) {
+			restWithValueHandlers[name] = wrapValueHandler(el, restWithValueHandlers[name]);
+		}
+	}
+
 	if (bind) {
 		const ctl = resolveFieldBinding(bind);
-		const userOnInput = onInput as ((ev: HTMLElementEventMap["input"]) => void) | undefined;
+		const userOnInput = onInput as
+			| ((value: string, ev: HTMLElementEventMap["input"]) => void)
+			| undefined;
 		const mergedOnInput = (ev: HTMLElementEventMap["input"]): void => {
-			ctl.set((ev.target as HTMLInputElement).value);
-			userOnInput?.(ev);
+			const v = (ev.target as HTMLInputElement).value;
+			ctl.set(v);
+			userOnInput?.(v, ev);
 		};
-		applyDomProps(el, { ...rest, children: undefined, onInput: mergedOnInput } as DomProps);
+		applyDomProps(el, {
+			...restWithValueHandlers,
+			children: undefined,
+			onInput: mergedOnInput,
+		} as DomProps);
 		watch(() => {
 			const v = ctl.get();
 			if (el.value !== v) el.value = v;
 		});
 	} else {
-		applyDomProps(el, { ...rest, children: undefined, onInput } as DomProps);
+		applyDomProps(el, {
+			...restWithValueHandlers,
+			children: undefined,
+			onInput: wrapValueHandler(el, onInput),
+		} as DomProps);
 		if (value !== undefined) el.value = String(value);
 		else if (defaultValue !== undefined) el.defaultValue = String(defaultValue);
 	}
