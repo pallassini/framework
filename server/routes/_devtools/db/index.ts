@@ -1,4 +1,8 @@
-import { getLiveFwTables } from "../../../../core/db/index";
+import {
+	getLiveDbSchemaTree,
+	getLiveDbTableOrder,
+	getLiveFwTables,
+} from "../../../../core/db/index";
 import type { FieldTypeDesc } from "../../../../core/client/validator/field-meta";
 import {
 	getFwTableColumnKeys,
@@ -81,7 +85,11 @@ export default s({
 				] as const;
 			}),
 		);
-		return { tables: Object.fromEntries(entries) };
+		return {
+			tables: Object.fromEntries(entries),
+			schemaTree: getLiveDbSchemaTree(),
+			tableOrder: getLiveDbTableOrder(),
+		};
 	},
 });
 

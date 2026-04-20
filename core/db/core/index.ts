@@ -7,15 +7,24 @@ export {
 } from "./customDb";
 export { ZigTable } from "./zigTable";
 export type {
+	CountOpts,
+	DeleteOpts,
 	DeleteResult,
 	DbRow,
 	DbScalar,
+	FindOpts,
 	FindOptions,
 	OneOrMany,
+	Projected,
 	TableAccessor,
+	UpdateOpts,
 	UpdatePatch,
 	UpdateResult,
 	Where,
 	WhereOps,
 	WhereValue,
 } from "./types";
+export { runTx } from "./tx";
+export type { TxApi } from "./tx";
+export { applySelect, fkMapFromCatalog, parseSelect } from "./select";
+export type { FkMap, SelectNode, BatchFetcher } from "./select";

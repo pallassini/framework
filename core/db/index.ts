@@ -1,5 +1,11 @@
 import * as AppDb from "../../db/index";
-import { collectModuleTables, type ModuleExportRow } from "./collect";
+import {
+	collectModuleSchemas,
+	collectModuleTableOrder,
+	collectModuleTables,
+	type ModuleExportRow,
+	type SchemaNode,
+} from "./collect";
 import { CustomDb, resolveFwdbDataDir, type TablesMap } from "./core";
 import { dbLog } from "./dev-log";
 import { startDevDbSchemaWatch } from "./dev-schema-watch";
@@ -37,6 +43,7 @@ const customCore = new CustomDb<ServerTables>(
 	{
 		dataDir: dataDirResolved,
 		pkByTable: liveBundle.pkByTable,
+		catalog: liveBundle.catalog,
 	},
 );
 
@@ -66,6 +73,23 @@ export function getLiveFwTables() {
 	return liveBundle.fwTables;
 }
 
+/**
+ * Accessor live: l'albero degli `schema(...)` dichiarati in `db/index.ts`.
+ * Viene ricostruito ad ogni chiamata rileggendo i binding live di `AppDb`,
+ * così l'HMR si propaga ai devtools senza cache stantie.
+ */
+export function getLiveDbSchemaTree(): readonly SchemaNode[] {
+	return collectModuleSchemas(AppDb as Record<string, unknown>).tree;
+}
+
+/**
+ * Ordine dichiarazione dei table-export in `db/index.ts` (live, segue l'HMR).
+ * Usato dai devtools per mostrare tabelle e colonne come sono scritte nel file.
+ */
+export function getLiveDbTableOrder(): readonly string[] {
+	return collectModuleTableOrder(AppDb as Record<string, unknown>);
+}
+
 const projectRoot = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
 if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
 	startDevDbSchemaWatch(projectRoot, {
@@ -88,13 +112,19 @@ if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
 }
 
 export type {
+	CountOpts,
 	CustomDbOpenOptions,
 	DbRow,
 	DbScalar,
+	DeleteOpts,
 	DeleteResult,
+	FindOpts,
 	FindOptions,
 	OneOrMany,
+	Projected,
 	TableAccessor,
+	TxApi,
+	UpdateOpts,
 	UpdatePatch,
 	UpdateResult,
 	Where,
@@ -104,7 +134,6 @@ export type {
 export { FWDB_DEFAULT_DATA_REL_PATH, resolveFwdbDataDir } from "./core";
 export type { DbTableNames, ServerDbUtilities } from "./server";
 export type User = ServerTables["users"];
-export type Work = ServerTables["works"];
 export type DbUser = User;
 export { dbConfig, type DbLogConfig } from "../../db/config";
 export { tables, type PlainSchema } from "./plain";
@@ -115,10 +144,14 @@ export {
 	defineSchema,
 	defineTable,
 	fk,
+	flattenSchemaTables,
+	FW_SCHEMA,
+	isFwSchema,
 	isFwTable,
 	isTableBuilder,
 	ref,
 	REF,
+	schema,
 	t,
 	table,
 	TABLE_BUILDER,
@@ -130,6 +163,8 @@ export {
 	type FullRow,
 	type FkDef,
 	type FkField,
+	type FwSchema,
+	type FwSchemaChild,
 	type FwTable,
 	type IndexDef,
 	type RefMeta,
@@ -137,3 +172,4 @@ export {
 	type TableBuilder,
 	type TableSchemaInput,
 } from "./schema";
+export type { SchemaNode } from "./collect";

@@ -1,22 +1,17 @@
-import { auth } from "client";
+import {
+  bookings,
+  closures,
+  items,
+  openingHours,
+  promotions,
+  resources,
+  users,
+} from "./data";
+
 export default function BookerDemo() {
   return (
     <>
-      <div s="mt-20vh">
-        <div
-          click={async () => {
-            const res = await auth.register({
-              email: "tesft@test.com",
-              password: "test",
-              username: "test",
-              role: "user",
-            });
-            console.log(res);
-          }}
-        >
-          Booker
-        </div>
-      </div>
+     
     </>
   );
 }

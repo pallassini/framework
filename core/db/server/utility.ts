@@ -1,6 +1,7 @@
 import { ValidationError, type InputSchema } from "../../client/validator/properties/defs";
 import { CustomDb, type TablesMap } from "../core/customDb";
 import type { TableAccessor } from "../core/types";
+import type { TxApi } from "../core/tx";
 import type { DbBundleSchema } from "../schema/table";
 import type { ServerTables } from "..";
 
@@ -16,7 +17,7 @@ type Accessors<Tables extends TablesMap> = {
 /** Nome tabella: `typeof db.tables` include anche `$` (schema input RPC). */
 export type DbTableNames<T extends { tables: unknown }> = Exclude<keyof T["tables"], "$">;
 
-const RESERVED = new Set(["table", "clearAll", "schema", "tables", "parse"]);
+const RESERVED = new Set(["table", "clearAll", "schema", "tables", "parse", "tx"]);
 
 export type ServerDbUtilities<Tables extends TablesMap = ServerTables> = {
 	table<K extends keyof Tables & string>(name: K): TableAccessor<Tables[K]>;
@@ -25,6 +26,12 @@ export type ServerDbUtilities<Tables extends TablesMap = ServerTables> = {
 	parse(raw: unknown): keyof Tables & string;
 	/** Bundle `db/index` (tableNames, catalog, …). */
 	schema: DbBundleSchema;
+	/**
+	 * Best-effort transaction: esegue `fn` e se lancia annulla in LIFO le mutazioni
+	 * registrate via `tx.onRollback`. Non è ACID (il motore Zig persiste subito),
+	 * ma copre i casi tipici multi-tabella.
+	 */
+	tx<T>(fn: (tx: TxApi) => Promise<T>): Promise<T>;
 	/**
 	 * Accessori `users`, `works`, … + `$` = campo `table` per RPC (`v.object({ table: db.tables.$, … })`).
 	 * Solo nomi tabella: `DbTableNames<typeof db>` oppure `Exclude<keyof typeof db.tables, "$">`.
@@ -45,6 +52,7 @@ export function createServerDbUtilities<Tables extends TablesMap>(
 	const out: Record<string, unknown> = {
 		table: <K extends keyof Tables & string>(name: K) => db.table(name),
 		clearAll: async () => db.clearAll(),
+		tx: <T>(fn: (tx: TxApi) => Promise<T>) => db.tx(fn),
 		parse(raw: unknown): keyof Tables & string {
 			if (typeof raw !== "string" || !raw) throw new ValidationError("table");
 			const names = new Set(getTableNames() as readonly string[]);

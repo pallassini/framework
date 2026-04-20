@@ -486,7 +486,7 @@ export async function reloadDevDbSchema(
 		traceSchema("reload:fase2 writeCatalogSync", { flushId, flushIter });
 		next.writeCatalogSync(ctx.core.dataDir);
 		traceSchema("reload:fase2 reloadAfterCatalogWrite", { flushId, flushIter });
-		ctx.core.reloadAfterCatalogWrite(next.tableNames, next.pkByTable);
+		ctx.core.reloadAfterCatalogWrite(next.tableNames, next.pkByTable, next.catalog);
 		traceSchema("reload:fase2 applyBundle", { flushId, flushIter });
 		ctx.applyBundle(next);
 		traceSchema("reload:fase2 ok", { flushId, flushIter });

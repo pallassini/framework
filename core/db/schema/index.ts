@@ -7,6 +7,14 @@ export {
 	type TableSchemaInput,
 } from "./defineSchema";
 export { defineDb, t, type Field, type FkField, type StrField } from "./dsl";
+export {
+	flattenSchemaTables,
+	FW_SCHEMA,
+	isFwSchema,
+	schema,
+	type FwSchema,
+	type FwSchemaChild,
+} from "./namespace";
 export { orderColumnsBySchema, sortDbColumnKeys } from "./sortColumnKeys";
 export {
 	bundle,

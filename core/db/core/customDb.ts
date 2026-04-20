@@ -1,12 +1,20 @@
 import path from "node:path";
 import { ptr } from "bun:ffi";
 import { tryLoadFwdb, u8, type FwdbEnginePtr, type FwdbNative } from "../native/load";
+import type { CatalogJson } from "../schema/defineSchema";
+import { applySelect, fkMapFromCatalog, type BatchFetcher, type FkMap } from "./select";
+import { runTx, type TxApi } from "./tx";
 import type {
+	CountOpts,
 	DeleteResult,
 	DbRow,
+	DeleteOpts,
+	FindOpts,
 	FindOptions,
 	OneOrMany,
+	Projected,
 	TableAccessor,
+	UpdateOpts,
 	UpdatePatch,
 	UpdateResult,
 	Where,
@@ -22,6 +30,8 @@ export type CustomDbOpenOptions = {
 	 */
 	dataDir?: string | null;
 	pkByTable?: Readonly<Record<string, string>>;
+	/** Catalog completo (tabelle/FK/indici) — usato per risolvere `select` con FK. */
+	catalog?: CatalogJson;
 };
 
 /** Path predefinito relativo alla root del repo (`core/db/data`). */
@@ -63,6 +73,19 @@ function normalizeEnginePtr(raw: FwdbEnginePtr | undefined | null): FwdbEnginePt
 	return raw;
 }
 
+/**
+ * Riconosce se il primo argomento è la nuova object-form `{ where, select, … }`
+ * oppure una vecchia `Where<T>` (che potrebbe condividere chiavi come `limit`
+ * se la tabella avesse un campo `limit` — improbabile, ma discriminiamo cercando
+ * chiavi riservate esclusive della nuova API).
+ */
+const NEW_API_KEYS = new Set(["where", "select", "set"]);
+function looksLikeOptsBag(arg: unknown): boolean {
+	if (!arg || typeof arg !== "object" || Array.isArray(arg)) return false;
+	for (const k of Object.keys(arg)) if (NEW_API_KEYS.has(k)) return true;
+	return false;
+}
+
 /** Solo motore Zig su disco: nessun fallback in-memory. */
 export class CustomDb<Tables extends TablesMap> {
 	private readonly tables = new Map<string, ZigTable<DbRow>>();
@@ -70,6 +93,7 @@ export class CustomDb<Tables extends TablesMap> {
 	private engine: FwdbEnginePtr | null;
 	readonly mode = "zig" as const;
 	readonly dataDir: string;
+	private fkMap: FkMap = {};
 
 	constructor(tableNames: readonly (keyof Tables & string)[], options?: CustomDbOpenOptions) {
 		const dataDirOpt = resolveFwdbDataDir(options);
@@ -95,6 +119,12 @@ export class CustomDb<Tables extends TablesMap> {
 		for (const t of tableNames) {
 			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkMap[t] ?? "id"));
 		}
+		if (options?.catalog) this.fkMap = fkMapFromCatalog(options.catalog);
+	}
+
+	/** Aggiorna la mappa FK (es. dopo HMR dello schema). */
+	setCatalog(catalog: CatalogJson): void {
+		this.fkMap = fkMapFromCatalog(catalog);
 	}
 
 	checkpoint(): void {
@@ -116,6 +146,7 @@ export class CustomDb<Tables extends TablesMap> {
 	reloadAfterCatalogWrite(
 		tableNames: readonly string[],
 		pkByTable: Readonly<Record<string, string>>,
+		catalog?: CatalogJson,
 	): void {
 		if (this.engine != null) {
 			this.native.symbols.fwdb_engine_destroy(this.engine);
@@ -132,6 +163,7 @@ export class CustomDb<Tables extends TablesMap> {
 		for (const t of tableNames) {
 			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkByTable[t] ?? "id"));
 		}
+		if (catalog) this.setCatalog(catalog);
 	}
 
 	private tableImpl<K extends keyof Tables & string>(name: K): ZigTable<Tables[K]> {
@@ -140,21 +172,98 @@ export class CustomDb<Tables extends TablesMap> {
 		return table as ZigTable<Tables[K]>;
 	}
 
+	/** Batch fetcher usato dall'engine di `select` (una sola lookup per id via cache). */
+	private batchFetcher: BatchFetcher = async (table, ids) => {
+		const impl = this.tables.get(table);
+		const out = new Map<string, DbRow>();
+		if (!impl) return out;
+		for (const id of ids) {
+			const row = impl.byId(id);
+			if (row) out.set(id, row);
+		}
+		return out;
+	};
+
 	table<K extends keyof Tables & string>(name: K): TableAccessor<Tables[K]> {
-		const run = async (where?: Where<Tables[K]>): Promise<Tables[K][]> => this.tableImpl(name).find(where);
-		const fn = run as TableAccessor<Tables[K]>;
+		const self = this;
+		type Row = Tables[K];
+
+		async function runFind(
+			where: Where<Row> | undefined,
+			opts: FindOptions<Row> | undefined,
+			select: readonly string[] | undefined,
+		): Promise<Row[] | Record<string, unknown>[]> {
+			const impl = self.tableImpl(name);
+			const rows = impl.find(where, opts) as Row[];
+			if (!select || select.length === 0) return rows;
+			const projected = await applySelect(
+				rows as unknown as DbRow[],
+				select,
+				name,
+				self.fkMap,
+				self.batchFetcher,
+			);
+			return projected as Record<string, unknown>[];
+		}
+
+		// Callable form: `db.users(where?)` → find-all
+		const fn = (async (where?: Where<Row>) => self.tableImpl(name).find(where)) as TableAccessor<Row>;
+
 		fn.create = async (
-			rows: OneOrMany<Omit<Tables[K], "id"> & Partial<Pick<Tables[K], "id">>>,
-		): Promise<Tables[K][]> => this.tableImpl(name).create(toCreateRows(rows));
-		fn.find = async (where?: Where<Tables[K]>, opts?: FindOptions<Tables[K]>): Promise<Tables[K][]> =>
-			this.tableImpl(name).find(where, opts);
-		fn.byId = async (id: string): Promise<Tables[K] | undefined> => this.tableImpl(name).byId(id);
-		fn.update = async (where: Where<Tables[K]>, patch: UpdatePatch<Tables[K]>): Promise<UpdateResult<Tables[K]>> =>
-			this.tableImpl(name).update(where, patch);
-		fn.delete = async (where: Where<Tables[K]>): Promise<DeleteResult> => this.tableImpl(name).delete(where);
-		fn.count = async (where?: Where<Tables[K]>): Promise<number> => this.tableImpl(name).count(where);
-		fn.clear = async (): Promise<number> => this.tableImpl(name).clear();
+			rows: OneOrMany<Omit<Row, "id"> & Partial<Pick<Row, "id">>>,
+		): Promise<Row[]> => self.tableImpl(name).create(toCreateRows(rows));
+
+		fn.find = (async (a?: unknown, b?: unknown): Promise<Row[] | Projected<Row, readonly string[]>[]> => {
+			if (looksLikeOptsBag(a)) {
+				const o = a as FindOpts<Row>;
+				const { where, select, ...win } = o;
+				const rows = await runFind(where, win as FindOptions<Row>, select);
+				return rows as Row[];
+			}
+			return runFind(a as Where<Row> | undefined, b as FindOptions<Row> | undefined, undefined) as Promise<
+				Row[]
+			>;
+		}) as TableAccessor<Row>["find"];
+
+		fn.byId = async (id: string): Promise<Row | undefined> => self.tableImpl(name).byId(id);
+
+		fn.update = (async (a: unknown, b?: unknown): Promise<UpdateResult<Row>> => {
+			if (looksLikeOptsBag(a)) {
+				const o = a as UpdateOpts<Row>;
+				return self.tableImpl(name).update(o.where, o.set);
+			}
+			return self.tableImpl(name).update(a as Where<Row>, b as UpdatePatch<Row>);
+		}) as TableAccessor<Row>["update"];
+
+		fn.delete = (async (a: unknown): Promise<DeleteResult> => {
+			if (looksLikeOptsBag(a)) {
+				const o = a as DeleteOpts<Row>;
+				return self.tableImpl(name).delete(o.where);
+			}
+			return self.tableImpl(name).delete(a as Where<Row>);
+		}) as TableAccessor<Row>["delete"];
+
+		fn.count = (async (a?: unknown): Promise<number> => {
+			if (looksLikeOptsBag(a)) {
+				const o = a as CountOpts<Row>;
+				return self.tableImpl(name).count(o.where);
+			}
+			return self.tableImpl(name).count(a as Where<Row> | undefined);
+		}) as TableAccessor<Row>["count"];
+
+		fn.clear = async (): Promise<number> => self.tableImpl(name).clear();
 		return fn;
+	}
+
+	/**
+	 * Best-effort transaction.
+	 *
+	 * Il motore Zig persiste immediatamente ogni mutazione: questa helper
+	 * **non** offre ACID, ma raccoglie rollback inversi registrati via `tx.onRollback`
+	 * e li esegue in ordine LIFO se `fn` lancia.
+	 */
+	tx<T>(fn: (tx: TxApi) => Promise<T>, opts?: Parameters<typeof runTx>[1]): Promise<T> {
+		return runTx(fn, opts);
 	}
 
 	clearAll(): number {

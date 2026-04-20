@@ -17,6 +17,50 @@ const cellBreakStyle = {
 /** Primary accent — green (row counts). Badges live in `fw-db-badge*` in core/client/index.css. */
 const primaryGreen = "#4ade80";
 
+/** Larghezze colonne fisse (devtools): niente dipende da contenuto o lunghezza nome. */
+const DB_COL_PX = "18rem";
+const DB_ACTIONS_PX = "7.5rem";
+
+const dbTableFixedWidth = (dataColCount: number): string =>
+  `calc(${String(dataColCount)} * ${DB_COL_PX} + ${DB_ACTIONS_PX})`;
+
+type DbCellStyle = {
+  width: string;
+  minWidth: string;
+  maxWidth: string;
+  boxSizing: "border-box";
+  textAlign: "left";
+  overflow: "hidden";
+  verticalAlign: "top";
+  position?: "relative";
+  cursor?: "default" | "pointer";
+};
+
+const thDataStyle = (): DbCellStyle => ({
+  width: DB_COL_PX,
+  minWidth: DB_COL_PX,
+  maxWidth: DB_COL_PX,
+  boxSizing: "border-box",
+  textAlign: "left",
+  overflow: "hidden",
+  verticalAlign: "top",
+});
+
+const tdDataStyle = (extra?: Partial<DbCellStyle>): DbCellStyle => ({
+  ...thDataStyle(),
+  ...extra,
+});
+
+const thActionsStyle = (): DbCellStyle => ({
+  width: DB_ACTIONS_PX,
+  minWidth: DB_ACTIONS_PX,
+  maxWidth: DB_ACTIONS_PX,
+  boxSizing: "border-box",
+  textAlign: "left",
+  overflow: "hidden",
+  verticalAlign: "top",
+});
+
 
 type EditCell = {
   key: string;
@@ -61,7 +105,39 @@ type FieldTypeDesc =
 
 type ColumnInfo = { key: string; optional: boolean; type: FieldTypeDesc };
 
+type SchemaNode = {
+  readonly name: string;
+  readonly path: readonly string[];
+  readonly tables: readonly string[];
+  readonly children: readonly SchemaNode[];
+};
+
 const UNKNOWN_TYPE: FieldTypeDesc = { kind: "unknown" };
+
+function findSchemaNode(
+  tree: readonly SchemaNode[],
+  path: readonly string[],
+): SchemaNode | null {
+  let nodes: readonly SchemaNode[] = tree;
+  let found: SchemaNode | null = null;
+  for (const seg of path) {
+    const next = nodes.find((n) => n.name === seg);
+    if (!next) return null;
+    found = next;
+    nodes = next.children;
+  }
+  return found;
+}
+
+function collectTableNamesDeep(node: SchemaNode): Set<string> {
+  const out = new Set<string>();
+  const visit = (n: SchemaNode): void => {
+    for (const t of n.tables) out.add(t);
+    for (const c of n.children) visit(c);
+  };
+  visit(node);
+  return out;
+}
 
 function buildColumnList(
   columns: unknown,
@@ -309,9 +385,262 @@ function coerceEditValue(draft: string, previous: unknown): unknown {
 export default function DB() {
   const tables = state(server._devtools.db);
   const [getEdit, setEdit] = watch.source<EditCell | null>(null);
+  const [getTabPath, setTabPath] = watch.source<readonly string[] | null>(null);
 
   const refetch = (): void => {
     void tables(server._devtools.db());
+  };
+
+  type PayloadShape = {
+    tables?: Record<string, Record<string, unknown>>;
+    schemaTree?: readonly SchemaNode[];
+    tableOrder?: readonly string[];
+  };
+  const readPayload = (root: unknown): PayloadShape =>
+    (root && typeof root === "object" ? (root as PayloadShape) : {}) as PayloadShape;
+
+  /** Per ogni tabella → lo schema *più profondo* che la contiene direttamente. */
+  const buildTableToSchemaMap = (
+    tree: readonly SchemaNode[],
+  ): Map<string, SchemaNode> => {
+    const map = new Map<string, SchemaNode>();
+    const walk = (n: SchemaNode): void => {
+      for (const t of n.tables) map.set(t, n);
+      for (const c of n.children) walk(c);
+    };
+    for (const n of tree) walk(n);
+    return map;
+  };
+
+  /** Set di tabelle ammesse dal path selezionato (null = tutte). */
+  const resolveAllowed = (
+    p: PayloadShape,
+    path: readonly string[] | null,
+  ): Set<string> | null => {
+    if (!path) return null;
+    const tree = p.schemaTree ?? [];
+    const node = findSchemaNode(tree, path);
+    return node ? collectTableNamesDeep(node) : null;
+  };
+
+  /** Nomi tabelle in ordine di dichiarazione (`db/index.ts`), filtrati per schema. */
+  const orderedTableNames = (
+    p: PayloadShape,
+    allowed: Set<string> | null,
+  ): string[] => {
+    const tablesMap = p.tables ?? {};
+    const order =
+      p.tableOrder && p.tableOrder.length > 0
+        ? [...p.tableOrder]
+        : Object.keys(tablesMap).sort();
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const n of order) {
+      if (!tablesMap[n]) continue;
+      if (allowed && !allowed.has(n)) continue;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      out.push(n);
+    }
+    for (const n of Object.keys(tablesMap)) {
+      if (seen.has(n)) continue;
+      if (allowed && !allowed.has(n)) continue;
+      seen.add(n);
+      out.push(n);
+    }
+    return out;
+  };
+
+  type TableGroup = {
+    readonly schemaKey: string;
+    readonly schemaName: string;
+    readonly schemaPath: readonly string[];
+    readonly tables: readonly (Record<string, unknown> & { name: string })[];
+  };
+
+  type SchemaTabItem =
+    | { readonly kind: "sep"; readonly level: number }
+    | {
+        readonly kind: "tab";
+        readonly label: string;
+        readonly path: readonly string[];
+        readonly active: boolean;
+      };
+
+  const pathEq = (a: readonly string[], b: readonly string[]): boolean =>
+    a.length === b.length && a.every((s, i) => s === b[i]);
+
+  /**
+   * Tutti gli schemi raggruppati per profondità (senza "All"):
+   *  [L1 schemas...] | [L2 schemas...] | [L3 schemas...] | ...
+   */
+  const buildSchemaTabs = (root: unknown): readonly SchemaTabItem[] => {
+    const tree = readPayload(root).schemaTree ?? [];
+    const current = getTabPath();
+    const byDepth: SchemaNode[][] = [];
+    const walk = (nodes: readonly SchemaNode[], depth: number): void => {
+      if (!byDepth[depth]) byDepth[depth] = [];
+      for (const n of nodes) {
+        byDepth[depth]!.push(n);
+        walk(n.children, depth + 1);
+      }
+    };
+    walk(tree, 0);
+
+    const out: SchemaTabItem[] = [];
+    for (let d = 0; d < byDepth.length; d++) {
+      const group = byDepth[d];
+      if (!group || group.length === 0) continue;
+      if (out.length > 0) out.push({ kind: "sep", level: d + 1 });
+      for (const n of group) {
+        const active = current != null && pathEq(n.path, current);
+        out.push({
+          kind: "tab",
+          label: n.name,
+          path: [...n.path],
+          active,
+        });
+      }
+    }
+    return out;
+  };
+
+  /** Figli dello schema correntemente selezionato — per chips di drill-down. */
+  const buildSubSchemaChips = (root: unknown): readonly SchemaNode[] => {
+    const current = getTabPath();
+    if (!current) return [];
+    const tree = readPayload(root).schemaTree ?? [];
+    const node = findSchemaNode(tree, current);
+    return node?.children ?? [];
+  };
+
+  type SchemaLevelGroup = {
+    readonly level: number;
+    readonly label: string;
+    readonly items: readonly (SchemaNode & { readonly active: boolean })[];
+  };
+
+  /** Elenco piatto di tutti gli schemi in ordine di profondità — usato per la sidebar collassata. */
+  const pickFlatSchemas = (
+    root: unknown,
+  ): readonly (SchemaNode & { readonly active: boolean })[] => {
+    const tree = readPayload(root).schemaTree ?? [];
+    const current = getTabPath();
+    const out: (SchemaNode & { active: boolean })[] = [];
+    const walk = (nodes: readonly SchemaNode[]): void => {
+      for (const n of nodes) {
+        out.push({
+          ...n,
+          active: current != null && pathEq(n.path, current),
+        });
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    return out;
+  };
+
+  /** Schemi raggruppati per profondità (L1, L2, L3, …) — ciascun livello ha la sua pill e la sua label. */
+  const buildSchemaLevels = (root: unknown): readonly SchemaLevelGroup[] => {
+    const tree = readPayload(root).schemaTree ?? [];
+    const current = getTabPath();
+    const byDepth: SchemaNode[][] = [];
+    const walk = (nodes: readonly SchemaNode[], depth: number): void => {
+      if (!byDepth[depth]) byDepth[depth] = [];
+      for (const n of nodes) {
+        byDepth[depth]!.push(n);
+        walk(n.children, depth + 1);
+      }
+    };
+    walk(tree, 0);
+    const out: SchemaLevelGroup[] = [];
+    for (let d = 0; d < byDepth.length; d++) {
+      const group = byDepth[d];
+      if (!group || group.length === 0) continue;
+      const level = d + 1;
+      out.push({
+        level,
+        label: level === 1 ? "Root schemas" : `L${String(level)}`,
+        items: group.map((n) => ({
+          ...n,
+          active: current != null && pathEq(n.path, current),
+        })),
+      });
+    }
+    return out;
+  };
+
+  /** true quando la tab "All" è attiva (nessun path). */
+  const isAllActive = (): boolean => getTabPath() == null;
+
+  /** Gruppi di tabelle raggruppate per schema foglia, ordinati come in `db/index.ts`. */
+  const pickGroupedTables = (root: unknown): readonly TableGroup[] => {
+    const p = readPayload(root);
+    const tablesMap = p.tables ?? {};
+    const tree = p.schemaTree ?? [];
+    const allowed = resolveAllowed(p, getTabPath());
+    const names = orderedTableNames(p, allowed);
+    const tableToSchema = buildTableToSchemaMap(tree);
+    const groupsByKey = new Map<
+      string,
+      {
+        schemaKey: string;
+        schemaName: string;
+        schemaPath: readonly string[];
+        tables: (Record<string, unknown> & { name: string })[];
+        order: number;
+      }
+    >();
+    names.forEach((n, idx) => {
+      const node = tableToSchema.get(n);
+      const key = node ? node.path.join("/") : "__unclassified";
+      const label = node ? node.name : "ungrouped";
+      const path = node ? [...node.path] : [];
+      let g = groupsByKey.get(key);
+      if (!g) {
+        g = {
+          schemaKey: key,
+          schemaName: label,
+          schemaPath: path,
+          tables: [],
+          order: idx,
+        };
+        groupsByKey.set(key, g);
+      }
+      g.tables.push({ name: n, ...tablesMap[n]! });
+    });
+    return [...groupsByKey.values()]
+      .sort((a, b) => a.order - b.order)
+      .map((g) => ({
+        schemaKey: g.schemaKey,
+        schemaName: g.schemaName,
+        schemaPath: g.schemaPath,
+        tables: g.tables,
+      }));
+  };
+
+  /** Chip della top bar: tabelle visibili correnti in ordine di `db/index.ts`. */
+  const pickTableChips = (
+    root: unknown,
+  ): readonly { readonly name: string }[] => {
+    const p = readPayload(root);
+    const allowed = resolveAllowed(p, getTabPath());
+    return orderedTableNames(p, allowed).map((name) => ({ name }));
+  };
+
+  /** Scrolla fino al card della tabella (id=`fw-db-table-<name>`). */
+  const scrollToTable = (name: string): void => {
+    const id = `fw-db-table-${name}`;
+    const doScroll = (): void => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    if (document.getElementById(id)) {
+      doScroll();
+      return;
+    }
+    globalThis.setTimeout(doScroll, 30);
   };
 
   watch(() => {
@@ -392,12 +721,373 @@ export default function DB() {
     refetch();
   };
 
+  const topBarHeight = "6vh";
+  const sidebarCollapsedWidth = "3.5rem";
+  const sidebarExpandedWidth = "17rem";
+  const iconCircle = {
+    width: "2.25rem",
+    height: "2.25rem",
+    borderRadius: "9999px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: "0.82rem",
+    cursor: "pointer",
+    userSelect: "none" as const,
+    flex: "0 0 auto",
+    lineHeight: 1,
+  };
+
   return (
-    <div s="col gapy-3vh px-6 pb-10 bg-#09090b w-100% minw-0">
-      <For each={tables}>
-        {(item, index) => {
-          const row = item as Record<string, unknown>;
-          const name = String(row.name);
+    <>
+      {/* ─── FIXED TOP BAR (TABLE SELECTOR) ─────────────────────────────
+          Chips centrate, niente label. Same look del Menu, z-100 per coprirlo. */}
+      <div
+        s="fixed top-0 left-0 w-100% row children-center px-6 bg-background"
+        style={{
+          height: topBarHeight,
+          zIndex: 100,
+          overflowX: "auto",
+          overflowY: "hidden",
+          whiteSpace: "nowrap",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "0.5rem",
+          boxSizing: "border-box",
+        }}
+      >
+        <For each={tables} pick={pickTableChips}>
+          {(item) => {
+            const it = item as unknown as { name: string };
+            return (
+              <t
+                s="text-3 font-6 cursor-pointer"
+                style={{
+                  color: "#e4e4e7",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "9999px",
+                  padding: "0.35rem 0.9rem",
+                  userSelect: "none",
+                  flex: "0 0 auto",
+                  letterSpacing: "0.01em",
+                  transition: "background 140ms ease, border-color 140ms ease",
+                }}
+                click={() => scrollToTable(it.name)}
+              >
+                {it.name}
+              </t>
+            );
+          }}
+        </For>
+      </div>
+
+      {/* ─── FIXED LEFT SIDEBAR (SCHEMAS) ──────────────────────────────
+          Compatta (icona) per default, si espande a hover (CSS). */}
+      <div
+        className="fw-db-sidebar"
+        style={{
+          position: "fixed",
+          left: 0,
+          top: topBarHeight,
+          height: `calc(100vh - ${topBarHeight})`,
+          zIndex: 50,
+          background: "var(--background)",
+        }}
+      >
+        {/* ========== COLLAPSED VIEW: only initials ========== */}
+        <div
+          className="fw-db-sidebar__when-collapsed"
+          style={{
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.75rem 0",
+            width: sidebarCollapsedWidth,
+            height: "100%",
+            overflowY: "auto",
+            overflowX: "hidden",
+          }}
+        >
+          <For each={tables} pick={() => [{ active: isAllActive() }]}>
+            {(item) => {
+              const it = item as unknown as { active: boolean };
+              return (
+                <div
+                  style={{
+                    ...iconCircle,
+                    color: it.active ? "#09090b" : "#d4d4d8",
+                    background: it.active ? primaryGreen : "#1c1c1f",
+                    border: `1px solid ${it.active ? primaryGreen : "#27272a"}`,
+                  }}
+                  title="All"
+                  click={() => setTabPath(null)}
+                >
+                  A
+                </div>
+              );
+            }}
+          </For>
+
+          <div
+            style={{
+              width: "1.25rem",
+              height: 1,
+              background: "#27272a",
+              margin: "0.25rem 0",
+              flex: "0 0 auto",
+            }}
+          />
+
+          <For each={tables} pick={pickFlatSchemas}>
+            {(item) => {
+              const n = item as unknown as SchemaNode & { active: boolean };
+              const initial = n.name ? n.name.slice(0, 1).toUpperCase() : "?";
+              return (
+                <div
+                  style={{
+                    ...iconCircle,
+                    color: n.active ? "#09090b" : "#d4d4d8",
+                    background: n.active ? primaryGreen : "#1c1c1f",
+                    border: `1px solid ${n.active ? primaryGreen : "#27272a"}`,
+                  }}
+                  title={n.name}
+                  click={() => setTabPath([...n.path])}
+                >
+                  {initial}
+                </div>
+              );
+            }}
+          </For>
+        </div>
+
+        {/* ========== EXPANDED VIEW: full names, vertical stacks ========== */}
+        <div
+          className="fw-db-sidebar__when-expanded"
+          style={{
+            flexDirection: "column",
+            gap: "1rem",
+            padding: "1rem",
+            width: sidebarExpandedWidth,
+            height: "100%",
+            overflowY: "auto",
+            overflowX: "hidden",
+          }}
+        >
+          <For each={tables} pick={() => [{ active: isAllActive() }]}>
+            {(item) => {
+              const it = item as unknown as { active: boolean };
+              return (
+                <div
+                  style={{
+                    color: it.active ? "#09090b" : "#d4d4d8",
+                    background: it.active ? primaryGreen : "#1c1c1f",
+                    border: `1px solid ${it.active ? primaryGreen : "#27272a"}`,
+                    userSelect: "none",
+                    height: "2.4rem",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    lineHeight: 1,
+                  }}
+                  click={() => setTabPath(null)}
+                >
+                  All
+                </div>
+              );
+            }}
+          </For>
+
+          <For each={tables} pick={buildSchemaLevels}>
+            {(levelItem) => {
+              const lvl = levelItem as unknown as SchemaLevelGroup;
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                    padding: "0.6rem 0.7rem 0.75rem",
+                    borderRadius: "10px",
+                    background: "#111113",
+                    border: "1px solid #27272a",
+                  }}
+                >
+                  <t
+                    s="text-2 font-7"
+                    style={{
+                      color: "#71717a",
+                      userSelect: "none",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {lvl.label}
+                  </t>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.35rem",
+                    }}
+                  >
+                    <For each={lvl.items}>
+                      {(schemaItem) => {
+                        const n = schemaItem as SchemaNode & {
+                          active: boolean;
+                        };
+                        return (
+                          <t
+                            s="text-3 font-6 cursor-pointer"
+                            style={{
+                              color: n.active ? "#09090b" : "#d4d4d8",
+                              background: n.active
+                                ? primaryGreen
+                                : "#1c1c1f",
+                              border: `1px solid ${
+                                n.active ? primaryGreen : "#27272a"
+                              }`,
+                              userSelect: "none",
+                              borderRadius: "8px",
+                              padding: "0.5rem 0.75rem",
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                            }}
+                            click={() => setTabPath([...n.path])}
+                          >
+                            {n.name}
+                          </t>
+                        );
+                      }}
+                    </For>
+                  </div>
+                </div>
+              );
+            }}
+          </For>
+
+          <For
+            each={tables}
+            pick={() => (buildSubSchemaChips(tables()).length > 0 ? [true] : [])}
+          >
+            {() => (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                  padding: "0.6rem 0.7rem 0.75rem",
+                  borderRadius: "10px",
+                  background: "#111113",
+                  border: "1px solid #3f3f46",
+                }}
+              >
+                <t
+                  s="text-2 font-7"
+                  style={{
+                    color: "#a78bfa",
+                    userSelect: "none",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  sub-schemas
+                </t>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.35rem",
+                  }}
+                >
+                  <For each={tables} pick={buildSubSchemaChips}>
+                    {(item) => {
+                      const sub = item as unknown as SchemaNode;
+                      return (
+                        <t
+                          s="text-2 font-6 cursor-pointer"
+                          style={{
+                            color: "#d8b4fe",
+                            background: "rgba(216, 180, 254, 0.08)",
+                            border: "1px solid rgba(216, 180, 254, 0.3)",
+                            userSelect: "none",
+                            borderRadius: "8px",
+                            padding: "0.4rem 0.7rem",
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                          }}
+                          click={() =>
+                            setTabPath([...(getTabPath() ?? []), sub.name])
+                          }
+                        >
+                          {sub.name}
+                        </t>
+                      );
+                    }}
+                  </For>
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+
+      {/* ─── MAIN ──────────────────────────────────────────────────── */}
+      <div
+        s="col gapy-3vh pb-10 bg-background minw-0"
+        style={{
+          paddingLeft: `calc(${sidebarCollapsedWidth} + 1.25rem)`,
+          paddingRight: "1.5rem",
+          paddingTop: "1.5rem",
+        }}
+      >
+        <For each={tables} pick={pickGroupedTables}>
+          {(groupItem) => {
+            const g = groupItem as unknown as TableGroup;
+            return (
+              <div
+                s="col gapy-3 round-14px px-4 py-4"
+                style={{
+                  border: "1px solid rgba(74, 222, 128, 0.30)",
+                  background: "rgba(74, 222, 128, 0.04)",
+                }}
+              >
+                <div
+                  s="row items-center gapx-2"
+                  style={{ userSelect: "none" }}
+                >
+                  <t
+                    s="text-3 font-7"
+                    style={{
+                      color: primaryGreen,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {g.schemaName}
+                  </t>
+                  <t
+                    s="text-2 font-6"
+                    style={{ color: "#52525b" }}
+                  >
+                    {g.schemaPath.length > 1
+                      ? `· ${g.schemaPath.join(" / ")}`
+                      : ""}
+                  </t>
+                </div>
+
+                <div s="col gapy-3">
+                  <For each={g.tables}>
+                    {(tableItem, index) => {
+                      const row = tableItem as Record<string, unknown>;
+                      const name = String(row.name);
           const rowCount = Number(row.rowCount);
           const pkField = String(row.pk ?? "id");
           const foreignKeys = row.foreignKeys;
@@ -420,7 +1110,11 @@ export default function DB() {
           const cardBg = index % 2 === 0 ? "bg-#18181b" : "bg-#141416";
 
           return (
-            <div s={`col round-14px b-#27272a ${cardBg}`}>
+            <div
+              id={`fw-db-table-${name}`}
+              s={`col round-14px b-#27272a ${cardBg}`}
+              style={{ scrollMarginTop: "8vh" }}
+            >
               <div s="col gapy-1 px-5 py-4 b-#27272a">
                 <t s="text-5 text-#fafafa font-7">{name}</t>
                 <t s="text-3 font-6" style={{ color: primaryGreen }}>
@@ -442,11 +1136,12 @@ export default function DB() {
                 s="px-2 pb-3 pt-1"
               >
                   <table
+                    className="fw-db-table"
                     style={{
-                      width: "max-content",
-                      minWidth: "100%",
+                      tableLayout: "fixed",
+                      width: dbTableFixedWidth(keys.length),
+                      minWidth: dbTableFixedWidth(keys.length),
                       borderCollapse: "collapse",
-                      tableLayout: "auto",
                     }}
                     s="text-2"
                   >
@@ -463,20 +1158,32 @@ export default function DB() {
                             const tColors = typeColors(colType);
                             return (
                               <th
-                                style={{
-                                  textAlign: "left",
-                                  minWidth: "10rem",
-                                  ...cellBreakStyle,
-                                }}
+                                style={thDataStyle()}
                                 s="py-3 px-3 b-#3f3f46"
                               >
                                 <div
-                                  s="row gapx-2 items-center"
-                                  style={{ minHeight: 20 }}
+                                  s="row gapx-2 children-center"
+                                  style={{
+                                    minHeight: 20,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    maxWidth: "100%",
+                                    overflow: "hidden",
+                                    flexWrap: "nowrap",
+                                  }}
                                 >
                                   <t
                                     s="text-#e4e4e7 font-7 text-3"
-                                    style={{ lineHeight: 1, whiteSpace: "nowrap" }}
+                                    style={{
+                                      lineHeight: 1,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      minWidth: 0,
+                                      flex: "1 1 0%",
+                                      maxWidth: "100%",
+                                    }}
+                                    title={k}
                                   >
                                     {k}
                                   </t>
@@ -544,11 +1251,7 @@ export default function DB() {
                           }}
                         </For>
                         <th
-                          style={{
-                            textAlign: "left",
-                            minWidth: "6rem",
-                            ...cellBreakStyle,
-                          }}
+                          style={thActionsStyle()}
                           s="py-3 px-3 text-#a1a1aa font-7 b-#3f3f46"
                         >
                           Actions
@@ -561,14 +1264,17 @@ export default function DB() {
                           <For each={keys}>
                             {(_k) => (
                               <td
-                                style={cellBreakStyle}
+                                style={tdDataStyle()}
                                 s="py-4 px-3 text-#52525b b-#27272a font-mono text-2"
                               >
                                 —
                               </td>
                             )}
                           </For>
-                          <td style={cellBreakStyle} s="py-4 px-3 b-#27272a text-#52525b text-2">
+                          <td
+                            style={thActionsStyle()}
+                            s="py-4 px-3 b-#27272a text-#52525b text-2"
+                          >
                             —
                           </td>
                         </tr>
@@ -590,12 +1296,10 @@ export default function DB() {
                                     const lines = cellDisplayLines(raw);
                                     return (
                                       <td
-                                        style={{
-                                          minWidth: "10rem",
-                                          ...cellBreakStyle,
+                                        style={tdDataStyle({
                                           position: "relative",
                                           cursor: isPk ? "default" : "pointer",
-                                        }}
+                                        })}
                                         s="py-3 px-3 text-#e4e4e7 b-#27272a"
                                         click={(e) => {
                                           if (isPk) return;
@@ -673,13 +1377,31 @@ export default function DB() {
                                             <t s="text-2 text-#52525b">—</t>
                                           ) : lines.kind === "json" ? (
                                             <pre
-                                              s="text-2 text-#d4d4d8 m-0 font-mono whitespace-pre-wrap break-all max-h-40 overflow-auto"
-                                              style={cellBreakStyle}
+                                              s="text-2 text-#d4d4d8 m-0 font-mono"
+                                              style={{
+                                                whiteSpace: "pre",
+                                                maxHeight: "9rem",
+                                                overflow: "auto",
+                                                width: "100%",
+                                                minWidth: 0,
+                                              }}
+                                              title="Click to expand"
                                             >
                                               {lines.text}
                                             </pre>
                                           ) : (
-                                            <t s="text-2 text-#e4e4e7">
+                                            <t
+                                              s="text-2 text-#e4e4e7"
+                                              style={{
+                                                display: "block",
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                width: "100%",
+                                                maxWidth: "100%",
+                                              }}
+                                              title={lines.text}
+                                            >
                                               {lines.text}
                                             </t>
                                           )}
@@ -689,7 +1411,7 @@ export default function DB() {
                                   }}
                                 </For>
                                 <td
-                                  style={cellBreakStyle}
+                                  style={thActionsStyle()}
                                   s="py-3 px-3 b-#27272a"
                                 >
                                   <t
@@ -724,9 +1446,15 @@ export default function DB() {
                   </table>
                 </div>
               </div>
-          );
-        }}
-      </For>
-    </div>
+                      );
+                    }}
+                  </For>
+                </div>
+              </div>
+            );
+          }}
+        </For>
+      </div>
+    </>
   );
 }
