@@ -1,5 +1,6 @@
 import { For, server, state } from "client";
 import { data } from "..";
+import { TimePicker } from "../_components/time-picker";
 
 // IF RESOURCE HAVE ITS OWN HOURS USE IT, OTHERWISE USE THE GLOBAL HOURS
 export default function Resources() {
@@ -8,137 +9,165 @@ export default function Resources() {
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // GLOBAL HOURS
           // ────────────────────────────────────────────────────────────────────────────────── */}
-      <div s={{ base: "text-6 font-6", des: "ml-10vw b-2px b-secondary col gapy-1vh round-round px-1vw py-1vh mt-10vh mx-5vw" }}>
-        <t>ORARI GLOBALI</t>
+      <div
+        s={{
+          des: "relative  ml-10vw b-2px b-secondary col gapy-1vh round-round px-1vw py-1vh mt-10vh mx-5vw maxw-140rem  children-centerx",
+        }}
+      >
+        <t
+          s={{
+            des: "font-6 text-6 absolute -mt-2vh ml-1vw bg-background row children-center gapx-0.2vw px-0.5vw py-0.2vh round-round gapx-0.5vw",
+          }}
+        >
+          <icon name="clock" size="3" stroke={2.5} s={{ des: " right" }} />
+          ORARI
+        </t>
         {/* DAYS */}
-        <div s="row gapx-1vw mt-5vh children-center">
+        <div s="row gapx-0.8vw mt-2vh w-100% centerx children-centerx">
           <For each={week}>
-            {([day, name]) => (
-              <div s={{ base: "b-1px round-round b-#2a2a2a", des: "col gapy-0.3vh px-1.2vw py-1vh w-15%" }}>
-                <t s={{ des: "font-6" }}>{name}</t>
-                {/* HOURS */}
-                <div s={{ des: "col w-100% gapy-0.2vh mt-1vh" }}>
-                  <For
-                    each={() =>
-                      (data.openingHours() ?? []).filter(
-                        (o) => o.resourceId == null && o.dayOfWeek === day,
-                      )
-                    }
-                  >
-                    {(o) => {
-                      const startFocus = state(false);
-                      const endFocus = state(false);
-                      const rowHover = state(false);
-                      return (
-                        <div s="row w-100% children-centery centerx gapx-0.4vw" hover={rowHover}>
-                          <input
-                            type="time"
-                            s={{
-                              base: {
-                                "bg-transparent text-2 round-10px b-1px px-0.3vw py-0.2vh": true,
-                                "b-#2a2a2a": () => !startFocus(),
-                                "b-secondary": startFocus,
-                              },
-                            }}
-                            defaultValue={timeNoSeconds(o.startTime)}
-                            click={(ev: MouseEvent) => showTimePicker(ev.currentTarget as HTMLInputElement)}
-                            focus={(ev: FocusEvent) => {
-                              startFocus(true);
-                              showTimePicker(ev.currentTarget as HTMLInputElement);
-                            }}
-                            blur={async (value) => {
-                              startFocus(false);
-                              await server.booker.openingHourUpdate({ id: o.id, startTime: value });
-                            }}
-                          />
-                          <t s="text-2 opacity-50">–</t>
-                          <input
-                            type="time"
-                            s={{
-                              base: {
-                                "bg-transparent text-2 round-10px b-1px px-0.3vw py-0.2vh": true,
-                                "b-#2a2a2a": () => !endFocus(),
-                                "b-secondary": endFocus,
-                              },
-                            }}
-                            defaultValue={timeNoSeconds(o.endTime)}
-                            click={(ev: MouseEvent) => showTimePicker(ev.currentTarget as HTMLInputElement)}
-                            focus={(ev: FocusEvent) => {
-                              endFocus(true);
-                              showTimePicker(ev.currentTarget as HTMLInputElement);
-                            }}
-                            blur={async (value) => {
-                              endFocus(false);
-                              await server.booker.openingHourUpdate({ id: o.id, endTime: value });
-                            }}
-                          />
-                          <icon
-                            name="trash"
-                            size="3"
-                            show={rowHover}
-                            color="#fa0000"
-                            s={{
-                              base: {
-                                "duration-150": true,
-                              },
-                            }}
-                            click={async () => {
-                              await server.booker.openingHourDelete(
-                                { id: o.id },
-                                {
-                                  onSuccess: () => {
-                                    data((d) =>
-                                      d
-                                        ? {
-                                            ...d,
-                                            openingHours: (d.openingHours ?? []).filter((x) => x.id !== o.id),
-                                          }
-                                        : d,
-                                    );
-                                  },
-                                },
-                              );
-                            }}
-                          />
-                        </div>
-                      );
-                    }}
-                  </For>
-                </div>
-                {/* CREATE */}
+            {([day, name]) => {
+              const dayHover = state(false);
+              const hoursOfDay = () =>
+                (data.openingHours() ?? []).filter(
+                  (o) => o.resourceId == null && o.dayOfWeek === day,
+                );
+              const showPlus = () => dayHover() || hoursOfDay().length === 0;
+              return (
                 <div
+                  style={{ flex: "1 1 0", minWidth: 0 }}
+                  s={{
+                    base: "b-1px round-round b-#2a2a2a duration-200",
+                    des: "col gapy-0.3vh px-0.8vw py-1vh  maxw-16rem",
+                  }}
+                  hover={dayHover}
+                >
+                  <t s={{ des: "font-6 text-4" }}>{name}</t>
+                  {/* HOURS */}
+                  <div s={{ des: "col w-100% gapy-1vh mt-1vh " }}>
+                    <For each={hoursOfDay}>
+                      {(o) => {
+                        const rowHover = state(false);
+                        return (
+                          <div
+                            s="relative row w-100% children-centery children-centerx gapx-8px left children-left"
+                            hover={rowHover}
+                          >
+                            <TimePicker
+                              value={o.startTime}
+                              onChange={(value) =>
+                                server.booker.openingHourUpdate({ id: o.id, startTime: value })
+                              }
+                            />
+                            <t s="text-2 opacity-50">–</t>
+                            <TimePicker
+                              value={o.endTime}
+                              onChange={(value) =>
+                                server.booker.openingHourUpdate({ id: o.id, endTime: value })
+                              }
+                            />
+                            <icon
+                              name="trash"
+                              size="3"
+                              show={rowHover}
+                              color="#fa0000"
+                              s={{ base: { "duration-150 absolute right ": true } }}
+                              click={async () => {
+                                await server.booker.openingHourDelete(
+                                  { id: o.id },
+                                  {
+                                    onSuccess: () => {
+                                      data((d) =>
+                                        d
+                                          ? {
+                                              ...d,
+                                              openingHours: (d.openingHours ?? []).filter(
+                                                (x) => x.id !== o.id,
+                                              ),
+                                            }
+                                          : d,
+                                      );
+                                    },
+                                  },
+                                );
+                              }}
+                            />
+                          </div>
+                        );
+                      }}
+                    </For>
+                  </div>
+                  {/* CREATE — appare in hover sul day; sempre visibile se non ci sono orari */}
+                  <div
+                    style={{ overflow: "hidden" }}
                     s={{
-                      base: "text-2",
-                      des: "opacity-90 b-1px round-10px p-0.3vw cursor-pointer mt-2vh centerx children-center hover:(bg-secondary)",
-                    }}
-                    click={async () => {
-                      await server.booker.openingHourCreate(
-                        [{ dayOfWeek: day, startTime: "09:00:00", endTime: "18:00:00" }],
-                        {
-                          onSuccess: (res) => {
-                            data((d) =>
-                              d
-                                ? {
-                                    ...d,
-                                    openingHours: [...(d.openingHours ?? []), ...res.openingHours],
-                                  }
-                                : d,
-                            );
-                          },
-                        },
-                      );
+                      base: {
+                        "duration-200 ease": true,
+                        "maxh-10vh opacity-100 mt-2vh": showPlus,
+                        "maxh-0 opacity-0 mt-0": () => !showPlus(),
+                      },
                     }}
                   >
-                    <icon name="plus" size="3" />
+                    <div
+                      s={{
+                        base: "text-2",
+                        des: "opacity-90 b-1px round-10px p-0.3vw cursor-pointer centerx children-center hover:(bg-secondary)",
+                      }}
+                      click={async () => {
+                        await server.booker.openingHourCreate(
+                          [{ dayOfWeek: day, startTime: "09:00:00", endTime: "18:00:00" }],
+                          {
+                            onSuccess: (res) => {
+                              data((d) =>
+                                d
+                                  ? {
+                                      ...d,
+                                      openingHours: [
+                                        ...(d.openingHours ?? []),
+                                        ...res.openingHours,
+                                      ],
+                                    }
+                                  : d,
+                              );
+                            },
+                          },
+                        );
+                      }}
+                    >
+                      <icon name="plus" size="3" />
+                    </div>
                   </div>
-              </div>
-            )}
+                </div>
+              );
+            }}
+          </For>
+        </div>
+      </div>
+      {/* // ───────────────────────────────────────────────────────────────────────────────
+          // RESOURCES
+          // ────────────────────────────────────────────────────────────────────────────────── */}
+      <div s={{ des: "b-secondary b-2px col relative w-80vw round-round py-5vh centerx mt-10vh" }}>
+        {/* HEADER */}
+        <t
+          s={{
+            des: "font-6 text-6 absolute -mt-2vh ml-1vw bg-background row gapx-0.2vw px-0.5vw py-0.2vh round-round gapx-0.5vw",
+          }}
+        >
+          <icon name="clock" size="3" stroke={2.5} s={{ des: " right" }} />
+          ORARI
+        </t>
+        {/* RESOURCES */}
+        <div s={{ des: "col gapy-1vh px-0.8vw py-1vh  maxw-16rem" }}>
+          <For each={data.resources}>
+            {(resource) => {
+              return <div>{resource.name}</div>;
+            }}
           </For>
         </div>
       </div>
     </>
   );
 }
+
 // ───────────────────────────────────────────────────────────────────────────────
 // UTILS
 // ───────────────────────────────────────────────────────────────────────────────
@@ -151,19 +180,3 @@ const week = [
   ["saturday", "Sabato"],
   ["sunday", "Domenica"],
 ] as const;
-
-/** `09:00:00` → `09:00`; `09:30:00` → `09:30`; già `09:00` resta uguale. */
-function timeNoSeconds(t: string): string {
-  const p = t.trim().split(":");
-  if (p.length === 3 && p[2] === "00") return `${p[0]}:${p[1]}`;
-  return t;
-}
-
-/** Apre il time picker nativo via `showPicker()` (se supportato e in gesture utente). */
-function showTimePicker(el: HTMLInputElement): void {
-  try {
-    el.showPicker?.();
-  } catch {
-    /* NotAllowedError fuori dal gesture utente: ignora. */
-  }
-}

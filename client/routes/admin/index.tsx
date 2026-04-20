@@ -8,7 +8,7 @@ export default function BookerDemo() {
   return (
     <>
       <AdminMenu />
-      <switch value={tab}>
+      <switch value={tab()}>
         <case when="prenotations">
           <Prenotations />
         </case>

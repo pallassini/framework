@@ -105,7 +105,7 @@ export const items = table({
 const resourceOthers = v.object({});
 export const resources = table({
   name: v.string(),               // "Luisa", "Sala coperta", "Tavolo 7", "Sala yoga"
-  kind: v.string(),                // "operator" | "seats" | "table" | "room" | ...
+  kind: v.enum(["person", "space"]),
   capacity: v.number(),            // 1 per persona/tavolo, 80 per sala coperta, ecc.
   description: v.string().optional(),
   active: v.boolean(),             // soft-delete: false = dismessa
