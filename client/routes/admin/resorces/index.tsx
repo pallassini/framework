@@ -2,13 +2,13 @@ import { For, server, state } from "client";
 import type { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 import { data } from "..";
 import { TimePicker } from "../_components/time-picker";
+import Resource from "./resources";
 
 // IF RESOURCE HAVE ITS OWN HOURS USE IT, OTHERWISE USE THE GLOBAL HOURS
 export default function Resources() {
   const view = state("always");
   return (
     <>
-
       <div
         s={{
           base: "row centerx gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
@@ -161,30 +161,12 @@ export default function Resources() {
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // RESOURCES
           // ────────────────────────────────────────────────────────────────────────────────── */}
-<div s='left w-60 centerx'>
-      <Card title="Risorse" icon="users" s="mt-10 bg-background b-2 b-secondary">
-        <div s="row gapx-10 mt-5">
-          <Card title="Risorse" icon="users">
-            <div>
-              <For each={data.resources}>
-                {(resource) => {
-                  return <div>{resource.name}</div>;
-                }}
-              </For>
-            </div>
-          </Card>
-          <Card title="Risorse" icon="users">
-            <div>
-              <For each={data.resources}>
-                {(resource) => {
-                  return <div>{resource.name}</div>;
-                }}
-              </For>
-            </div>
-          </Card>
-        </div>
-      </Card>
-</div>
+
+    <Resource />
+    <Resource />
+    <Resource />
+    <Resource />
+    
     </>
   );
 }
@@ -198,25 +180,27 @@ type CardProps = {
   icon: Icon;
   children?: unknown;
   s?: any;
+  actions?: unknown;
 };
 
-function Card({ title, icon: iconName, children, s }: CardProps) {
+function Card({ title, icon: iconName, children, s, actions }: CardProps) {
   return (
     <div
       s={{
         base: {
-          "col w-100% round-round py-5 px-5 centerx bg-secondary": true,
+          "col w-100% round-round py-3 px-3 centerx bg-secondary": true,
           ...s,
         },
       }}
     >
       <div
         s={{
-          des: "font-6 text-6 row px-2 round-5px  gapx-2 children-centery",
+          des: "font-6 text-6 row px-2 round-5px  gapx-2 children-center",
         }}
       >
         <icon name={iconName} stroke={2.5} />
         <t>{title}</t>
+        <div s="right">{actions}</div>
       </div>
       {children}
     </div>

@@ -10,10 +10,13 @@ export default function BookerDemo() {
       <div s="row">
         {/* Niente `left` qui: con `left` il primo figlio usa margin-right:auto e “mangia” lo spazio → il fratello con `centerx` finisce incollato a destra invece che centrato nello spazio rimasto. */}
 
-        <AdminMenu />
+        {/* `self-start`: senza, il flex allunga il figlio alla stessa altezza del contenuto → il box sticky è alto come la pagina e non resta “incollato” in alto. */}
+        <div s="sticky top-0 self-start z-10">
+          <AdminMenu />
+        </div>
 
    
-      <div s='col w-100'>
+      <div s='col centerx w-100'>
          <div s='-pl-25'>
           <switch value={tab()}>
             <case when="prenotations">
