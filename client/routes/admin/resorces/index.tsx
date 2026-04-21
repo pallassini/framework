@@ -11,7 +11,7 @@ export default function Resources() {
 
       <div
         s={{
-          base: "row centerx children-center gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
+          base: "row centerx gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
         }}
       >
         <t>SEMPRE</t>
@@ -161,7 +161,7 @@ export default function Resources() {
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // RESOURCES
           // ────────────────────────────────────────────────────────────────────────────────── */}
-<div s='left'>
+<div s='left w-60 centerx'>
       <Card title="Risorse" icon="users" s="mt-10 bg-background b-2 b-secondary">
         <div s="row gapx-10 mt-5">
           <Card title="Risorse" icon="users">

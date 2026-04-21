@@ -7,12 +7,14 @@ export const data = state(server.booker.getAllAdmin());
 export default function BookerDemo() {
   return (
     <>
-      <div s="row w-100 relative">
+      <div s="row">
         {/* Niente `left` qui: con `left` il primo figlio usa margin-right:auto e “mangia” lo spazio → il fratello con `centerx` finisce incollato a destra invece che centrato nello spazio rimasto. */}
 
         <AdminMenu />
 
-        <div s="col">
+   
+      <div s='col w-100'>
+         <div s='-pl-25'>
           <switch value={tab()}>
             <case when="prenotations">
               <Prenotations />
@@ -24,7 +26,9 @@ export default function BookerDemo() {
               <Resources />
             </case>
           </switch>
-        </div>
+      
+         </div>
+      </div>
       </div>
     </>
   );
