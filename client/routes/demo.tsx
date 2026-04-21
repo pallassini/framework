@@ -119,9 +119,23 @@ function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       if (!entry) return;
-      const r = entry.contentRect;
-      setW(Math.ceil(r.width));
-      setH(Math.ceil(r.height));
+      /**
+       * Usa borderBoxSize se disponibile: include padding+border (corretto per shell con box-sizing border-box).
+       * Fallback a offsetWidth/Height (anch'essi border-box).
+       */
+      const target = entry.target as HTMLElement;
+      const bb = entry.borderBoxSize;
+      let w: number;
+      let h: number;
+      if (bb && bb.length > 0) {
+        w = bb[0].inlineSize;
+        h = bb[0].blockSize;
+      } else {
+        w = target.offsetWidth;
+        h = target.offsetHeight;
+      }
+      setW(Math.ceil(w));
+      setH(Math.ceil(h));
     });
     ro.observe(el as Element);
     return () => ro.disconnect();
@@ -137,6 +151,7 @@ const measureHostStyle: Record<string, string> = {
   visibility: "hidden",
   pointerEvents: "none",
   zIndex: "-1",
+  boxSizing: "border-box",
 };
 
 /** Rileva utenti con `prefers-reduced-motion`. Se true, le animazioni sono istantanee. */
@@ -187,6 +202,9 @@ export function Popmenu(props: PopmenuProps) {
 
   ensureBounceKeyframe();
   const open = state(false);
+  /** Dimensioni naturali della barra di conferma (misurate fuori dal flusso). */
+  const confW = state(0);
+  const confH = state(0);
   const pressed = state(false);
   const confirming = state(false);
   /** Contatore di bounce: ogni trigger incrementa e fa ri-partire l'animazione anche se già in corso. */
@@ -303,8 +321,17 @@ export function Popmenu(props: PopmenuProps) {
 
   const boxStyle = () => {
     const isOpen = open();
-    const w = isOpen ? ew() : cw();
-    const h = isOpen ? eh() : ch();
+    const isConfirming = confirming();
+    /**
+     * Se la conferma è aperta, la shell si espande al max fra extended e conferma:
+     * evita che pulsanti/testo vengano tagliati quando l'extended è piccolo.
+     */
+    const w = isOpen
+      ? (isConfirming ? Math.max(ew(), confW()) : ew())
+      : cw();
+    const h = isOpen
+      ? (isConfirming ? Math.max(eh(), confH()) : eh())
+      : ch();
     const ready = w > 0 && h > 0;
     const pos = isOpen ? openPos : closedPos;
     const d = isOpen ? D_OPEN : D_CLOSE;
@@ -398,8 +425,12 @@ export function Popmenu(props: PopmenuProps) {
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "center",
-    padding: "18px 16px 16px",
-    gap: "16px",
+    paddingTop: "28px",
+    paddingRight: "20px",
+    paddingBottom: "24px",
+    paddingLeft: "20px",
+    boxSizing: "border-box",
+    gap: "20px",
     background: "rgba(10, 10, 12, 0.48)",
     backdropFilter: "blur(14px) saturate(160%)",
     WebkitBackdropFilter: "blur(14px) saturate(160%)",
@@ -435,7 +466,7 @@ export function Popmenu(props: PopmenuProps) {
 
   const btnStyle = (variant: "yes" | "no"): Record<string, string> => ({
     flex: "1",
-    padding: "12px 16px",
+    padding: "14px 18px",
     borderRadius: "14px",
     cursor: "pointer",
     fontWeight: "600",
@@ -493,6 +524,38 @@ export function Popmenu(props: PopmenuProps) {
     if (hoverOut && open()) open(false);
   };
 
+  /**
+   * Factory per il contenuto della conferma (messaggio + pulsanti) usato sia nel
+   * measure host (per misurare dimensione naturale) sia nell'overlay renderizzato.
+   */
+  const renderConfirmContent = () => (
+    <>
+      <div style={confirmMessageStyle as any}>{confirmMessage}</div>
+      <div style={confirmButtonsRowStyle as any}>
+        <div style={btnStyle("no") as any}>{confirmNo}</div>
+        <div style={btnStyle("yes") as any}>{confirmYes}</div>
+      </div>
+    </>
+  );
+
+  /**
+   * Stile del measure host della conferma: replica il layout dell'overlay
+   * (flex-column + gap + padding) ma dimensione `max-content` per misurare la size naturale.
+   */
+  const confirmMeasureHostStyle: Record<string, string> = {
+    ...measureHostStyle,
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+    paddingTop: "28px",
+    paddingRight: "20px",
+    paddingBottom: "24px",
+    paddingLeft: "20px",
+    boxSizing: "border-box",
+    /** Un minWidth aiuta i pulsanti flex:1 ad avere una size "realistica" quando misurati. */
+    minWidth: "240px",
+  };
+
   return (
     <div style={wrapStyle as any}>
       <div ref={observeSize(cw, ch)} style={measureHostStyle as any}>
@@ -501,6 +564,12 @@ export function Popmenu(props: PopmenuProps) {
       <div ref={observeSize(ew, eh)} style={measureHostStyle as any}>
         {extended()}
       </div>
+      {/* Measure host per la conferma: calcola la size naturale richiesta dall'overlay. */}
+      {confirmCollapsed ? (
+        <div ref={observeSize(confW, confH)} style={confirmMeasureHostStyle as any}>
+          {renderConfirmContent()}
+        </div>
+      ) : null}
 
       {/* Backdrop fullscreen: intercetta click fuori dalla shell in modo affidabile (mobile + desktop). */}
       <div

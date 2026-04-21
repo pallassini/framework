@@ -20,15 +20,12 @@ export default function Resource() {
                   hoverIn={false}
                   hoverOut={false}
                   autofocus={true}
-                  confirmCollapsed={true}
-                  s="bg-#2e2e2e round-20px"
-                  collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
+                 s="bg-#e8e8e8 round-20px"
+                  collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2 text-background " />}
                   extended={() => (
                     <div s="col gapy-2 px-4 py-3 ">
-                      <t s="text-4">Ciao</t>
-                      <t s="text-4">Ciao ciao</t>
-                      <t s="text-4">Ciao ciao ciao</t>
-                      <input></input>
+                    
+                      <input s="w-3"></input>
                     </div>
                   )}
                 />
