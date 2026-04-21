@@ -638,7 +638,7 @@ function stepToCss(step: KeyframeStep): string[] {
 const KEYFRAME_COLORS = new Set(["red", "white", "black", "blue", "green", "gray", "grey", "transparent"]);
 
 function isValidSpacingCssSuffix(s: string): boolean {
-	return isSpacingKeyword(s) || CSS_LENGTH_RE.test(s) || isCssVarToken(s) || /^base-\d+$/.test(s);
+	return isSpacingKeyword(s) || CSS_LENGTH_RE.test(s) || isCssVarToken(s) || /^base-\d+(?:\.\d+)?$/.test(s);
 }
 
 /** Margini tipo token `s` (`mt-50vh`, `mb-0`) → proprietà camelCase per `stepToCss`. */

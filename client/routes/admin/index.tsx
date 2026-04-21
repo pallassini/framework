@@ -10,7 +10,7 @@ export default function BookerDemo() {
       <div s="row children-top">
         {/* Niente `left` qui: con `left` il primo figlio usa margin-right:auto e “mangia” lo spazio → il fratello con `centerx` finisce incollato a destra invece che centrato nello spazio rimasto. */}
 
-        <div s="sticky z-10">
+        <div s="sticky">
           <AdminMenu />
         </div>
 

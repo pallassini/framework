@@ -8,6 +8,7 @@ import type { StyleInput } from "../../../style";
 import { id } from "./id";
 import { s, hover } from "./style";
 import { show } from "./show";
+import { clickout } from "./clickout";
 import { CLIENT_EVENT_NAMES, eventAppliers } from "./events";
 import type { HoverProp } from "./hover";
 
@@ -47,6 +48,11 @@ export type SharedProps = ClientEvents & {
 	 * I branch viewport sono signal: usa `mob()`, `show={!mob()}`, `show={() => device() === "mob"}`, ecc. (`!mob` da solo è sempre falso: `mob` è una funzione).
 	 */
 	show?: unknown;
+	/**
+	 * Click (mousedown, fase capture) fuori da questo elemento → handler.
+	 * L’elemento che ha la prop è il confine “dentro”; figli inclusi. `false`/`null` = disattiva.
+	 */
+	clickout?: ((e: MouseEvent) => void | Promise<void>) | false | null;
 	[key: string]: unknown;
 };
 
@@ -56,6 +62,7 @@ export const props = {
 	s,
 	hover,
 	show,
+	clickout,
 } as const satisfies Record<string, DomPropApplier>;
 
 export { CLIENT_EVENT_NAMES };
