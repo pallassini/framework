@@ -9,8 +9,18 @@ export const FIELD_TYPE = Symbol.for("framework.db.fieldType");
 
 /** Descrittore serializzabile del tipo di un campo. */
 export type FieldTypeDesc =
-	| { kind: "string" }
-	| { kind: "number" }
+	| { kind: "string"; min?: number; max?: number }
+	| {
+			kind: "number";
+			/** Catturato da `.min(n, ...)` e `.nonnegative()` (= 0). */
+			min?: number;
+			/** Catturato da `.max(n, ...)` e `.nonpositive()` (= 0). */
+			max?: number;
+			/** `true` se lo schema ha `.int()`: la UI non permetterà decimali. */
+			int?: boolean;
+			/** Catturato da `.step(n, ...)`. */
+			step?: number;
+	  }
 	| { kind: "boolean" }
 	| { kind: "datetime" }
 	| { kind: "date" }

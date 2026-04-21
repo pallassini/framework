@@ -55,6 +55,17 @@ export const CLIENT_EVENT_NAMES = [
 	"touchstart",
 	"touchend",
 	"touchmove",
+	/**
+	 * Pointer events: unificano mouse+touch+pen in un singolo stream. Preferire
+	 * rispetto a `mousedown`/`touchstart` quando servono gesture (long-press,
+	 * drag, stepper auto-repeat): evitano il double-fire su dispositivi ibridi.
+	 */
+	"pointerdown",
+	"pointerup",
+	"pointermove",
+	"pointercancel",
+	"pointerenter",
+	"pointerleave",
 ] as const satisfies readonly (keyof HTMLElementEventMap)[];
 
 type ClientEventName = (typeof CLIENT_EVENT_NAMES)[number];

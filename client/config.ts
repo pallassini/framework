@@ -109,4 +109,49 @@ export const clientConfig = {
       },
     },
   },
+
+  /**
+   * Scala dimensionale coerente per il componente `<Input>` (e affini).
+   * Ogni chiave 1..10 mappa le grandezze in `rem` per i 3 viewport (`mob`, `tab`, `des`).
+   * - `font`: font size del testo dell'input
+   * - `padX`/`padY`: padding interno del box
+   * - `radius`: border-radius del box
+   * - `labelFloating`: font size della label quando "flotta" sul bordo superiore
+   * L'`<Input>` legge queste misure via `useViewport()` (o equivalente) e applica
+   * la variante corretta su mobile/tablet/desktop senza hard-coding nel componente.
+   */
+  /**
+   * Proporzioni coerenti con la scala del framework: `mob = 75%`, `tab = 87.5%`,
+   * `des = 100%` (stessa regola di `buildBaseScaleMap`). Così su mobile gli input
+   * sono realmente più compatti senza override manuali.
+   */
+  input: (() => {
+    /** Base (100% = des) per size 1..10, poi scalata per mob/tab. */
+    const base: Record<string, { font: number; padX: number; padY: number; radius: number; labelFloating: number }> = {
+      "1": { font: 0.8125, padX: 0.65, padY: 0.55, radius: 0.55, labelFloating: 0.7 },
+      "2": { font: 0.875, padX: 0.7, padY: 0.6, radius: 0.6, labelFloating: 0.74 },
+      "3": { font: 0.9375, padX: 0.8, padY: 0.7, radius: 0.65, labelFloating: 0.8 },
+      "4": { font: 1, padX: 0.9, padY: 0.78, radius: 0.7, labelFloating: 0.84 },
+      "5": { font: 1.0625, padX: 1, padY: 0.86, radius: 0.75, labelFloating: 0.88 },
+      "6": { font: 1.125, padX: 1.1, padY: 0.94, radius: 0.8, labelFloating: 0.92 },
+      "7": { font: 1.25, padX: 1.2, padY: 1.02, radius: 0.85, labelFloating: 0.96 },
+      "8": { font: 1.375, padX: 1.3, padY: 1.1, radius: 0.9, labelFloating: 1 },
+      "9": { font: 1.5, padX: 1.4, padY: 1.2, radius: 0.95, labelFloating: 1.06 },
+      "10": { font: 1.75, padX: 1.55, padY: 1.32, radius: 1.05, labelFloating: 1.14 },
+    };
+    const rem = (n: number): string => `${Number(n.toFixed(4))}rem`;
+    const row = (k: string) => {
+      const b = base[k];
+      return {
+        font: { mob: rem(b.font * 0.75), tab: rem(b.font * 0.875), des: rem(b.font) },
+        padX: { mob: rem(b.padX * 0.75), tab: rem(b.padX * 0.875), des: rem(b.padX) },
+        padY: { mob: rem(b.padY * 0.75), tab: rem(b.padY * 0.875), des: rem(b.padY) },
+        radius: { mob: rem(b.radius * 0.75), tab: rem(b.radius * 0.875), des: rem(b.radius) },
+        labelFloating: { mob: rem(b.labelFloating * 0.75), tab: rem(b.labelFloating * 0.875), des: rem(b.labelFloating) },
+      };
+    };
+    const out: Record<string, ReturnType<typeof row>> = {};
+    for (const k of Object.keys(base)) out[k] = row(k);
+    return out;
+  })(),
 };

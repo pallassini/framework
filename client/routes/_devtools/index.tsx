@@ -6,8 +6,8 @@ export default function MenuDevtools() {
   return (
     <div s="mt-10vh">
       <switch value={persistState.devtools.menu}>
-        <case when="db">{() => <DB />}</case>
-        <case when="state">{() => <State />}</case>
+        <case when="db"><DB /></case>
+        <case when="state"><State /></case>
       </switch>
     </div>
   );

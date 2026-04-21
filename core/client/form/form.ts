@@ -4,6 +4,7 @@ import type { StateMap } from "../state/utils/store";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../state/utils/store";
 import { ValidationError, type InferSchema, type InputSchema } from "../validator/properties/defs";
 import { v } from "../validator/index";
+import { FIELD_OPTIONAL, readFieldType, type FieldTypeDesc } from "../validator/field-meta";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 export type FormStorage = "session" | "persist";
@@ -12,7 +13,37 @@ export type FieldBinding = { readonly field: string };
 export type FormFieldController = {
 	get(): string;
 	set(v: string): void;
+	/**
+	 * Setter "tipato": accetta qualsiasi valore grezzo (es. `number` da un input
+	 * custom) e lo scrive direttamente nella signal **senza stringificarlo**.
+	 * Utile per UI dedicate (es. InputNumber custom che lavora in `number`).
+	 */
+	setRaw(v: unknown): void;
 	validate(): void;
+	/**
+	 * Messaggio d'errore reattivo per questo campo (o `undefined` se valido).
+	 * Legge direttamente la state-map `errors` del form, quindi le UI che lo
+	 * richiamano si aggiornano automaticamente senza bisogno di passare `error`
+	 * esplicitamente all'`<Input>`.
+	 */
+	error(): string | undefined;
+	/**
+	 * `true` se lo schema del campo è marcato `.optional()`. Le UI lo usano per
+	 * mostrare automaticamente un'etichetta "opzionale" (niente da passare a mano).
+	 */
+	optional(): boolean;
+	/**
+	 * Colore di sfondo del contenitore (es. bg del Popmenu/Card che ospita il form),
+	 * impostato una volta sola su `Form({...})` e propagato a tutti gli `<Input>`
+	 * tramite `field`. Le UI lo usano per "tagliare" il bordo con la label/errore.
+	 */
+	bg(): string | undefined;
+	/**
+	 * Metadati del tipo dello schema (catturati dal validator, es. `.min()/.max()/
+	 * .int()/.step()`). Le UI degli `<Input>` li usano per derivare automaticamente
+	 * i constraint da `v.number().min(1).max(100)` senza dover ripetere le prop.
+	 */
+	meta(): FieldTypeDesc | undefined;
 };
 
 type InferObject<S extends Record<string, InputSchema<unknown>>> = {
@@ -23,6 +54,18 @@ export type FormApi<Shape extends Record<string, InputSchema<unknown>>> = {
 	values(): InferObject<Shape>;
 	reset(): void;
 	errors: StateMap<{ [K in keyof Shape]: string | undefined }>;
+	/**
+	 * `true` se tutti i campi del form sono validi rispetto ai rispettivi schemi.
+	 * Reattiva: legge i signal dei valori e può essere usata direttamente in stili,
+	 * `disabled`, `class`, ecc. (es. `disabled={() => !form.valid()}`).
+	 */
+	valid(): boolean;
+	/**
+	 * Helper di submit: valida tutti i campi, se OK chiama `handler(values)` (può essere
+	 * async) e ritorna la Promise del risultato. Se non valido, aggiorna gli `errors`
+	 * e ritorna `undefined` senza chiamare l'handler.
+	 */
+	submit<R>(handler: (values: InferObject<Shape>) => R | Promise<R>): Promise<R | undefined>;
 } & { [K in keyof Shape]: FieldBinding };
 
 // ── internals ─────────────────────────────────────────────────────────────────
@@ -34,7 +77,16 @@ export function resolveFieldBinding(b: FieldBinding): FormFieldController {
 	return c;
 }
 
+/**
+ * Default per uno schema al boot del form.
+ * - `number` → `undefined` (campo vuoto, così nessun "0" pre-digitato e nessun
+ *   errore "expected number" prima che l'utente scriva).
+ * - altri → prima candidato che soddisfa lo schema fra `""`, `0`, `false`; se
+ *   nessuno passa fallback a `""` (rimane "vuoto" lato UI).
+ */
 function defaultForSchema(s: InputSchema<unknown>): unknown {
+	const ft = readFieldType(s);
+	if (ft?.kind === "number") return undefined;
 	for (const cand of ["", 0, false] as const) {
 		try {
 			return s.parse(cand);
@@ -43,6 +95,26 @@ function defaultForSchema(s: InputSchema<unknown>): unknown {
 		}
 	}
 	return "";
+}
+
+/**
+ * Coerce a string value coming from a DOM `<input>` into the runtime type
+ * expected by the schema. Used by the controller `set(string)` so that schemas
+ * like `v.number()` receive a `number` (not `"3"`) and don't fail with
+ * "expected number" during validation/submit.
+ */
+function coerceForSchema(s: InputSchema<unknown>, raw: string): unknown {
+	const ft = readFieldType(s);
+	if (ft?.kind === "number") {
+		if (raw === "") return undefined;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : raw;
+	}
+	if (ft?.kind === "boolean") {
+		if (raw === "") return undefined;
+		return raw === "true" || raw === "1";
+	}
+	return raw;
 }
 
 // ── fingerprint + storage keys ────────────────────────────────────────────────
@@ -140,8 +212,14 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	 * entrambi con `{email, password}`). Opzionale: se omessa usa il fingerprint automatico.
 	 */
 	id?: string;
+	/**
+	 * Colore di sfondo del contenitore che ospita il form (es. bg del Popmenu/Card).
+	 * Viene propagato automaticamente a tutti gli `<Input field={...}>` per permettere
+	 * a label/errore di "tagliare" il bordo del box senza doverlo ripetere su ogni Input.
+	 */
+	bg?: string;
 }): FormApi<Shape> {
-	const { shape, storage = null } = options;
+	const { shape, storage = null, bg } = options;
 	const keys = Object.keys(shape) as (keyof Shape & string)[];
 
 	const defaults: Record<string, unknown> = {};
@@ -204,20 +282,63 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		}
 	}
 
-	const out: Record<string, unknown> = { values: valuesAll, reset, errors };
+	/**
+	 * Reattiva: tenta di parsare tutti i campi col proprio schema senza scrivere
+	 * gli errors (così non causa render loop). Invocando i signal dei valori,
+	 * qualsiasi watcher/stile che chiami `valid()` si ri-esegue al cambio valori.
+	 */
+	function valid(): boolean {
+		for (const k of keys) {
+			const sub = shape[k as keyof Shape] as InputSchema<unknown>;
+			const raw = (values as Record<string, ValueSig>)[k]();
+			try {
+				sub.parse(raw);
+			} catch {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	async function submit<R>(
+		handler: (values: InferObject<Shape>) => R | Promise<R>,
+	): Promise<R | undefined> {
+		for (const k of keys) validateField(k);
+		let parsed: InferObject<Shape>;
+		try {
+			parsed = valuesAll();
+		} catch {
+			return undefined;
+		}
+		return await handler(parsed);
+	}
+
+	const out: Record<string, unknown> = { values: valuesAll, reset, errors, valid, submit };
 
 	for (const k of keys) {
 		const binding: FieldBinding = { field: k };
+		/** Verifica se lo schema del campo è marcato `.optional()` (tag Symbol). */
+		const sub = shape[k] as unknown as Record<PropertyKey, unknown>;
+		const isOptional = sub != null && (sub as Record<symbol, unknown>)[FIELD_OPTIONAL] === true;
+		const subSchema = shape[k] as InputSchema<unknown>;
 		ctlByBinding.set(binding, {
 			get: () => {
 				const v0 = (values as Record<string, ValueSig>)[k]();
 				return v0 == null ? "" : String(v0);
 			},
 			set: (s: string) => {
-				(values as Record<string, ValueSig>)[k](s);
+				(values as Record<string, ValueSig>)[k](coerceForSchema(subSchema, s));
+				validateField(k);
+			},
+			setRaw: (raw: unknown) => {
+				(values as Record<string, ValueSig>)[k](raw);
 				validateField(k);
 			},
 			validate: () => validateField(k),
+			error: () => (errors as Record<string, ValueSig>)[k]() as string | undefined,
+			optional: () => isOptional,
+			bg: () => bg,
+			meta: () => readFieldType(subSchema),
 		});
 		out[k] = binding;
 	}

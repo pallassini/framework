@@ -513,7 +513,24 @@ export default function Popmenu(props: PopmenuProps) {
     requestClose();
   };
 
-  const onPressDown = () => pressed(true);
+  /**
+   * Press scale: scatta per il tap sulla shell/collapsed, ma NON se il tap parte
+   * da un elemento interattivo INTERNO (input, textarea, select, button,
+   * [contenteditable], [role=button], o qualsiasi elemento con `click` registrato
+   * dal framework → `[data-fw-click]`). La shell stessa ha `click={...}` e quindi
+   * ha `data-fw-click`: la escludiamo esplicitamente dal match.
+   */
+  const INTERACTIVE_SELECTOR =
+    "input, textarea, select, button, [contenteditable='true'], [role='button'], [data-fw-click]";
+  const onPressDown = (ev: Event) => {
+    const target = ev.target as Element | null;
+    if (target && target.closest) {
+      const hit = target.closest(INTERACTIVE_SELECTOR) as HTMLElement | null;
+      /** Se il primo ancestor interattivo è la shell stessa, va bene: press-scale ok. */
+      if (hit && hit !== shellEl) return;
+    }
+    pressed(true);
+  };
   const onPressUp = () => pressed(false);
   const onMouseEnter = () => {
     if (hoverIn) requestOpen();

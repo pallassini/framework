@@ -88,8 +88,18 @@ export function input(props: InputProps): UiNode {
 	if (pattern != null) el.pattern = pattern;
 
 	const restWithValueHandlers = { ...rest } as Record<string, unknown>;
+	/**
+	 * Estrae l'handler utente `input` (lowercase) se presente: lo gestiamo a parte
+	 * perché deve essere mergiato con `ctl.set` quando c'è `bind`, ed in ogni caso
+	 * riceve come primo argomento il valore stringa (non l'Event).
+	 */
+	const userInputLower = restWithValueHandlers["input"] as
+		| ((value: string, ev: Event) => void)
+		| undefined;
+	delete restWithValueHandlers["input"];
+
 	for (const name of VALUE_EVENT_PROPS) {
-		if (name === "input") continue; // gestito a parte sotto (anche per `bind`)
+		if (name === "input") continue; // gestito a parte sopra / sotto
 		if (name in restWithValueHandlers) {
 			restWithValueHandlers[name] = wrapValueHandler(el, restWithValueHandlers[name]);
 		}
@@ -104,21 +114,38 @@ export function input(props: InputProps): UiNode {
 			const v = (ev.target as HTMLInputElement).value;
 			ctl.set(v);
 			userOnInput?.(v, ev);
+			userInputLower?.(v, ev);
 		};
 		applyDomProps(el, {
 			...restWithValueHandlers,
 			children: undefined,
-			onInput: mergedOnInput,
+			/**
+			 * Chiave `input` (lowercase) perché il framework registra gli eventi in
+			 * `CLIENT_EVENT_NAMES` come `"input"`, `"change"`, ecc. — non `onInput`.
+			 */
+			input: mergedOnInput,
 		} as DomProps);
 		watch(() => {
 			const v = ctl.get();
 			if (el.value !== v) el.value = v;
 		});
 	} else {
+		/**
+		 * Senza `bind`: accetto sia `onInput` (camelCase framework legacy) sia `input`
+		 * (lowercase stile JSX nativo del framework). Se entrambi presenti chiamo
+		 * prima camelCase, poi lowercase.
+		 */
+		const combined = userInputLower || onInput
+			? (ev: HTMLElementEventMap["input"]): void => {
+					const v = (ev.target as HTMLInputElement).value;
+					(onInput as ((v: string, ev: Event) => void) | undefined)?.(v, ev);
+					userInputLower?.(v, ev);
+				}
+			: undefined;
 		applyDomProps(el, {
 			...restWithValueHandlers,
 			children: undefined,
-			onInput: wrapValueHandler(el, onInput),
+			input: combined,
 		} as DomProps);
 		if (value !== undefined) el.value = String(value);
 		else if (defaultValue !== undefined) el.defaultValue = String(defaultValue);

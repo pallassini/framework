@@ -317,7 +317,9 @@ function transformCaseJsxElement(
 	if (bodyExpr == null) return caseNode;
 
 	let nextChildren = bodyExpr;
-	if (!eager) nextChildren = wrapChildrenLazy(factory, bodyExpr);
+	if (!eager && !isZeroArityFunction(bodyExpr)) {
+		nextChildren = wrapChildrenLazy(factory, bodyExpr);
+	}
 	nextChildren = deepTransformSwitchesInExpr(factory, context, nextChildren);
 
 	const newAttrs = setJsxChildrenAttribute(factory, opening.attributes, nextChildren, true);
