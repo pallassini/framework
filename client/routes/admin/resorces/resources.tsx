@@ -16,8 +16,9 @@ export default function Resource() {
               actions={
                 <Popmenu
                   direction="bottom"
-                  collapsed={() => <icon name="plus" size="6" s="p-1" stroke={3} />}
-                  extended={() => <div s=" bg-#002fff w-20 h-20"><t>ciao</t></div>}
+                  s="bg-background round-20px"
+                  collapsed={() => <icon name="plus" size="6" s="p-1 bg-background " stroke={3} />}
+                  extended={() => <div s="  w-20 h-20"><t>ciao</t></div>}
                 />
               }
             >

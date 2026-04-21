@@ -155,12 +155,20 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
     height: `${ch()}px`,
   });
 
+  /** iOS-like: spring-ish per apertura (decelera morbido), più secco in chiusura. */
+  const EASE_OPEN = "cubic-bezier(0.32, 0.72, 0, 1)";
+  const EASE_CLOSE = "cubic-bezier(0.4, 0.0, 0.2, 1)";
+  const D_OPEN = 420;
+  const D_CLOSE = 260;
+
   const boxStyle = () => {
     const isOpen = open();
     const w = isOpen ? ew() : cw();
     const h = isOpen ? eh() : ch();
     const ready = w > 0 && h > 0;
     const pos = isOpen ? openPos : closedPos;
+    const d = isOpen ? D_OPEN : D_CLOSE;
+    const e = isOpen ? EASE_OPEN : EASE_CLOSE;
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
@@ -168,8 +176,16 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
       cursor: "pointer",
       overflow: "hidden",
       opacity: ready ? "1" : "0",
+      willChange: "width, height, transform, opacity",
       transition:
-        "width 300ms cubic-bezier(0.2, 0.8, 0.2, 1), height 300ms cubic-bezier(0.2, 0.8, 0.2, 1), top 300ms cubic-bezier(0.2, 0.8, 0.2, 1), left 300ms cubic-bezier(0.2, 0.8, 0.2, 1), right 300ms cubic-bezier(0.2, 0.8, 0.2, 1), bottom 300ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 150ms linear",
+        `width ${d}ms ${e}, ` +
+        `height ${d}ms ${e}, ` +
+        `top ${d}ms ${e}, ` +
+        `left ${d}ms ${e}, ` +
+        `right ${d}ms ${e}, ` +
+        `bottom ${d}ms ${e}, ` +
+        `transform ${d}ms ${e}, ` +
+        `opacity 180ms linear`,
     };
     if (pos.styles.top != null) st.top = pos.styles.top;
     if (pos.styles.bottom != null) st.bottom = pos.styles.bottom;
@@ -180,17 +196,25 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
   };
 
   /**
-   * Slot: dimensione naturale fissa. Pinnato dallo STESSO lato in cui è ancorata la shell
-   * (lato opposto alla direzione di espansione). Così il contenuto si rivela dal punto fisso
-   * e "esce" verso la direzione di espansione, senza reflow.
+   * Slot: dimensione naturale fissa, posizionato in base alla direzione.
+   * Opacity con delay: il contenuto nuovo appare **dopo** che la shell ha iniziato a crescere,
+   * e quello vecchio sparisce **prima**. Effetto premium "forma prima, contenuto dopo".
    */
   const slotStyle = (w: () => number, h: () => number, visible: () => boolean) => (): Record<string, string> => {
+    const isOpen = open();
+    const d = isOpen ? D_OPEN : D_CLOSE;
+    /** Il contenuto visibile appare a ~35% dell'animazione; quello che esce sparisce nel primo ~25%. */
+    const inDelay = Math.round(d * 0.35);
+    const outDur = Math.round(d * 0.25);
+    const inDur = Math.round(d * 0.45);
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w()}px`,
       height: `${h()}px`,
       opacity: visible() ? "1" : "0",
-      transition: "opacity 150ms linear",
+      transition: visible()
+        ? `opacity ${inDur}ms linear ${inDelay}ms`
+        : `opacity ${outDur}ms linear 0ms`,
       pointerEvents: visible() ? "auto" : "none",
     };
     if (direction === "center") {
