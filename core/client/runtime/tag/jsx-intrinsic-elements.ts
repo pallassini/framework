@@ -11,6 +11,8 @@ import type { CaseProps } from "./tags/switch/case";
 import type { ImgProps } from "./tags/img";
 import type { VideoProps } from "./tags/video";
 import type { InputProps } from "./tags/input";
+import type { SelectProps } from "./tags/select";
+import type { TextareaProps } from "./tags/textarea";
 import type { IconProps } from "./tags/icon";
 
 export interface FrameworkIntrinsicElements {
@@ -33,6 +35,9 @@ export interface FrameworkIntrinsicElements {
 	img: ImgProps;
 	video: VideoProps;
 	input: InputProps;
+	select: SelectProps;
+	textarea: TextareaProps;
+	option: SharedProps;
 	/** SVG nativo (icone inline devtools, ecc.). */
 	svg: SharedProps;
 	path: SharedProps;

@@ -6,6 +6,20 @@ import { ensureInjected } from "./inject";
 import { CSS_LENGTH_RE, isCssVarToken, isSpacingKeyword } from "../properties/utils/units";
 import { fwAnimateDebugLog } from "./debug-log";
 
+/**
+ * Stima ms per timer / catene quando la durata effettiva è `var(--duration)` da `client/index.css` `:root`.
+ * Deve combaciare col valore di default di `--duration` lì definito.
+ */
+export const DEFAULT_DURATION_MS_ESTIMATE = 300;
+
+const FW_DURATION_CSS = "var(--duration)" as const;
+
+export type AnimationLayerDuration = number | typeof FW_DURATION_CSS;
+
+function fmtAnimationDuration(d: AnimationLayerDuration): string {
+	return d === FW_DURATION_CSS ? d : `${d}ms`;
+}
+
 function summarizeAnimateSegment(c: AnimatePreset | AnimateConfig): string {
 	if (typeof c === "string") return `preset:${c}`;
 	const o = c as AnimateConfig;
@@ -125,20 +139,20 @@ const BUNDLED_KEYFRAMES = `
 @keyframes fw-zoom-in{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
 @keyframes fw-zoom-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(0.9)}}
 
-.fw-in-fade{animation:fw-fade-in 200ms ease-out forwards}
-.fw-out-fade{animation:fw-fade-out 200ms ease-in forwards}
-.fw-in-slide-up{animation:fw-slide-up-in 200ms ease-out forwards}
-.fw-out-slide-up{animation:fw-slide-up-out 200ms ease-in forwards}
-.fw-in-slide-down{animation:fw-slide-down-in 200ms ease-out forwards}
-.fw-out-slide-down{animation:fw-slide-down-out 200ms ease-in forwards}
-.fw-in-slide-left{animation:fw-slide-left-in 200ms ease-out forwards}
-.fw-out-slide-left{animation:fw-slide-left-out 200ms ease-in forwards}
-.fw-in-slide-right{animation:fw-slide-right-in 200ms ease-out forwards}
-.fw-out-slide-right{animation:fw-slide-right-out 200ms ease-in forwards}
-.fw-in-scale{animation:fw-scale-in 200ms ease-out forwards}
-.fw-out-scale{animation:fw-scale-out 200ms ease-in forwards}
-.fw-in-zoom{animation:fw-zoom-in 200ms ease-out forwards}
-.fw-out-zoom{animation:fw-zoom-out 200ms ease-in forwards}
+.fw-in-fade{animation:fw-fade-in var(--duration) ease-out forwards}
+.fw-out-fade{animation:fw-fade-out var(--duration) ease-in forwards}
+.fw-in-slide-up{animation:fw-slide-up-in var(--duration) ease-out forwards}
+.fw-out-slide-up{animation:fw-slide-up-out var(--duration) ease-in forwards}
+.fw-in-slide-down{animation:fw-slide-down-in var(--duration) ease-out forwards}
+.fw-out-slide-down{animation:fw-slide-down-out var(--duration) ease-in forwards}
+.fw-in-slide-left{animation:fw-slide-left-in var(--duration) ease-out forwards}
+.fw-out-slide-left{animation:fw-slide-left-out var(--duration) ease-in forwards}
+.fw-in-slide-right{animation:fw-slide-right-in var(--duration) ease-out forwards}
+.fw-out-slide-right{animation:fw-slide-right-out var(--duration) ease-in forwards}
+.fw-in-scale{animation:fw-scale-in var(--duration) ease-out forwards}
+.fw-out-scale{animation:fw-scale-out var(--duration) ease-in forwards}
+.fw-in-zoom{animation:fw-zoom-in var(--duration) ease-out forwards}
+.fw-out-zoom{animation:fw-zoom-out var(--duration) ease-in forwards}
 
 .fw-dur-150{animation-duration:150ms}
 .fw-dur-300{animation-duration:300ms}
@@ -172,7 +186,7 @@ export const ANIMATION_CSS = BUNDLED_KEYFRAMES;
 /** Un segmento nella timeline (catena o singolo). */
 export type AnimationTimelineLayer = {
 	name: string;
-	durationMs: number;
+	durationMs: AnimationLayerDuration;
 	easing: string;
 	delayMs: number;
 	iteration: number | "infinite";
@@ -216,14 +230,14 @@ function layersToInlineStyle(layers: AnimationTimelineLayer[]): Record<string, s
 	if (layers.length === 0) return {};
 	if (layers.length === 1) {
 		const L = layers[0]!;
-		let a = `${L.name} ${L.durationMs}ms ${L.easing} ${L.delayMs}ms`;
+		let a = `${L.name} ${fmtAnimationDuration(L.durationMs)} ${L.easing} ${L.delayMs}ms`;
 		if (L.iteration !== 1) a += ` ${L.iteration === "infinite" ? "infinite" : L.iteration}`;
 		a += ` ${L.fill}`;
 		return { animation: a };
 	}
 	return {
 		animationName: layers.map((l) => l.name).join(", "),
-		animationDuration: layers.map((l) => `${l.durationMs}ms`).join(", "),
+		animationDuration: layers.map((l) => fmtAnimationDuration(l.durationMs)).join(", "),
 		animationTimingFunction: layers.map((l) => l.easing).join(", "),
 		animationDelay: layers.map((l) => `${l.delayMs}ms`).join(", "),
 		animationIterationCount: layers
@@ -257,9 +271,9 @@ function mergeSequentialChain(acc: AnimationResult, step: AnimationResult): Anim
 
 /** Durata “a schermo” di un segmento (delay locale + durata × ripetizioni). */
 function estimateSegmentDurationMs(c: AnimatePreset | AnimateConfig): number {
-	if (typeof c === "string") return 200;
+	if (typeof c === "string") return DEFAULT_DURATION_MS_ESTIMATE;
 	const cfg = c as AnimateConfig;
-	const d = cfg.duration ?? 200;
+	const d = cfg.duration ?? DEFAULT_DURATION_MS_ESTIMATE;
 	const delay = cfg.delay ?? 0;
 	const iter = cfg.iterations ?? cfg.repeat ?? 1;
 	if (iter === "infinite") return d + delay;
@@ -317,13 +331,13 @@ function hasNoMotionTokens(cfg: AnimateConfig): boolean {
 /** Keyframe senza dichiarazioni: layer no-op o hold (timeline CSS affidabile nelle catene). */
 function createInvariantKeyframeSegment(
 	effectiveDelayMs: number,
-	durationMs: number,
+	durationMs: AnimationLayerDuration,
 	ease: string,
 	fill: string,
 	iter: number | "infinite",
 	cfg?: AnimateConfig,
 ): AnimationResult {
-	const name = allocKeyframeName(`inv-${effectiveDelayMs}-${durationMs}-${ease}-${String(iter)}`);
+	const name = allocKeyframeName(`inv-${effectiveDelayMs}-${String(durationMs)}-${ease}-${String(iter)}`);
 	const keyframesCss = `@keyframes ${name}{0%,100%{}}`;
 	const layer: AnimationTimelineLayer = {
 		name,
@@ -426,7 +440,7 @@ export function buildAnimation(
 
 	let cfg = { ...config } as AnimateConfig;
 	if (Object.keys(cfg).length === 0) {
-		cfg = { preset: "in-fade", duration: 200 };
+		cfg = { preset: "in-fade" };
 	}
 
 	return createCustomAnimation(cfg, opts);
@@ -624,7 +638,7 @@ function stepToCss(step: KeyframeStep): string[] {
 const KEYFRAME_COLORS = new Set(["red", "white", "black", "blue", "green", "gray", "grey", "transparent"]);
 
 function isValidSpacingCssSuffix(s: string): boolean {
-	return isSpacingKeyword(s) || CSS_LENGTH_RE.test(s) || isCssVarToken(s);
+	return isSpacingKeyword(s) || CSS_LENGTH_RE.test(s) || isCssVarToken(s) || /^base-\d+$/.test(s);
 }
 
 /** Margini tipo token `s` (`mt-50vh`, `mb-0`) → proprietà camelCase per `stepToCss`. */
@@ -715,7 +729,7 @@ function cssValRotate(v: number | string): string {
 function finalizeKeyframeEntries(
 	entries: [string, string][],
 	cfg: AnimateConfig,
-	d: number,
+	d: AnimationLayerDuration,
 	ease: string,
 	iter: number | "infinite",
 	effectiveDelayMs: number,
@@ -749,7 +763,8 @@ function finalizeKeyframeEntries(
 }
 
 function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions): AnimationResult {
-	const d = cfg.duration ?? 200;
+	const layerDuration: AnimationLayerDuration =
+		cfg.duration != null ? cfg.duration : FW_DURATION_CSS;
 	const ease = EASE[cfg.ease ?? ""] ?? cfg.ease ?? "ease-out";
 	const iter = cfg.iterations ?? cfg.repeat ?? 1;
 	const delayMs = cfg.delay ?? 0;
@@ -757,7 +772,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 	const fill = cfg.fill ?? "forwards";
 
 	fwAnimateDebugLog("createCustom enter", {
-		d,
+		d: layerDuration,
 		ease,
 		iter,
 		delayMs,
@@ -768,7 +783,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 		keyframeAccKeys: opts?.keyframeStartAcc ? Object.keys(opts.keyframeStartAcc).slice(0, 10) : [],
 	});
 
-	if (d === 0 && hasNoMotionTokens(cfg)) {
+	if (typeof layerDuration === "number" && layerDuration === 0 && hasNoMotionTokens(cfg)) {
 		fwAnimateDebugLog("createCustom -> noop duration 0 (invariant keyframes)");
 		return createInvariantKeyframeSegment(effectiveDelayMs, 0, ease, fill, iter, cfg);
 	}
@@ -778,7 +793,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 		const entries = buildCumulativeKeyframeEntries(tokenRows, opts, opts?.keyframeStartAcc ?? {});
 		if (entries.length >= 1) {
 			fwAnimateDebugLog("createCustom -> token/to keyframes", { rows: tokenRows.length, entries: entries.length });
-			return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
+			return finalizeKeyframeEntries(entries, cfg, layerDuration, ease, iter, effectiveDelayMs, fill);
 		}
 		fwAnimateDebugLog("createCustom -> token rows but no entries (unexpected)", { tokenRows: tokenRows.length });
 	}
@@ -794,7 +809,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 			}
 			const entries = buildCumulativeKeyframeEntries(rows, opts, opts?.keyframeStartAcc ?? {});
 			if (entries.length >= 1) {
-				return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
+				return finalizeKeyframeEntries(entries, cfg, layerDuration, ease, iter, effectiveDelayMs, fill);
 			}
 		} else {
 			const entries = pairs
@@ -812,7 +827,7 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 					return pct(a[0]) - pct(b[0]);
 				});
 			if (entries.length >= 1) {
-				return finalizeKeyframeEntries(entries, cfg, d, ease, iter, effectiveDelayMs, fill);
+				return finalizeKeyframeEntries(entries, cfg, layerDuration, ease, iter, effectiveDelayMs, fill);
 			}
 		}
 	}
@@ -889,23 +904,31 @@ function createCustomAnimation(cfg: AnimateConfig, opts?: BuildAnimationOptions)
 			fwAnimateDebugLog("createCustom -> preset class only", cfg.preset);
 			return { class: presetOnly.class };
 		}
-		if (d > 0 && hasNoMotionTokens(cfg)) {
-			fwAnimateDebugLog("createCustom -> hold (empty to, d>0)", { d, effectiveDelayMs });
-			return createInvariantKeyframeSegment(effectiveDelayMs, d, ease, fill, iter, cfg);
+		if (
+			hasNoMotionTokens(cfg) &&
+			(typeof layerDuration === "number" ? layerDuration > 0 : true)
+		) {
+			fwAnimateDebugLog("createCustom -> hold (empty to, d>0)", {
+				d: layerDuration,
+				effectiveDelayMs,
+			});
+			return createInvariantKeyframeSegment(effectiveDelayMs, layerDuration, ease, fill, iter, cfg);
 		}
 		fwAnimateDebugLog("createCustom -> EMPTY {} (no keyframes, check config)", {
-			d,
+			d: layerDuration,
 			preset: cfg.preset,
 			hasNoMotion: hasNoMotionTokens(cfg),
 		});
 		return {};
 	}
 
-	const name = allocKeyframeName(JSON.stringify({ d, ease, from, to, effectiveDelayMs }));
+	const name = allocKeyframeName(
+		JSON.stringify({ d: layerDuration, ease, from, to, effectiveDelayMs }),
+	);
 	const css = `@keyframes ${name}{from{${from.join(";")}}to{${to.join(";")}}}`;
 	const layer: AnimationTimelineLayer = {
 		name,
-		durationMs: d,
+		durationMs: layerDuration,
 		easing: ease,
 		delayMs: effectiveDelayMs,
 		iteration: iter,

@@ -10,6 +10,7 @@ import {
 	type FwColumnMeta,
 } from "../../../../core/db/schema/table";
 import { orderColumnsBySchema } from "../../../../core/db/schema/sortColumnKeys";
+import { buildDefaultRowFromColumns } from "../../../../core/db/devtools-default-row";
 import { db } from "db";
 import { s, v } from "server";
 
@@ -114,5 +115,16 @@ export const rowDelete = s({
 	run: async (inp, _ctx) => {
 		await db.table(inp.table).delete({ id: inp.id } as never);
 		return { ok: true as const };
+	},
+});
+
+export const rowCreate = s({
+	input: v.object({ table: db }),
+	run: async (inp, _ctx) => {
+		const fw = getLiveFwTables().find((t) => t.name === inp.table);
+		const cols = fw ? getFwTableColumns(fw) : undefined;
+		const row = buildDefaultRowFromColumns(cols);
+		const created = await db.table(inp.table).create(row as never);
+		return { ok: true as const, row: created[0] };
 	},
 });

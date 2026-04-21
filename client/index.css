@@ -1,8 +1,8 @@
 :root {
  --background: #050505;
  --primary: #00f3d2;
- --secondary: #1b1b1b;
- --round: 15px;
+ --secondary: #121212;
+ --round: 20px;
+ --duration: 300ms;
 }
-
 

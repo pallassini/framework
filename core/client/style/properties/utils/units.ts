@@ -1,3 +1,4 @@
+import { resolveBaseSpacingSuffix } from "./base-spacing";
 import { parseScaleSuffix, scaleStep, type SpacingScaleKind } from "./scale";
 
 /** Numero + unità (stringa già pronta per il CSS). */
@@ -30,10 +31,14 @@ export function resolveSpacingToken(s: string, kind: SpacingScaleKind = "box", n
 	else if (CSS_LENGTH_RE.test(s)) out = s;
 	else if (isCssVarToken(s)) out = s;
 	else {
-		const step = parseScaleSuffix(s);
-		if (step != null) {
-			const v = scaleStep(kind, step);
-			if (v) out = v;
+		const baseV = resolveBaseSpacingSuffix(s);
+		if (baseV != null) out = baseV;
+		else {
+			const step = parseScaleSuffix(s);
+			if (step != null) {
+				const v = scaleStep(kind, step);
+				if (v) out = v;
+			}
 		}
 	}
 	if (out == null) return null;

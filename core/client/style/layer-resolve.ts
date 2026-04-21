@@ -512,7 +512,24 @@ export function resolveStyleLayer(
 	applyLayerMapKeys(layer, fromMap);
 	Object.assign(result.style, propsToStrings(fromMap));
 
-	const vpRaw = layer[vp];
+	/**
+	 * Regola fallback viewport (dopo `base` che è sempre applicato):
+	 * - `des` (scritto): applica a **des e tab** — tab eredita perché desktop-like.
+	 * - `tab` (scritto): applica **solo a tab** (sovrascrive l'eventuale `des`).
+	 * - `mob` (scritto): applica **solo a mob** (mobile richiede design proprio).
+	 * Quindi:
+	 *   - quando si risolve `des` → usa `layer.des`.
+	 *   - quando si risolve `tab` → usa `layer.tab` se definito, altrimenti `layer.des`.
+	 *   - quando si risolve `mob` → usa `layer.mob` (niente fallback).
+	 */
+	let vpRaw: unknown = null;
+	if (vp === "des") {
+		vpRaw = layer.des ?? null;
+	} else if (vp === "tab") {
+		vpRaw = layer.tab ?? layer.des ?? null;
+	} else {
+		vpRaw = layer.mob ?? null;
+	}
 	if (vpRaw != null) {
 		const sub =
 			typeof vpRaw === "string"

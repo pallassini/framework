@@ -6,6 +6,7 @@ import {
   state,
   watch,
 } from "client";
+import type { FieldTypeDesc } from "../../../../core/client/validator/field-meta";
 import { orderColumnsBySchema } from "../../../../core/db/schema/sortColumnKeys";
 
 const cellBreakStyle = {
@@ -32,9 +33,13 @@ type DbCellStyle = {
   textAlign: "left";
   overflow: "hidden";
   verticalAlign: "top";
+  borderRight: string;
   position?: "relative";
   cursor?: "default" | "pointer";
 };
+
+/** Separatore verticale leggero tra colonne del devtools DB. */
+const DB_COL_DIVIDER = "1px solid rgba(255,255,255,0.06)";
 
 const thDataStyle = (): DbCellStyle => ({
   width: DB_COL_PX,
@@ -44,6 +49,7 @@ const thDataStyle = (): DbCellStyle => ({
   textAlign: "left",
   overflow: "hidden",
   verticalAlign: "top",
+  borderRight: DB_COL_DIVIDER,
 });
 
 const tdDataStyle = (extra?: Partial<DbCellStyle>): DbCellStyle => ({
@@ -59,6 +65,7 @@ const thActionsStyle = (): DbCellStyle => ({
   textAlign: "left",
   overflow: "hidden",
   verticalAlign: "top",
+  borderRight: "none",
 });
 
 
@@ -89,19 +96,6 @@ function columnKeysFromRows(rows: readonly Record<string, unknown>[]): string[] 
   for (const r of rows) for (const k of Object.keys(r)) keys.add(k);
   return [...keys];
 }
-
-type FieldTypeDesc =
-  | { kind: "string" }
-  | { kind: "number" }
-  | { kind: "boolean" }
-  | { kind: "datetime" }
-  | { kind: "date" }
-  | { kind: "time" }
-  | { kind: "enum"; options: readonly string[] }
-  | { kind: "array"; of: FieldTypeDesc }
-  | { kind: "object"; shape?: Record<string, FieldTypeDesc> }
-  | { kind: "fk"; table: string }
-  | { kind: "unknown" };
 
 type ColumnInfo = { key: string; optional: boolean; type: FieldTypeDesc };
 
@@ -360,26 +354,117 @@ function cellKey(table: string, recordId: string, field: string): string {
   return `${table}:${recordId}:${field}`;
 }
 
-function coerceEditValue(draft: string, previous: unknown): unknown {
-  if (draft === "" && (previous === null || previous === undefined)) return "";
-  if (typeof previous === "number") {
-    const n = Number(draft);
-    if (Number.isNaN(n)) throw new Error("Invalid number");
-    return n;
+function toDateInputString(v: unknown): string {
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const d = v instanceof Date ? v : new Date(typeof v === "string" || typeof v === "number" ? v : String(v));
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${String(y)}-${m}-${day}`;
+}
+
+function toDatetimeLocalString(v: unknown): string {
+  let iso: string;
+  if (v instanceof Date) iso = v.toISOString();
+  else if (typeof v === "number") iso = new Date(v).toISOString();
+  else if (typeof v === "string") {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return "";
+    iso = d.toISOString();
+  } else return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toTimeInputString(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const m = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(v.trim());
+  if (!m) return "";
+  return m[3] != null ? `${m[1]}:${m[2]}:${m[3]}` : `${m[1]}:${m[2]}`;
+}
+
+/** Stringa per il controllo di editing (input/select/textarea). */
+function formatValueForEdit(raw: unknown, t: FieldTypeDesc): string {
+  if (raw === null || raw === undefined) return "";
+  switch (t.kind) {
+    case "boolean":
+      return raw === true ? "true" : "false";
+    case "number":
+      return String(raw);
+    case "datetime":
+      return toDatetimeLocalString(raw);
+    case "date":
+      return toDateInputString(raw);
+    case "time":
+      return toTimeInputString(raw);
+    case "enum":
+    case "string":
+    case "fk":
+      return String(raw);
+    case "array":
+    case "object":
+      return typeof raw === "object" ? JSON.stringify(raw, null, 2) : String(raw);
+    default:
+      return String(raw);
   }
-  if (typeof previous === "boolean") {
-    if (draft === "true") return true;
-    if (draft === "false") return false;
-    throw new Error('Use "true" or "false" for booleans');
-  }
-  if (typeof previous === "object" && previous !== null) {
-    try {
-      return JSON.parse(draft) as unknown;
-    } catch {
-      throw new Error("Invalid JSON for this field");
+}
+
+function parseDraftToValue(
+  draft: string,
+  t: FieldTypeDesc,
+  optional: boolean,
+): unknown {
+  const trimmed = draft.trim();
+  if (trimmed === "" && optional) return null;
+  switch (t.kind) {
+    case "number": {
+      if (trimmed === "" && !optional) return 0;
+      const n = Number(trimmed);
+      if (Number.isNaN(n)) throw new Error("Numero non valido");
+      return n;
     }
+    case "boolean": {
+      if (trimmed === "true") return true;
+      if (trimmed === "false") return false;
+      throw new Error('Scegli "true" o "false"');
+    }
+    case "datetime": {
+      if (trimmed === "" && !optional) throw new Error("Data/ora obbligatoria");
+      const d = new Date(trimmed);
+      if (Number.isNaN(d.getTime())) throw new Error("Data/ora non valida");
+      return d.toISOString();
+    }
+    case "date": {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) throw new Error("Usa YYYY-MM-DD");
+      return trimmed;
+    }
+    case "time": {
+      if (trimmed === "" && optional) return null;
+      const m = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(trimmed);
+      if (!m) throw new Error("Usa HH:MM o HH:MM:SS");
+      return m[3] != null ? `${m[1]}:${m[2]}:${m[3]}` : `${m[1]}:${m[2]}:00`;
+    }
+    case "enum": {
+      if (!t.options.includes(trimmed)) throw new Error("Valore non tra le opzioni enum");
+      return trimmed;
+    }
+    case "fk":
+    case "string":
+      return trimmed;
+    case "array":
+    case "object": {
+      try {
+        return JSON.parse(draft) as unknown;
+      } catch {
+        throw new Error("JSON non valido");
+      }
+    }
+    default:
+      return trimmed;
   }
-  return draft;
 }
 
 export default function DB() {
@@ -694,10 +779,12 @@ export default function DB() {
     field: string,
     draft: string,
     previous: unknown,
+    fieldType: FieldTypeDesc,
+    optional: boolean,
   ): Promise<void> => {
     let value: unknown;
     try {
-      value = coerceEditValue(draft, previous);
+      value = parseDraftToValue(draft, fieldType, optional);
     } catch (e) {
       console.error("[devtools.db]", e);
       setEdit(null);
@@ -822,7 +909,9 @@ export default function DB() {
                     border: `1px solid ${it.active ? primaryGreen : "#27272a"}`,
                   }}
                   title="All"
-                  click={() => setTabPath(null)}
+                  click={() => {
+                    setTabPath(null);
+                  }}
                 >
                   A
                 </div>
@@ -853,7 +942,9 @@ export default function DB() {
                     border: `1px solid ${n.active ? primaryGreen : "#27272a"}`,
                   }}
                   title={n.name}
-                  click={() => setTabPath([...n.path])}
+                  click={() => {
+                    setTabPath([...n.path]);
+                  }}
                 >
                   {initial}
                 </div>
@@ -895,7 +986,9 @@ export default function DB() {
                     fontSize: "0.9rem",
                     lineHeight: 1,
                   }}
-                  click={() => setTabPath(null)}
+                  click={() => {
+                    setTabPath(null);
+                  }}
                 >
                   All
                 </div>
@@ -959,7 +1052,9 @@ export default function DB() {
                               width: "100%",
                               textAlign: "left",
                             }}
-                            click={() => setTabPath([...n.path])}
+                            click={() => {
+                              setTabPath([...n.path]);
+                            }}
                           >
                             {n.name}
                           </t>
@@ -1023,9 +1118,9 @@ export default function DB() {
                             width: "100%",
                             textAlign: "left",
                           }}
-                          click={() =>
-                            setTabPath([...(getTabPath() ?? []), sub.name])
-                          }
+                          click={() => {
+                            setTabPath([...(getTabPath() ?? []), sub.name]);
+                          }}
                         >
                           {sub.name}
                         </t>
@@ -1115,8 +1210,45 @@ export default function DB() {
               s={`col round-14px b-#27272a ${cardBg}`}
               style={{ scrollMarginTop: "8vh" }}
             >
-              <div s="col gapy-1 px-5 py-4 b-#27272a">
-                <t s="text-5 text-#fafafa font-7">{name}</t>
+              <div s="col gapy-2 px-5 py-4 b-#27272a">
+                <div
+                  s="row gapx-3 children-center"
+                  style={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    rowGap: "0.5rem",
+                  }}
+                >
+                  <t s="text-5 text-#fafafa font-7">{name}</t>
+                  <t
+                    s="text-3 font-6 cursor-pointer"
+                    style={{
+                      color: primaryGreen,
+                      background: "rgba(74, 222, 128, 0.12)",
+                      border: "1px solid rgba(74, 222, 128, 0.35)",
+                      borderRadius: "10px",
+                      padding: "0.35rem 0.85rem",
+                      userSelect: "none",
+                      flex: "0 0 auto",
+                    }}
+                    click={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await server._devtools.db.rowCreate({
+                          table: name as never,
+                        });
+                      } catch (err) {
+                        console.error("[devtools.db] rowCreate", err);
+                        return;
+                      }
+                      setEdit(null);
+                      refetch();
+                    }}
+                  >
+                    + Nuova riga
+                  </t>
+                </div>
                 <t s="text-3 font-6" style={{ color: primaryGreen }}>
                   {rowCount === 1
                     ? `1 row${previewNote}`
@@ -1294,6 +1426,18 @@ export default function DB() {
                                     const raw = recObj[k as string];
                                     const display = cellText(raw);
                                     const lines = cellDisplayLines(raw);
+                                    const colType =
+                                      typeByKey.get(k) ?? UNKNOWN_TYPE;
+                                    const isOptionalCol =
+                                      optionalByKey.get(k) === true && !isPk;
+                                    const editBase: Record<string, unknown> = {
+                                      position: "absolute",
+                                      inset: 0,
+                                      width: "100%",
+                                      height: "100%",
+                                      boxSizing: "border-box",
+                                      margin: 0,
+                                    };
                                     return (
                                       <td
                                         style={tdDataStyle({
@@ -1311,13 +1455,17 @@ export default function DB() {
                                             tableName: name,
                                             recordId: rid,
                                             field: k,
-                                            draft:
-                                              display === "—" ? "" : display,
+                                            draft: formatValueForEdit(
+                                              raw,
+                                              colType,
+                                            ),
                                           });
                                           globalThis.setTimeout(() => {
-                                            td.querySelector("input")?.focus({
-                                              preventScroll: true,
-                                            });
+                                            const z = td.querySelector(
+                                              "input, select, textarea",
+                                            );
+                                            if (z instanceof HTMLElement)
+                                              z.focus({ preventScroll: true });
                                           }, 0);
                                         }}
                                       >
@@ -1326,47 +1474,168 @@ export default function DB() {
                                             !isPk && getEdit()?.key === ck
                                           }
                                         >
-                                          <input
-                                            style={{
-                                              position: "absolute",
-                                              inset: 0,
-                                              width: "100%",
-                                              height: "100%",
-                                              boxSizing: "border-box",
-                                              margin: 0,
-                                            }}
-                                            s="text-2 bg-#18181b text-#e4e4e7 b-#3f3f46 round-6px"
-                                            value={
-                                              display === "—" ? "" : display
-                                            }
-                                            mousedown={(e) =>
-                                              e.stopPropagation()
-                                            }
-                                            click={(e) => e.stopPropagation()}
-                                            keydown={(e) => {
-                                              if (e.key === "Enter") {
-                                                (
-                                                  e.target as HTMLInputElement
-                                                ).blur();
+                                          {colType.kind === "boolean" ? (
+                                            <select
+                                              style={editBase as never}
+                                              s="text-2 bg-#18181b text-#e4e4e7 b-#3f3f46 round-6px"
+                                              value={
+                                                getEdit()?.key === ck
+                                                  ? getEdit()!.draft
+                                                  : formatValueForEdit(
+                                                      raw,
+                                                      colType,
+                                                    )
                                               }
-                                              if (e.key === "Escape") {
-                                                setEdit(null);
-                                                e.stopPropagation();
+                                              mousedown={(e: Event) =>
+                                                e.stopPropagation()
                                               }
-                                            }}
-                                            blur={(e) => {
-                                              if (getEdit()?.key !== ck)
-                                                return;
-                                              void applyUpdate(
-                                                name,
-                                                rid,
-                                                k,
-                                                (e.target as HTMLInputElement)
-                                                  .value,
+                                              change={(e: Event) => {
+                                                void applyUpdate(
+                                                  name,
+                                                  rid,
+                                                  k,
+                                                  (e.target as HTMLSelectElement)
+                                                    .value,
+                                                  raw,
+                                                  colType,
+                                                  isOptionalCol,
+                                                );
+                                              }}
+                                            >
+                                              <option value="true">true</option>
+                                              <option value="false">false</option>
+                                            </select>
+                                          ) : colType.kind === "enum" ? (
+                                            <select
+                                              style={editBase as never}
+                                              s="text-2 bg-#18181b text-#e4e4e7 b-#3f3f46 round-6px"
+                                              value={
+                                                getEdit()?.key === ck
+                                                  ? getEdit()!.draft
+                                                  : formatValueForEdit(
+                                                      raw,
+                                                      colType,
+                                                    )
+                                              }
+                                              mousedown={(e: Event) =>
+                                                e.stopPropagation()
+                                              }
+                                              change={(e: Event) => {
+                                                void applyUpdate(
+                                                  name,
+                                                  rid,
+                                                  k,
+                                                  (e.target as HTMLSelectElement)
+                                                    .value,
+                                                  raw,
+                                                  colType,
+                                                  isOptionalCol,
+                                                );
+                                              }}
+                                            >
+                                              {colType.options.map((opt) => (
+                                                <option value={opt}>
+                                                  {opt}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          ) : colType.kind === "array" ||
+                                            colType.kind === "object" ? (
+                                            <textarea
+                                              style={{
+                                                ...editBase,
+                                                minHeight: "5rem",
+                                                resize: "vertical",
+                                                fontFamily:
+                                                  "ui-monospace, monospace",
+                                              }}
+                                              s="text-2 bg-#18181b text-#e4e4e7 b-#3f3f46 round-6px px-2 py-1"
+                                              defaultValue={formatValueForEdit(
                                                 raw,
-                                              );
-                                            }}
-                                          />
+                                                colType,
+                                              )}
+                                              mousedown={(e: Event) =>
+                                                e.stopPropagation()
+                                              }
+                                              click={(e: Event) => e.stopPropagation()}
+                                              keydown={(e: KeyboardEvent) => {
+                                                if (e.key === "Escape") {
+                                                  setEdit(null);
+                                                  e.stopPropagation();
+                                                }
+                                              }}
+                                              blur={(e: Event) => {
+                                                if (getEdit()?.key !== ck)
+                                                  return;
+                                                void applyUpdate(
+                                                  name,
+                                                  rid,
+                                                  k,
+                                                  (
+                                                    e.target as HTMLTextAreaElement
+                                                  ).value,
+                                                  raw,
+                                                  colType,
+                                                  isOptionalCol,
+                                                );
+                                              }}
+                                            />
+                                          ) : (
+                                            <input
+                                              style={editBase}
+                                              s="text-2 bg-#18181b text-#e4e4e7 b-#3f3f46 round-6px"
+                                              type={
+                                                colType.kind === "number"
+                                                  ? "number"
+                                                  : colType.kind === "date"
+                                                    ? "date"
+                                                    : colType.kind === "datetime"
+                                                      ? "datetime-local"
+                                                      : colType.kind === "time"
+                                                        ? "time"
+                                                        : "text"
+                                              }
+                                              step={
+                                                colType.kind === "number"
+                                                  ? "any"
+                                                  : colType.kind === "time"
+                                                    ? "1"
+                                                    : undefined
+                                              }
+                                              defaultValue={formatValueForEdit(
+                                                raw,
+                                                colType,
+                                              )}
+                                              mousedown={(e: Event) =>
+                                                e.stopPropagation()
+                                              }
+                                              click={(e: Event) => e.stopPropagation()}
+                                              keydown={(e: KeyboardEvent) => {
+                                                if (e.key === "Enter") {
+                                                  (
+                                                    e.target as HTMLInputElement
+                                                  ).blur();
+                                                }
+                                                if (e.key === "Escape") {
+                                                  setEdit(null);
+                                                  e.stopPropagation();
+                                                }
+                                              }}
+                                              blur={(value: string) => {
+                                                if (getEdit()?.key !== ck)
+                                                  return;
+                                                void applyUpdate(
+                                                  name,
+                                                  rid,
+                                                  k,
+                                                  value,
+                                                  raw,
+                                                  colType,
+                                                  isOptionalCol,
+                                                );
+                                              }}
+                                            />
+                                          )}
                                         </show>
                                         <show
                                           when={() =>

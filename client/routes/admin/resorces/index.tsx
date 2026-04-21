@@ -1,11 +1,26 @@
 import { For, server, state } from "client";
+import type { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 import { data } from "..";
 import { TimePicker } from "../_components/time-picker";
 
 // IF RESOURCE HAVE ITS OWN HOURS USE IT, OTHERWISE USE THE GLOBAL HOURS
 export default function Resources() {
+  const view = state("always");
   return (
     <>
+      <div
+        s={{
+          base: "row centerx children-center gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
+        }}
+      >
+        <t>SEMPRE</t>
+
+        <For each={() => data.openingHours()?.filter((o) => o.validFrom === null)}>
+          {(o) => {
+            return <t>{o.startTime}</t>;
+          }}
+        </For>
+      </div>
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // GLOBAL HOURS
           // ────────────────────────────────────────────────────────────────────────────────── */}
@@ -145,25 +160,15 @@ export default function Resources() {
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // RESOURCES
           // ────────────────────────────────────────────────────────────────────────────────── */}
-      <div s={{ des: "b-secondary b-2px col relative w-80vw round-round py-5vh centerx mt-10vh" }}>
-        {/* HEADER */}
-        <t
-          s={{
-            des: "font-6 text-6 absolute -mt-2vh ml-1vw bg-background row gapx-0.2vw px-0.5vw py-0.2vh round-round gapx-0.5vw",
-          }}
-        >
-          <icon name="clock" size="3" stroke={2.5} s={{ des: " right" }} />
-          ORARI
-        </t>
-        {/* RESOURCES */}
-        <div s={{ des: "col gapy-1vh px-0.8vw py-1vh  maxw-16rem" }}>
+      <Card title="RISORSE" icon="users">
+        <div>
           <For each={data.resources}>
             {(resource) => {
               return <div>{resource.name}</div>;
             }}
           </For>
         </div>
-      </div>
+      </Card>
     </>
   );
 }
@@ -171,6 +176,29 @@ export default function Resources() {
 // ───────────────────────────────────────────────────────────────────────────────
 // UTILS
 // ───────────────────────────────────────────────────────────────────────────────
+
+type CardProps = {
+  title: string;
+  icon: Icon;
+  children?: unknown;
+};
+
+function Card({ title, icon: iconName, children }: CardProps) {
+  return (
+    <div s={{ des: "col w-80 round-round py-5 px-5 centerx mt-20 bg-secondary" }}>
+      <div
+        s={{
+          des: "font-6 text-6 row px-2 round-5px  gapx-2 children-centery",
+        }}
+      >
+        <icon name={iconName} stroke={2.5} />
+        <t>{title}</t>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 const week = [
   ["monday", "Lunedì"],
   ["tuesday", "Martedì"],

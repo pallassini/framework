@@ -1,4 +1,5 @@
 import { For, persistState, state } from "client";
+import type { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 
 export const tab = persistState<"prenotations" | "services" | "resources">("resources");
 
@@ -11,33 +12,26 @@ export default function AdminMenu() {
   ];
 
   return (
-    <div
-      hover={open}
-      s={{
-        des: "col fixed left h-100vh br-1px br-#1b1b1b w-3vw hover:(w-12vw) duration-300 gapy-8vh pl-0vw pt-20vh bg-background z-1000",
-      }}
-    >
+    <div s="h-100 w-7 pl-4 mt-40 gapy-5 col hover:(w-10) " hover={open}>
       <For each={items}>
         {(item) => (
           <div
             s={{
-              des: "row children-centery gapx-0.5vw origin-left hover:(bg-#ffffff0a scale-110 ) duration-150 px-0.5vw py-0.5vh mr-1.5vw round-10px",
+              base: {
+                "text-7 row round-30px bg-secondary w-auto p-3 gapx-2 font-6": true,
+                "hover:(bg-#222222)": true,
+                "text-background bg-primary hover:(bg-primary)": [tab, item.id],
+              },
             }}
             click={() => tab(item.id as any)}
           >
             <icon
-              name={item.icon as any}
-              size="5"
-              s={{ base: {"duration-300": true, "text-primary": [tab, item.id] } }}
-              style={{ flexShrink: 0 }}
+              name={item.icon as Icon}
+              shadow={() =>
+                tab() === item.id ? { color: "background", blur: 1, intensity: 3 } : false
+              }
             />
-            <t
-              style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-              s={() => ({
-                base: {"duration-300": true, "text-primary": tab() === item.id },
-                des: `font-6 text-5 duration-300 ${open() ? "opacity-100" : "opacity-0"}`,
-              })}
-            >
+            <t show={open()} s="text-4 centery">
               {item.label}
             </t>
           </div>

@@ -26,6 +26,67 @@ import { easeTiming, transitionDurationToken } from "./properties/transition-tok
 import { eventsPointer, noPrefix } from "./properties/pointer-events";
 
 /**
+ * `dshadow-*`: scala **blur** (1–5) e **intensity** (1–5) mappate a variabili CSS così più token
+ * nello stesso elemento si combinano senza sovrascriversi (`filter` finale è un’unica `drop-shadow`
+ * che legge `--fw-dsh-blur` / `--fw-dsh-color`).
+ */
+const DSHADOW_BLUR_SCALE: Record<string, string> = {
+  "1": "4px",
+  "2": "8px",
+  "3": "14px",
+  "4": "22px",
+  "5": "32px",
+};
+
+const DSHADOW_INTENSITY_SCALE: Record<string, number> = {
+  "1": 0.2,
+  "2": 0.4,
+  "3": 0.6,
+  "4": 0.8,
+  "5": 1,
+};
+
+const DSHADOW_PALETTE_RGB: Record<string, string> = {
+  primary: "0, 243, 210",
+  secondary: "27, 27, 27",
+};
+
+const DSHADOW_VAR_BLUR = "--fw-dsh-blur";
+const DSHADOW_VAR_RGB = "--fw-dsh-rgb";
+const DSHADOW_VAR_ALPHA = "--fw-dsh-alpha";
+
+const DSHADOW_FILTER = `drop-shadow(0 0 var(${DSHADOW_VAR_BLUR}, 8px) rgba(var(${DSHADOW_VAR_RGB}, 0, 243, 210), var(${DSHADOW_VAR_ALPHA}, 0.6)))`;
+
+function resolveDshadow(suffix: string): Properties | undefined {
+  if (!suffix) return undefined;
+  const parts = suffix.split("-");
+  const head = parts[0]!;
+
+  if (head === "blur" && parts[1] && DSHADOW_BLUR_SCALE[parts[1]]) {
+    return {
+      [DSHADOW_VAR_BLUR]: DSHADOW_BLUR_SCALE[parts[1]]!,
+      filter: DSHADOW_FILTER,
+    } as Properties;
+  }
+
+  if (head === "intensity" && parts[1] && DSHADOW_INTENSITY_SCALE[parts[1]] != null) {
+    return {
+      [DSHADOW_VAR_ALPHA]: String(DSHADOW_INTENSITY_SCALE[parts[1]]),
+      filter: DSHADOW_FILTER,
+    } as Properties;
+  }
+
+  if (DSHADOW_PALETTE_RGB[head]) {
+    return {
+      [DSHADOW_VAR_RGB]: DSHADOW_PALETTE_RGB[head]!,
+      filter: DSHADOW_FILTER,
+    } as Properties;
+  }
+
+  return undefined;
+}
+
+/**
  * `center*` / `left` / `right` / `top` / `bottom` → questo box.
  * `left`/`right`/`top`/`bottom`: con `absolute`/`fixed`/`sticky` → inset; con `layer` → griglia;
  * altrimenti (static, relative, …) → margini come `centerx`/`centery` (allineamento in flex).
@@ -87,6 +148,19 @@ export const map = styleMap({
   bl: borderLeft,
   bg: backgroundColor,
   blur: blur,
+  /**
+   * `filter: drop-shadow(…)` sul solo alpha del disegno (non rettangolo come `box-shadow`).
+   * Su `<icon>`, i token `shadow-*` nella stringa `s` diventano `dshadow-*` sull’SVG interno.
+   *
+   * Token **combinabili** (ogni token aggiunge una parte, l’ultimo definito vince):
+   * - **colore**: `dshadow-primary` / `dshadow-secondary` (default: blur **2**, intensità **3**).
+   * - **blur-N** (quanto si sparge, 1–5): `dshadow-blur-1` … `dshadow-blur-5` → 4/8/14/22/32 px.
+   * - **intensity-N** (potenza/opacità, 1–5): `dshadow-intensity-1` … `dshadow-intensity-5` → 20/40/60/80/100 %.
+   * Esempio: `shadow-primary shadow-blur-3 shadow-intensity-4` su `<icon>`.
+   */
+  dshadow: (suffix: string) => {
+    return resolveDshadow(suffix.trim());
+  },
   text: text,
   font: font,
   minw: minw,
@@ -139,6 +213,10 @@ export const map = styleMap({
   /** Box assoluto inset 0 (come layer meteors sotto `relative`). */
   fill: { position: "absolute", inset: "0" },
   "overflow-hidden": { overflow: "hidden" },
+  /** `scrollx` → scroll orizzontale (usa con `row` + `maxw-*`/`w-*`). */
+  scrollx: { overflowX: "auto", overflowY: "hidden", flexWrap: "nowrap" },
+  /** `scrolly` → scroll verticale (usa con `col` + `maxh-*`/`h-*`). */
+  scrolly: { overflowY: "auto", overflowX: "hidden", flexWrap: "nowrap" },
   /** `no-events` → `pointer-events: none` (token `no` + suffisso `events`). */
   no: noPrefix,
   /** `events-none` / `events-auto` → `pointer-events`. */

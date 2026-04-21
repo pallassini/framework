@@ -28,11 +28,9 @@ export function t(props: TProps): UiNode {
 	const el = document.createElement("span");
 	const { children, show, fallback, s, ...rest } = props;
 	const contents = useInlineFlowContents(children, s);
-	if (!contents) el.style.minWidth = "0";
 	applyDomProps(el, { ...rest, s, children: undefined } as DomProps);
 	if (contents) {
 		el.style.display = "inline";
-		el.style.minWidth = "0";
 	}
 
 	if (show !== undefined) {

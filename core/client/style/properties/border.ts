@@ -1,13 +1,17 @@
 import type { Properties } from "csstype";
+import { resolveBorderScaleSuffix } from "./utils/border-scale";
 import { resolveColorToken } from "./utils/color";
 import { resolveSpacingToken } from "./utils/units";
 
 type BorderCtx = { negative?: boolean };
 
-/** Larghezza (`b-2vh`, `b-1px`) o solo colore (`b-#fff`). Ordine libero: spessore e colore si sommano; il colore non imposta spessore. Senza suffisso: `1px solid`. */
+/** Larghezza tramite scala (`b-1`, `b-2`), lunghezza esplicita (`b-2px`), keyword (`auto`), o solo colore (`b-#fff`). Senza suffisso: `1px solid`. */
 export function border(suffix: string, ctx?: BorderCtx): Properties | undefined {
 	if (ctx?.negative) return undefined;
 	if (!suffix) return { borderStyle: "solid", borderWidth: "1px" };
+
+	const scaled = resolveBorderScaleSuffix(suffix);
+	if (scaled) return { borderStyle: "solid", borderWidth: scaled };
 
 	const width = resolveSpacingToken(suffix, "box");
 	if (width) return { borderStyle: "solid", borderWidth: width };
@@ -27,6 +31,9 @@ function borderOneSide(side: Side, suffix: string, ctx?: BorderCtx): Properties 
 	const cKey = `border${side}Color` as const;
 
 	if (!suffix) return { [sKey]: "solid", [wKey]: "1px" } as Properties;
+
+	const scaled = resolveBorderScaleSuffix(suffix);
+	if (scaled) return { [sKey]: "solid", [wKey]: scaled } as Properties;
 
 	const width = resolveSpacingToken(suffix, "box");
 	if (width) return { [sKey]: "solid", [wKey]: width } as Properties;

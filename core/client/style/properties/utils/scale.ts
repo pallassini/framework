@@ -5,6 +5,7 @@
  * - **box**: `p`, `m`, `gap`, `b` (spessore)
  * - **radius**: `round-*` (numeri se `clientConfig.style.round` assente)
  * - **icon**: lato icona (passi un po’ più generosi dello spacing)
+ * - **base-N**: scala fluida da `clientConfig.style.base` (`p-base-4`, `gap-base-2`, …)
  */
 export type SpacingScaleKind = "x" | "y" | "box" | "radius" | "icon";
 

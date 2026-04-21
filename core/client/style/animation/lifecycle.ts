@@ -1,4 +1,4 @@
-import type { AnimationTimelineLayer } from "./animations";
+import { DEFAULT_DURATION_MS_ESTIMATE, type AnimationTimelineLayer } from "./animations";
 import { fwLifecycleDebugLog } from "./debug-log";
 
 export type AnimationLifecycleBinding = Pick<AnimationTimelineLayer, "name" | "onStart" | "onEnd"> & {
@@ -16,7 +16,9 @@ export function animationLayerEndAfterMs(
 	if (l.onEnd == null) return undefined;
 	if (l.iteration === "infinite") return undefined;
 	const n = typeof l.iteration === "number" && l.iteration > 0 ? l.iteration : 1;
-	return l.delayMs + l.durationMs * n;
+	const dur =
+		typeof l.durationMs === "number" ? l.durationMs : DEFAULT_DURATION_MS_ESTIMATE;
+	return l.delayMs + dur * n;
 }
 
 const cleanups = new WeakMap<Element, () => void>();

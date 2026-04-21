@@ -1,11 +1,14 @@
 import type { Properties } from "csstype";
 import type { StyleResolver, StyleResolverContext } from "../properties";
 
-/** Centratura flex su asse principale e trasversale; `alignContent` serve anche con `flex-wrap: wrap` e più righe. */
+/**
+ * Centratura flex su asse principale e trasversale; `alignContent` serve con `flex-wrap: wrap`.
+ * Uso `safe center` così se il contenuto eccede non viene clippato il primo item (problema classico di `justify-content: center` + overflow).
+ */
 const flexChildrenCenter: Properties = {
-	justifyContent: "center",
-	alignItems: "center",
-	alignContent: "center",
+	justifyContent: "safe center",
+	alignItems: "safe center",
+	alignContent: "safe center",
 };
 
 /** Se manca `row`/`col`, `children-center` deve comunque creare un flex container (come `row` di default). */
@@ -45,12 +48,12 @@ export const childrenAlign: StyleResolver = (suffix: string, ctx?: StyleResolver
 			if (col) return { justifyContent: "flex-end" };
 			return undefined;
 		case "centerx":
-			if (row) return { justifyContent: "center" };
-			if (col) return { alignItems: "center" };
+			if (row) return { justifyContent: "safe center" };
+			if (col) return { alignItems: "safe center" };
 			return undefined;
 		case "centery":
-			if (row) return { alignItems: "center" };
-			if (col) return { justifyContent: "center" };
+			if (row) return { alignItems: "safe center" };
+			if (col) return { justifyContent: "safe center" };
 			return undefined;
 		default:
 			return undefined;

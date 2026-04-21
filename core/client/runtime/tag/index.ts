@@ -18,4 +18,8 @@ export { video } from "./tags/video";
 
 export { input } from "./tags/input";
 
+export { select } from "./tags/select";
+
+export { textarea } from "./tags/textarea";
+
 export { icon } from "./tags/icon";
