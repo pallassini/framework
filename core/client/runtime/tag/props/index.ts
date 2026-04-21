@@ -9,10 +9,14 @@ import { id } from "./id";
 import { s, hover } from "./style";
 import { show } from "./show";
 import { clickout } from "./clickout";
+import { ref, type RefProp } from "./ref";
+import { style, type InlineStyleValue } from "./style-inline";
 import { CLIENT_EVENT_NAMES, eventAppliers } from "./events";
 import type { HoverProp } from "./hover";
 
 export type { HoverProp } from "./hover";
+export type { RefProp, RefObject, RefCallback } from "./ref";
+export type { InlineStyleValue } from "./style-inline";
 
 export type DomEl = HTMLElement | SVGElement;
 
@@ -53,6 +57,17 @@ export type SharedProps = ClientEvents & {
 	 * L’elemento che ha la prop è il confine “dentro”; figli inclusi. `false`/`null` = disattiva.
 	 */
 	clickout?: ((e: MouseEvent) => void | Promise<void>) | false | null;
+	/**
+	 * Riferimento al nodo DOM. Callback `(el) => void | cleanup` oppure oggetto `{ current }`.
+	 * A mount riceve l'elemento; a dispose viene ripulito (cleanup callback o `.current = null`).
+	 */
+	ref?: RefProp;
+	/**
+	 * Inline style CSS (reattivo). Oggetto statico, `Signal`, o funzione `() => StyleObj`.
+	 * Non confligge con `s`: gestisce solo le chiavi dichiarate in questa prop.
+	 * Utile per valori calcolati (px misurati), transizioni custom, scale/transform liberi.
+	 */
+	style?: InlineStyleValue | Signal<InlineStyleValue> | (() => InlineStyleValue);
 	[key: string]: unknown;
 };
 
@@ -63,6 +78,8 @@ export const props = {
 	hover,
 	show,
 	clickout,
+	ref,
+	style,
 } as const satisfies Record<string, DomPropApplier>;
 
 export { CLIENT_EVENT_NAMES };

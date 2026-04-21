@@ -203,6 +203,20 @@ export const map = styleMap({
     if (s.includes("calc(")) s = s.replace(/%-/g, "% - ");
     return { top: s };
   },
+  /** `rx-100%` / `rx-1rem` → `right` arbitrario (specchio di `lx`; utile per ancorare a sinistra di un trigger in `absolute`). */
+  rx: (suffix: string) => {
+    let s = suffix.trim();
+    if (!s) return undefined;
+    if (s.includes("calc(")) s = s.replace(/%-/g, "% - ");
+    return { right: s };
+  },
+  /** `ry-100%` / `ry-1rem` → `bottom` arbitrario (specchio di `ly`; utile per ancorare sopra un trigger in `absolute`). */
+  ry: (suffix: string) => {
+    let s = suffix.trim();
+    if (!s) return undefined;
+    if (s.includes("calc(")) s = s.replace(/%-/g, "% - ");
+    return { bottom: s };
+  },
   /** `translate-(-50%,-50%)` → `transform: translate(-50%,-50%)` (suffisso = ciò che va tra parentesi). */
   translate: (suffix: string) => {
     const s = suffix.trim();
