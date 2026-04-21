@@ -16,8 +16,8 @@ export default function AdminMenu() {
   const open = state(false);
 
   return (
-    <div s="h-100  px-4  gapy-5 col hover:(pr-10) bg-primary " hover={open}>
-    <div s='mt-40'>
+    <div s="h-100  px-4 col hover:(pr-10) " hover={open}>
+    <div s='mt-40 gapy-5 col'>
       <For each={MENU_ITEMS}>
         {(item) => (
           <div

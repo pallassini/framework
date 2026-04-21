@@ -8,9 +8,7 @@ export default function Resources() {
   const view = state("always");
   return (
     <>
-      <div s="w-100 row children-center">
-        <div s="text-6 bg-primary h-100 w-1" />
-      </div>
+
       <div
         s={{
           base: "row centerx children-center gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
