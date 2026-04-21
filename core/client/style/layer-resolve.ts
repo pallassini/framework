@@ -43,7 +43,7 @@ export type StyleBaseSegment = string | Conditional<string> | Readonly<Record<st
 
 /**
  * Oggetto `s` (oltre alla stringa pura):
- * - **base** — stringa, layer annidato, **oggetto** mappa (`{ __: "token fissi", "…": [Signal, rhs] }` o `: true`), oppure **array** di segmenti; merge in ordine.
+ * - **base** — stringa, layer annidato, **oggetto** mappa (`{ __: "…", __after: "…", "…": [Signal, rhs] }` o `: true`), oppure **array** di segmenti; `__` prima delle chiavi `: true`, `__after` dopo (override); merge in ordine.
  * - **Chiavi del map** (`bg`, `px`, …): suffisso statico; oppure **`[suffisso, () => boolean]`** / **`Signal`**;
  *   oppure **`[() => boolean, suffisso]`** (condizione reattiva prima, valore dopo — niente `===` nella chiave).
  *   Merge dopo `base`, sovrascrive le stesse proprietà CSS.
@@ -132,24 +132,74 @@ function collectBasesFromStyleBase(base: StyleLayerInput["base"], vp: StyleViewp
 export const STYLE_BASE_ALWAYS_KEY = "__";
 
 /**
+ * Token stringa applicati **dopo** tutte le chiavi con `: true` (ultimo vince in `resolveClasses`).
+ * Usato da `recombineStringSpreadInTokenMap` così `{ "…bg-secondary": true, ...s }` con `s` stringa può sovrascrivere `bg-*`.
+ */
+export const STYLE_BASE_SUFFIX_KEY = "__after";
+
+/**
+ * `{ ...str }` su una stringa in oggetto mappa produce chiavi `"0"`,`"1"`,… con un carattere per valore.
+ * Ricompone la stringa in `__after`, così `{ "a": true, ...s }` con `s` stringa funziona e gli override vincono sui default.
+ */
+export function recombineStringSpreadInTokenMap(
+	o: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+	const indexed: { i: number; ch: string }[] = [];
+	for (const [k, v] of Object.entries(o)) {
+		if (!/^\d+$/.test(k)) continue;
+		if (typeof v !== "string" || v.length !== 1) {
+			return { ...(o as Record<string, unknown>) };
+		}
+		indexed.push({ i: Number(k), ch: v });
+	}
+	if (indexed.length === 0) return o as Record<string, unknown>;
+
+	indexed.sort((a, b) => a.i - b.i);
+	for (let j = 0; j < indexed.length; j++) {
+		if (indexed[j]!.i !== j) return { ...(o as Record<string, unknown>) };
+	}
+
+	const reconstructed = indexed.map((x) => x.ch).join("");
+	const rest: Record<string, unknown> = { ...(o as Record<string, unknown>) };
+	for (let j = 0; j < indexed.length; j++) {
+		delete rest[String(j)];
+	}
+
+	const prev = rest[STYLE_BASE_ALWAYS_KEY];
+	if (prev != null && typeof prev === "object" && !Array.isArray(prev)) {
+		return { ...(o as Record<string, unknown>) };
+	}
+	if (reconstructed) {
+		const ex = rest[STYLE_BASE_SUFFIX_KEY];
+		const prevSuf = ex == null ? "" : String(ex).trim();
+		const merged = [prevSuf, reconstructed].filter(Boolean).join(" ").trim();
+		if (merged) rest[STYLE_BASE_SUFFIX_KEY] = merged;
+	}
+	return rest;
+}
+
+/**
  * Mappa token → condizione (stessa forma di `unwrapStyleReactive` in `style/index.ts`).
- * - Chiave **`__`**: valore = stringa di token sempre attivi (niente `: true` su ogni classe).
+ * - Chiave **`__`**: valore = stringa di token sempre attivi (niente `: true` su ogni classe); ordine **prima** delle chiavi `: true`.
+ * - Chiave **`__after`**: come `__` ma **dopo** le chiavi `: true` (override / spread stringa ricomposto).
  * - Altre chiavi: token inclusi se condizione vera; **`[Signal, rhs]`** o **`styleEq(signal, rhs)`** (stesso significato, senza `() =>`); oppure **`() => boolean`**.
- * `readRhs` valuta rhs e valori di `__` se annidati reattivi.
+ * `readRhs` valuta rhs e valori di `__` / `__after` se annidati reattivi.
  */
 export function condenseConditionalTokenMap(
 	o: Record<string, unknown>,
 	readRhs?: (v: unknown) => unknown,
 ): string | undefined | null {
+	o = recombineStringSpreadInTokenMap(o);
 	const keys = Object.keys(o);
 	if (keys.length === 0) return null;
 	for (const k of keys) {
-		if (k === STYLE_BASE_ALWAYS_KEY) continue;
+		if (k === STYLE_BASE_ALWAYS_KEY || k === STYLE_BASE_SUFFIX_KEY) continue;
 		if (RESERVED_LAYER_KEYS.has(k) || VIEWPORT_KEYS.includes(k as StyleViewport)) return null;
 	}
 	const read = readRhs ?? ((v: unknown) => v);
 	const prefix: string[] = [];
 	const condKeys: string[] = [];
+	const suffix: string[] = [];
 
 	if (STYLE_BASE_ALWAYS_KEY in o) {
 		const raw = o[STYLE_BASE_ALWAYS_KEY];
@@ -158,8 +208,15 @@ export function condenseConditionalTokenMap(
 		if (s) prefix.push(...s.split(/\s+/).filter(Boolean));
 	}
 
+	if (STYLE_BASE_SUFFIX_KEY in o) {
+		const raw = o[STYLE_BASE_SUFFIX_KEY];
+		if (raw != null && typeof raw === "object" && !Array.isArray(raw)) return null;
+		const s = String(read(raw)).trim();
+		if (s) suffix.push(...s.split(/\s+/).filter(Boolean));
+	}
+
 	for (const [k, val] of Object.entries(o)) {
-		if (k === STYLE_BASE_ALWAYS_KEY) continue;
+		if (k === STYLE_BASE_ALWAYS_KEY || k === STYLE_BASE_SUFFIX_KEY) continue;
 
 		let on = false;
 		if (isStyleEqDescriptor(val)) {
@@ -179,7 +236,7 @@ export function condenseConditionalTokenMap(
 		if (on) condKeys.push(k);
 	}
 
-	const out = [...prefix, ...condKeys].join(" ");
+	const out = [...prefix, ...condKeys, ...suffix].join(" ");
 	if (!out) return undefined;
 	return out;
 }
@@ -503,7 +560,14 @@ export function resolveStyleLayer(
 			if (condensed !== null) {
 				if (condensed !== undefined) mergeInto(result, resolveStyleString(condensed, vp));
 			} else {
-				mergeInto(result, resolveStyleLayer(b as StyleLayerInput, vp, ancestorBases));
+				mergeInto(
+					result,
+					resolveStyleLayer(
+						recombineStringSpreadInTokenMap(b as Record<string, unknown>) as StyleLayerInput,
+						vp,
+						ancestorBases,
+					),
+				);
 			}
 		}
 	}

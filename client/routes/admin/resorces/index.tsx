@@ -8,6 +8,9 @@ export default function Resources() {
   const view = state("always");
   return (
     <>
+      <div s="w-100 row children-center">
+        <div s="text-6 bg-primary h-100 w-1" />
+      </div>
       <div
         s={{
           base: "row centerx children-center gapx-10 round-25px px-10 py-3 b-1 b-secondary w-auto mt-2 maxw-30rem scrollx font-4 text-4",
@@ -160,15 +163,30 @@ export default function Resources() {
       {/* // ───────────────────────────────────────────────────────────────────────────────
           // RESOURCES
           // ────────────────────────────────────────────────────────────────────────────────── */}
-      <Card title="RISORSE" icon="users">
-        <div>
-          <For each={data.resources}>
-            {(resource) => {
-              return <div>{resource.name}</div>;
-            }}
-          </For>
+<div s='left'>
+      <Card title="Risorse" icon="users" s="mt-10 bg-background b-2 b-secondary">
+        <div s="row gapx-10 mt-5">
+          <Card title="Risorse" icon="users">
+            <div>
+              <For each={data.resources}>
+                {(resource) => {
+                  return <div>{resource.name}</div>;
+                }}
+              </For>
+            </div>
+          </Card>
+          <Card title="Risorse" icon="users">
+            <div>
+              <For each={data.resources}>
+                {(resource) => {
+                  return <div>{resource.name}</div>;
+                }}
+              </For>
+            </div>
+          </Card>
         </div>
       </Card>
+</div>
     </>
   );
 }
@@ -181,11 +199,19 @@ type CardProps = {
   title: string;
   icon: Icon;
   children?: unknown;
+  s?: any;
 };
 
-function Card({ title, icon: iconName, children }: CardProps) {
+function Card({ title, icon: iconName, children, s }: CardProps) {
   return (
-    <div s={{ des: "col w-80 round-round py-5 px-5 centerx mt-20 bg-secondary" }}>
+    <div
+      s={{
+        base: {
+          "col w-100% round-round py-5 px-5 centerx bg-secondary": true,
+          ...s,
+        },
+      }}
+    >
       <div
         s={{
           des: "font-6 text-6 row px-2 round-5px  gapx-2 children-centery",

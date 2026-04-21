@@ -7,21 +7,12 @@ export const data = state(server.booker.getAllAdmin());
 export default function BookerDemo() {
   return (
     <>
-      <div s="row">
-        <AdminMenu />
-        <div s="">
-          <switch value={tab()}>
-            <case when="prenotations">
-              <Prenotations />
-            </case>
-            <case when="services">
-              <Services />
-            </case>
-            <case when="resources">
-              <Resources />
-            </case>
-          </switch>
+      <div s="row w-100">
+        <div s="left">
+          <AdminMenu />
         </div>
+        <div s="text-6 bg-#3500f3 h-100 w-1 centerx row" />
+     
       </div>
     </>
   );

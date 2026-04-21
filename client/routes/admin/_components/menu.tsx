@@ -1,19 +1,24 @@
 import { For, persistState, state } from "client";
 import type { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 
-export const tab = persistState<"prenotations" | "services" | "resources">("resources");
+export const tab = persistState<
+  "prenotations" | "services" | "resources" | "settings"
+>("resources");
+
+const MENU_ITEMS = [
+  { label: "Prenotazioni", icon: "calendar", id: "prenotations" as const },
+  { label: "Servizi", icon: "box", id: "services" as const },
+  { label: "Risorse", icon: "users", id: "resources" as const },
+  { label: "Impostazioni", icon: "bolt", id: "settings" as const },
+];
 
 export default function AdminMenu() {
   const open = state(false);
-  const items = [
-    { label: "Prenotazioni", icon: "calendar", id: "prenotations" },
-    { label: "Servizi", icon: "box", id: "services" },
-    { label: "Risorse", icon: "users", id: "resources" },
-  ];
 
   return (
-    <div s="h-100 w-7 pl-4 mt-40 gapy-5 col hover:(w-10) " hover={open}>
-      <For each={items}>
+    <div s="h-100  px-4  gapy-5 col hover:(pr-10) bg-primary " hover={open}>
+    <div s='mt-40'>
+      <For each={MENU_ITEMS}>
         {(item) => (
           <div
             s={{
@@ -31,12 +36,13 @@ export default function AdminMenu() {
                 tab() === item.id ? { color: "background", blur: 1, intensity: 3 } : false
               }
             />
-            <t show={open()} s="text-4 centery">
+            <t show={open} s="text-4 centery">
               {item.label}
             </t>
           </div>
         )}
       </For>
+    </div>
     </div>
   );
 }
