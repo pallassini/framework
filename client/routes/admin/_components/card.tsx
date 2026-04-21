@@ -23,7 +23,7 @@ export default function Card({ title, icon: iconName, children, s, actions }: Ca
           des: "font-6 text-6 row round-5px  gapx-2 children-center",
         }}
       >
-        <icon name={iconName} stroke={2.5} />
+        <icon name={iconName as Icon} stroke={2.5} />
         <t>{title}</t>
         <div s="right">{actions}</div>
       </div>

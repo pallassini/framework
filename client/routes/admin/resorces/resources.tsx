@@ -1,7 +1,8 @@
 import { For, state } from "client";
 import Card from "../_components/card";
 import { data } from "..";
-import { Popmenu } from "../../demo";
+import Popmenu from "../_components/popmenu";
+
 
 const spaceOpen = state(false);
 export default function Resource() {

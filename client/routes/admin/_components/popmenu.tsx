@@ -1,5 +1,5 @@
 import { state, watch } from "client";
-import { clientConfig } from "../config";
+import { clientConfig } from "../../../config";
 
 /**
  * Converte "N" (in unità del canvas, stesse di w-N/h-N del framework) in rem.
@@ -187,7 +187,7 @@ function ensureBounceKeyframe() {
   document.head.appendChild(el);
 }
 
-export function Popmenu(props: PopmenuProps) {
+export default function Popmenu(props: PopmenuProps) {
   const {
     collapsed,
     extended,
@@ -612,32 +612,6 @@ export function Popmenu(props: PopmenuProps) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-export default function Demo() {
-  return (
-    <div s="mt-30 ml-50">
-      <Popmenu
-        direction="bottom"
-        offset={{ x: 0, y: 0 }}
-        confirmCollapsed={true}
-        s="bg-#545454 round-20px"
-        collapsed={() => (
-          <div s="p-2 row">
-            <icon name="plus" size="6" stroke={3} />
-          </div>
-        )}
-        extended={() => (
-          <div s="col gapy-2 px-4 py-3">
-            <t s="text-4">Ciao</t>
-            <t s="text-4">Ciao ciao</t>
-            <t s="text-4">Ciao ciao ciao</t>
-            <input></input>
-          </div>
-        )}
-      />
     </div>
   );
 }
