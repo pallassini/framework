@@ -7,11 +7,10 @@ export const data = state(server.booker.getAllAdmin());
 export default function BookerDemo() {
   return (
     <>
-      <div s="row">
+      <div s="row children-top">
         {/* Niente `left` qui: con `left` il primo figlio usa margin-right:auto e “mangia” lo spazio → il fratello con `centerx` finisce incollato a destra invece che centrato nello spazio rimasto. */}
 
-        {/* `self-start`: senza, il flex allunga il figlio alla stessa altezza del contenuto → il box sticky è alto come la pagina e non resta “incollato” in alto. */}
-        <div s="sticky top-0 self-start z-10">
+        <div s="sticky z-10">
           <AdminMenu />
         </div>
 

@@ -163,10 +163,8 @@ export default function Resources() {
           // ────────────────────────────────────────────────────────────────────────────────── */}
 
     <Resource />
-    <Resource />
-    <Resource />
-    <Resource />
-    
+
+
     </>
   );
 }
