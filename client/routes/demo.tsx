@@ -103,9 +103,17 @@ function Popmenu({ collapsed, extended, direction = "bottom-right", s }: Popmenu
     return st;
   };
 
-  const slotStyle = (visible: () => boolean) => () => ({
+  /**
+   * Slot: dimensione naturale fissa, ancorato top-left.
+   * La shell fa da "finestra" (overflow:hidden) e rivela il contenuto man mano che cresce.
+   * Niente reflow: il testo non va mai a capo durante la transizione.
+   */
+  const slotStyle = (w: () => number, h: () => number, visible: () => boolean) => () => ({
     position: "absolute",
-    inset: "0",
+    top: "0",
+    left: "0",
+    width: `${w()}px`,
+    height: `${h()}px`,
     opacity: visible() ? "1" : "0",
     transition: "opacity 150ms linear",
     pointerEvents: visible() ? "auto" : "none",
@@ -130,8 +138,8 @@ function Popmenu({ collapsed, extended, direction = "bottom-right", s }: Popmenu
         }}
         clickout={() => open(false)}
       >
-        <div style={slotStyle(() => !open()) as any}>{collapsed()}</div>
-        <div style={slotStyle(() => open()) as any}>{extended()}</div>
+        <div style={slotStyle(cw, ch, () => !open()) as any}>{collapsed()}</div>
+        <div style={slotStyle(ew, eh, () => open()) as any}>{extended()}</div>
       </div>
     </div>
   );
@@ -144,7 +152,7 @@ export default function Demo() {
         direction="top"
         s="bg-#545454 round-20px"
         collapsed={() => (
-          <div s="p-2">
+          <div s="p-2 flex">
             <icon name="plus" size="6" stroke={3} />
           </div>
         )}
