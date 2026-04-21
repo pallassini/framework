@@ -62,7 +62,6 @@ function clearAnimStyles(el: El): void {
 	}
 	const h = el;
 	h.style.removeProperty("max-width");
-	h.style.removeProperty("max-height");
 	h.style.removeProperty("opacity");
 	h.style.removeProperty("overflow");
 	h.style.removeProperty("white-space");
@@ -72,14 +71,12 @@ function clearAnimStyles(el: El): void {
 }
 
 /** Se il nodo non eredita durata utile (es. span senza `transition-duration`), allinea a `:root`. */
-function ensureShowTransition(html: HTMLElement, withHeight: boolean): void {
+function ensureShowTransition(html: HTMLElement): void {
 	if (parseTransitionDurationMaxMs(getComputedStyle(html).transitionDuration) > 0) return;
 	const d = getComputedStyle(document.documentElement).transitionDuration;
 	const tf = getComputedStyle(document.documentElement).transitionTimingFunction;
 	if (d && d !== "0s") {
-		html.style.transitionProperty = withHeight
-			? "max-width, max-height, opacity"
-			: "max-width, opacity";
+		html.style.transitionProperty = "max-width, opacity";
 		html.style.transitionDuration = d;
 		if (tf) html.style.transitionTimingFunction = tf;
 	}
@@ -140,68 +137,9 @@ function leaveStartWidth(el: HTMLElement): number {
 	return measureUnconstrainedWidth(el);
 }
 
-function readCollapseHeight(el: HTMLElement): number {
-	let h = Math.ceil(el.offsetHeight);
-	if (h <= 0) h = Math.ceil(el.scrollHeight);
-	return h;
-}
-
-function measureUnconstrainedHeight(el: HTMLElement): number {
-	const prev = {
-		position: el.style.position,
-		left: el.style.left,
-		top: el.style.top,
-		visibility: el.style.visibility,
-		whiteSpace: el.style.whiteSpace,
-		maxWidth: el.style.maxWidth,
-		maxHeight: el.style.maxHeight,
-	};
-
-	el.style.position = "absolute";
-	el.style.left = "-10000px";
-	el.style.top = "0";
-	el.style.visibility = "hidden";
-	el.style.whiteSpace = "nowrap";
-	el.style.maxWidth = "none";
-	el.style.maxHeight = "none";
-
-	void el.offsetHeight;
-	const h = Math.max(Math.ceil(el.offsetHeight), Math.ceil(el.scrollHeight));
-
-	el.style.position = prev.position;
-	el.style.left = prev.left;
-	el.style.top = prev.top;
-	el.style.visibility = prev.visibility;
-	el.style.whiteSpace = prev.whiteSpace;
-	el.style.maxWidth = prev.maxWidth;
-	el.style.maxHeight = prev.maxHeight;
-
-	return h;
-}
-
-function naturalOpenHeight(el: HTMLElement): number {
-	const h = readCollapseHeight(el);
-	if (h > 0) return h;
-	return measureUnconstrainedHeight(el);
-}
-
-function leaveStartHeight(el: HTMLElement): number {
-	let h = readCollapseHeight(el);
-	if (h > 0) return h;
-	return measureUnconstrainedHeight(el);
-}
-
-/** Solo blocchi: W e H in parallelo. Inline / inline-*: come il menu admin (solo larghezza). */
-function shouldAnimateBothAxes(el: HTMLElement): boolean {
-	const d = getComputedStyle(el).display;
-	if (d === "inline" || d === "contents") return false;
-	if (collapseUsesNowrap(el)) return false;
-	return true;
-}
-
 /**
- * `waitProps`: proprietà da aspettare (stessa durata → partono nello stesso frame).
- * Default solo `max-width` come in git per le label orizzontali.
+ * Completa dopo la transione reale (`max-width` guida il layout) o fallback,
+ * con rAF prima di smontare / togliere gli inline.
  */
 function armTransitionComplete(
 	html: HTMLElement,
@@ -209,12 +147,10 @@ function armTransitionComplete(
 	stillValid: () => boolean,
 	onComplete: () => void,
 	label: string,
-	waitProps: readonly string[] = ["max-width"],
 ): () => void {
 	let cleaned = false;
 	let tid = 0;
 	const t0 = performance.now();
-	const pending = new Set(waitProps);
 
 	const cleanup = (): void => {
 		if (cleaned) return;
@@ -238,8 +174,7 @@ function armTransitionComplete(
 	const onEnd = (ev: TransitionEvent): void => {
 		if (cleaned || !stillValid()) return;
 		if (ev.target !== html) return;
-		if (!pending.delete(ev.propertyName)) return;
-		if (pending.size > 0) return;
+		if (ev.propertyName !== "max-width") return;
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
 				finish("transitionend");
@@ -307,7 +242,7 @@ const showControllers = new WeakMap<El, ShowCtl>();
 
 /**
  * Prop `show`: mount/unmount nel DOM con transizione allineata a `transition` / `var(--duration)` dell’elemento
- * (vedi `base-reset.ts`). HTML: `opacity` + `max-width` (+ `max-height` sui blocchi, in parallelo); SVG: solo `opacity`.
+ * (vedi `base-reset.ts`). HTML: `opacity` + `max-width`; SVG: solo `opacity`.
  *
  * `applyDomProps` può richiamare la prop più volte: **un solo controller per elemento** (WeakMap).
  */
@@ -404,36 +339,17 @@ function attachShowController(el: El, initialV: unknown): void {
 				return;
 			}
 
-			const axes = shouldAnimateBothAxes(html);
-			let naturalH = 0;
-			if (axes) {
-				naturalH = naturalOpenHeight(html);
-				if (naturalH <= 0) {
-					if (attempt < 12) {
-						requestAnimationFrame(() => run(attempt + 1));
-						return;
-					}
-				}
-			}
-			const withH = axes && naturalH > 0;
-			const waitEnter = withH
-				? (["max-width", "max-height", "opacity"] as const)
-				: (["max-width"] as const);
-
 			clearAnimStyles(html);
-			ensureShowTransition(html, withH);
+			ensureShowTransition(html);
 			html.style.overflow = "hidden";
 			if (collapseUsesNowrap(html)) html.style.whiteSpace = "nowrap";
 			html.style.maxWidth = "0px";
-			if (withH) html.style.maxHeight = "0px";
 			html.style.opacity = "0";
 			void html.offsetWidth;
 
 			requestAnimationFrame(() => {
 				if (my !== enterCycle) return;
-				/* Stesso frame: max-width, max-height e opacity partono insieme. */
 				html.style.maxWidth = `${naturalW}px`;
-				if (withH) html.style.maxHeight = `${naturalH}px`;
 				html.style.opacity = "1";
 
 				enterCleanup = armTransitionComplete(
@@ -446,7 +362,6 @@ function attachShowController(el: El, initialV: unknown): void {
 						clearAnimStyles(html);
 					},
 					"enter",
-					waitEnter,
 				);
 			});
 		};
@@ -482,6 +397,7 @@ function attachShowController(el: El, initialV: unknown): void {
 		}
 
 		const html = el;
+		ensureShowTransition(html);
 		const w = leaveStartWidth(html);
 		if (w <= 0) {
 			dbg("leave instant w=0");
@@ -489,21 +405,11 @@ function attachShowController(el: El, initialV: unknown): void {
 			return;
 		}
 
-		const axes = shouldAnimateBothAxes(html);
-		const h = axes ? leaveStartHeight(html) : 0;
-		const withH = axes && h > 0;
-		const waitLeave = withH
-			? (["max-width", "max-height", "opacity"] as const)
-			: (["max-width"] as const);
-
-		ensureShowTransition(html, withH);
 		html.style.overflow = "hidden";
 		if (collapseUsesNowrap(html)) html.style.whiteSpace = "nowrap";
 		html.style.maxWidth = `${w}px`;
-		if (withH) html.style.maxHeight = `${h}px`;
 		void html.offsetWidth;
 		html.style.maxWidth = "0px";
-		if (withH) html.style.maxHeight = "0px";
 		html.style.opacity = "0";
 
 		leaveCleanup = armTransitionComplete(
@@ -516,9 +422,8 @@ function attachShowController(el: El, initialV: unknown): void {
 				thenUnmount();
 			},
 			"leave",
-			waitLeave,
 		);
-		dbg("leave →", w + "px", withH ? h + "px h" : "no-h", dur + "ms");
+		dbg("leave →", w + "px", dur + "ms");
 	};
 
 	const sync = (): void => {

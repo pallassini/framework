@@ -17,7 +17,7 @@ export default function BookerDemo() {
    
       <div s='col centerx w-100'>
 
-          <switch value={tab()}>
+          <switch value={tab}>
             <case when="prenotations">
               <Prenotations />
             </case>

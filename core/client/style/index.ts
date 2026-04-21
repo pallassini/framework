@@ -146,8 +146,14 @@ function attachHoverOverlay(el: El, resolved: ResolvedStyle): void {
 	hoverOverlayCleanup.set(el, () => {
 		el.removeEventListener("mouseenter", onEnter);
 		el.removeEventListener("mouseleave", onLeave);
-		applyBase();
+		/** Non chiamare `applyBase()` qui: `applyFromResolved` ha già applicato il resolve corrente;
+		 * la vecchia chiusura userebbe base/class obsoleti e ripristinerebbe tab/stili sbagliati al click sotto hover. */
 	});
+
+	/** Il puntatore può restare sopra senza un nuovo `mouseenter`: riallinea overlay al resolve appena fatto. */
+	if (typeof el.matches === "function" && el.matches(":hover")) {
+		applyHover();
+	}
 }
 
 function camelToKebab(prop: string): string {
