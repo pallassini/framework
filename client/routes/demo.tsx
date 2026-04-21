@@ -152,7 +152,7 @@ export default function Demo() {
         direction="top"
         s="bg-#545454 round-20px"
         collapsed={() => (
-          <div s="p-2 flex">
+          <div s="p-2 row">
             <icon name="plus" size="6" stroke={3} />
           </div>
         )}
