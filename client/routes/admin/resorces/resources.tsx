@@ -1,6 +1,7 @@
 import { For, state } from "client";
 import Card from "../_components/card";
 import { data } from "..";
+import { Popmenu } from "../../demo";
 
 const spaceOpen = state(false);
 export default function Resource() {
@@ -9,7 +10,17 @@ export default function Resource() {
       <div s="w-80% centerx ">
         <Card title="Risorse" icon="users" s="mt-10 bg-background b-2 b-secondary">
           <div s="row gapx-10 mt-5">
-            <Card title="Spazi" icon="users" actions={<Space collapsed={<icon name="plus" size="6" s="p-1 text-secondary" stroke={3} />} extended={<div s="w-50% h-0% bg-#002fff" />} />}>
+            <Card
+              title="Spazi"
+              icon="users"
+              actions={
+                <Popmenu
+                  direction="bottom"
+                  collapsed={() => <icon name="plus" size="6" s="p-1" stroke={3} />}
+                  extended={() => <div s=" bg-#002fff w-20 h-20"><t>ciao</t></div>}
+                />
+              }
+            >
               <div>
                 <For each={data.resources}>
                   {(resource) => {
@@ -48,9 +59,7 @@ function Space({ collapsed, extended }: { collapsed?: unknown; extended?: unknow
       s="absolute col children-left ml-40 mt-10  px-3 py-2 overflow-hidden round-round bg-#ff0000"
       clickout={() => spaceOpen(false)}
     >
-      <div click={() => spaceOpen(!spaceOpen())}>
-        {collapsed}
-      </div>
+      <div click={() => spaceOpen(!spaceOpen())}>{collapsed}</div>
       <div
         s={{
           base: {
