@@ -33,7 +33,7 @@ export default function AdminMenu() {
             <icon
               name={item.icon as Icon}
               shadow={() =>
-                tab() === item.id ? { color: "background", blur: 1, intensity: 3 } : false
+                tab() === item.id ? { color: "background", blur: 1, intensity: 1 } : false
               }
             />
             <t show={open} s="text-4 centery">

@@ -1,6 +1,6 @@
 import type { UiNode } from "../../runtime/tag/props";
 import { watch } from "../../state/effect";
-import { beginRouteLocalFrame } from "../../state/local";
+import { beginRouteLocalFrame, currentRouteLocalPath } from "../../state/local";
 import { styleViewport } from "../../style/viewport";
 import { toNodes } from "../../runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../runtime/logic/lifecycle";
@@ -39,6 +39,9 @@ function stripLoadingRoot(root: UiNode): globalThis.Node[] {
 	return [g];
 }
 
+/** Evita `replaceChildren` in idle se page+path non cambiano (altrimenti ogni tick ricrea `state()` nel componente). */
+let lastIdleMount: { page: ClientPage; path: string } | null = null;
+
 export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): UiNode {
 	const anchor = document.createElement("span");
 	anchor.style.display = "contents";
@@ -55,11 +58,13 @@ export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): U
 		const modLoading = routeModuleLoading();
 
 		if (phase === "chunk") {
+			lastIdleMount = null;
 			ph.style.display = "contents";
 			ch.style.display = "none";
 			replaceChildrenWithDispose(ph, ...toNodes(globalLoading));
 			replaceChildrenWithDispose(ch);
 		} else if (phase === "route") {
+			lastIdleMount = null;
 			ph.style.display = "contents";
 			ch.style.display = "none";
 			if (asyncFb) replaceChildrenWithDispose(ph, ...toNodes(asyncFb({})));
@@ -71,7 +76,18 @@ export function viewport(globalLoading: unknown, shellRouteLoading?: unknown): U
 			ch.style.display = "contents";
 			replaceChildrenWithDispose(ph);
 			beginRouteLocalFrame();
-			const pageRoot = routePage()({});
+			const pageFn = routePage();
+			const path = currentRouteLocalPath();
+			if (
+				lastIdleMount != null &&
+				lastIdleMount.page === pageFn &&
+				lastIdleMount.path === path &&
+				ch.childNodes.length > 0
+			) {
+				return;
+			}
+			lastIdleMount = { page: pageFn, path };
+			const pageRoot = pageFn({});
 			replaceChildrenWithDispose(ch, ...stripLoadingRoot(pageRoot));
 		}
 	});

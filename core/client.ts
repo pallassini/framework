@@ -1,7 +1,8 @@
 import { clientConfig } from "../client/config";
 
 // STATE
-export { watch } from "./client/state";
+export { local, watch } from "./client/state";
+export { not } from "./client/runtime/logic/read-when";
 import { createPersistState, createSessionState, createState } from "./client/state";
 export const state = createState(clientConfig.state);
 export const sessionState = createSessionState(clientConfig.sessionState);

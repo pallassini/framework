@@ -3,12 +3,19 @@ import type { StyleResolver } from "../properties";
 
 const CSS_LENGTH_TIME = /^[\d.]+(ms|s)$/i;
 
-/** `duration-200ms` / `duration-300` → durata (`transition-property` default del browser, tipicamente `all`). */
+/**
+ * `duration-200ms` / `duration-300` → durata.
+ * Imposta anche `--duration`: il base-reset usa `transition-duration: var(--duration)` su `*`,
+ * quindi i figli (es. nodi con `show`) ereditano la stessa durata del contenitore.
+ */
 export const transitionDurationToken: StyleResolver = (suffix: string): Properties | undefined => {
 	const s = suffix.trim();
 	if (!s) return undefined;
 	const dur = CSS_LENGTH_TIME.test(s) ? s : `${s}ms`;
-	return { transitionDuration: dur };
+	return {
+		transitionDuration: dur,
+		"--duration": dur,
+	} as Properties;
 };
 
 /** `ease` / `ease-out` / `ease-in` / `ease-in-out` → `transition-timing-function` (default CSS se solo `ease`). */

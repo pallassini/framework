@@ -5,7 +5,7 @@ import { ensureInjected } from "./animation/inject";
  * con durata = `var(--duration)` (definita in `client/index.css` `:root`).
  *
  * Override per elemento via `s`:
- * - `duration-0` / `duration-500` → sovrascrive la sola `transition-duration`.
+ * - `duration-0` / `duration-500` → `transition-duration` e `--duration` (i figli usano `var(--duration)`).
  * - `linear` / `ease-out` / `ease-in` / `ease-in-out` → sovrascrive la `transition-timing-function`.
  */
 const FW_BASE_RESET_CSS = `

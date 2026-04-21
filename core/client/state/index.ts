@@ -1,4 +1,5 @@
 export { watch } from "./effect";
+export { local } from "./local";
 export {
 	isPersistDebugEnabled,
 	persistDebug,

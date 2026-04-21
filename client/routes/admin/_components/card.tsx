@@ -1,8 +1,8 @@
 import { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 
 type CardProps = {
-  title: string;
-  icon: Icon;
+  title?: string;
+  icon?: Icon;
   children?: unknown;
   s?: any;
   actions?: unknown;
@@ -13,7 +13,7 @@ export default function Card({ title, icon: iconName, children, s, actions }: Ca
     <div
       s={{
         base: {
-          "col w-100% round-round py-3 px-3 centerx bg-secondary": true,
+          "col w-100% round-round p-5 centerx bg-secondary": true,
           ...s,
         },
       }}
