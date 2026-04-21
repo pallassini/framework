@@ -1,4 +1,4 @@
-import { state } from "client";
+import { state, watch } from "client";
 import { clientConfig } from "../config";
 
 /**
@@ -22,6 +22,15 @@ type Direction =
   | "bottom-left"
   | "bottom-right";
 
+export interface ConfirmOptions {
+  /** Testo della domanda. Default "Sicuro?". */
+  message?: string;
+  /** Testo del pulsante conferma. Default "Sì". */
+  confirm?: string;
+  /** Testo del pulsante annulla. Default "No". */
+  cancel?: string;
+}
+
 interface PopmenuProps {
   /** Contenuto dello stato chiuso (factory). */
   collapsed: () => unknown;
@@ -37,21 +46,22 @@ interface PopmenuProps {
   offset?: { x?: number; y?: number };
   /** Stile della shell (passato con token del framework, es. "bg-#545454 round-20px"). */
   s?: unknown;
+  /** Se `true` (o oggetto con opzioni), chiede conferma prima di chiudere (clickout / esc). */
+  confirmCollapsed?: boolean | ConfirmOptions;
+  /** Apre quando il mouse entra sulla shell. */
+  hoverIn?: boolean;
+  /** Chiude quando il mouse esce dalla shell (incluso il contenuto). */
+  hoverOut?: boolean;
+  /** Al primo `open=true`, mette focus sul primo input/textarea dentro l'extended. */
+  autofocus?: boolean;
 }
 
-/**
- * Per ogni direzione:
- *  - vx/vy: vettore di espansione (dove "cresce"). +1 dx/giù, -1 sx/su, 0 centrato.
- *  - side: quali side CSS usare come ancoraggio (opposto alla direzione di espansione).
- */
 type Axis = "top" | "bottom" | "left" | "right";
 
 interface DirSpec {
   vx: -1 | 0 | 1;
   vy: -1 | 0 | 1;
-  /** Lati CSS da ancorare (il valore numerico è calcolato dall'offset). */
   sides: Axis[];
-  /** Eventuale transform per centrare ortogonalmente. */
   transform?: string;
 }
 
@@ -67,12 +77,6 @@ const DIRS: Record<Direction, DirSpec> = {
   "bottom-right": { vx:  1, vy:  1, sides: ["top",    "left"]  },
 };
 
-/**
- * Converte offset {x, y} in valori per i lati ancorati, tenendo conto del verso di espansione.
- * - Se cresce a destra (vx=+1) e il side è "left" → left = offset.x
- * - Se cresce a sinistra (vx=-1) e il side è "right" → right = offset.x
- * - Se vx=0 (centrato) → usa "left: 50%" + transform, l'offset.x diventa traslazione extra.
- */
 function computeShellPosition(dir: DirSpec, offset: { x?: number; y?: number }): {
   styles: Partial<Record<Axis, string>>;
   transform?: string;
@@ -135,18 +139,160 @@ const measureHostStyle: Record<string, string> = {
   zIndex: "-1",
 };
 
-export function Popmenu({ collapsed, extended, direction = "bottom-right", offset, s }: PopmenuProps) {
+/** Rileva utenti con `prefers-reduced-motion`. Se true, le animazioni sono istantanee. */
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Inietta una volta il keyframe del bounce "premium": scale morbido che simula
+ * una presa elastica (spring damping).
+ */
+let bounceKeyframeInjected = false;
+function ensureBounceKeyframe() {
+  if (bounceKeyframeInjected || typeof document === "undefined") return;
+  bounceKeyframeInjected = true;
+  const el = document.createElement("style");
+  el.setAttribute("data-fw", "popmenu-bounce");
+  /**
+   * Due keyframe identici con nomi alternati: permettono di riavviare l'animazione
+   * ad ogni tap insistito cambiando semplicemente animation-name.
+   */
+  const kf = (name: string) => `
+    @keyframes ${name} {
+      0%   { transform: var(--popmenu-base-transform, none) scale(1); }
+      18%  { transform: var(--popmenu-base-transform, none) scale(1.035); }
+      36%  { transform: var(--popmenu-base-transform, none) scale(0.975); }
+      56%  { transform: var(--popmenu-base-transform, none) scale(1.018); }
+      78%  { transform: var(--popmenu-base-transform, none) scale(0.992); }
+      100% { transform: var(--popmenu-base-transform, none) scale(1); }
+    }
+  `;
+  el.textContent = kf("popmenu-bounce-a") + kf("popmenu-bounce-b");
+  document.head.appendChild(el);
+}
+
+export function Popmenu(props: PopmenuProps) {
+  const {
+    collapsed,
+    extended,
+    direction = "bottom-right",
+    offset,
+    s,
+    confirmCollapsed,
+    hoverIn,
+    hoverOut,
+    autofocus,
+  } = props;
+
+  ensureBounceKeyframe();
   const open = state(false);
+  const pressed = state(false);
+  const confirming = state(false);
+  /** Contatore di bounce: ogni trigger incrementa e fa ri-partire l'animazione anche se già in corso. */
+  const bounceTick = state(0);
+  let bounceTimer: number | undefined;
+  const triggerBounce = () => {
+    bounceTick(bounceTick() + 1);
+    if (bounceTimer !== undefined) clearTimeout(bounceTimer);
+    /** Durata animazione + margine, per resettare lo stato "in animazione". */
+    bounceTimer = window.setTimeout(() => bounceTick(0), 420);
+  };
   const cw = state(0);
   const ch = state(0);
   const ew = state(0);
   const eh = state(0);
 
   const dir = DIRS[direction];
-  /** Posizione di ancoraggio CHIUSA: sempre 0 (coincide col collapsed). */
   const closedPos = computeShellPosition(dir, {});
-  /** Posizione di ancoraggio APERTA: applica l'offset (gap dal collapsed verso la direzione di espansione). */
   const openPos = computeShellPosition(dir, offset ?? {});
+
+  const reduced = prefersReducedMotion();
+
+  const EASE_OPEN = "cubic-bezier(0.32, 0.72, 0, 1)";
+  const EASE_CLOSE = "cubic-bezier(0.4, 0.0, 0.2, 1)";
+  const D_OPEN = reduced ? 0 : 440;
+  const D_CLOSE = reduced ? 0 : 280;
+
+  const confirmOpts: ConfirmOptions = typeof confirmCollapsed === "object" && confirmCollapsed !== null ? confirmCollapsed : {};
+  const confirmMessage = confirmOpts.message ?? "Conferma chiusura?";
+  const confirmYes = confirmOpts.confirm ?? "Conferma";
+  const confirmNo = confirmOpts.cancel ?? "Annulla";
+
+  /** Elemento della shell per autofocus + outside-click affidabile cross-browser. */
+  let shellEl: HTMLElement | null = null;
+
+  /** Focus del primo input dentro la shell. Su iOS DEVE essere sincrono nel gesto utente. */
+  const tryAutofocus = () => {
+    if (!autofocus || !shellEl) return;
+    const target = shellEl.querySelector<HTMLElement>("input, textarea, select, [contenteditable='true']");
+    if (!target) return;
+    /**
+     * iOS Safari permette `.focus()` solo nello stesso tick del gesto utente.
+     * Chiamata sincrona: sblocca la keyboard su iOS anche se l'elemento è ancora opacity:0.
+     */
+    target.focus({ preventScroll: true });
+  };
+
+  /** Tentativo di chiusura: se confirmCollapsed attivo, mostra la conferma. Altrimenti chiude subito. */
+  const requestClose = () => {
+    if (!open()) return;
+    if (confirmCollapsed) {
+      confirming(true);
+    } else {
+      open(false);
+    }
+  };
+
+  const confirmCloseYes = (ev?: Event) => {
+    ev?.stopPropagation();
+    confirming(false);
+    open(false);
+  };
+  const confirmCloseNo = (ev?: Event) => {
+    ev?.stopPropagation();
+    confirming(false);
+  };
+
+  const requestOpen = () => {
+    if (open()) return;
+    open(true);
+    confirming(false);
+    /** Focus immediato sincrono (iOS). Un secondo tentativo ritardato per desktop/Android. */
+    tryAutofocus();
+  };
+
+  /**
+   * Outside-click è gestito da un backdrop fullscreen (vedi JSX).
+   * Qui non servono più listener globali: il backdrop è un elemento DOM reale che
+   * intercetta click/tap su mobile/desktop in modo 100% affidabile.
+   */
+
+  /** ESC: se conferma aperta, la annulla; altrimenti richiede chiusura (può aprire la conferma). */
+  watch(() => {
+    if (!open()) return;
+    const handler = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      if (confirming()) confirming(false);
+      else requestClose();
+    };
+    document.addEventListener("keydown", handler);
+    watch.onCleanup(() => document.removeEventListener("keydown", handler));
+  });
+
+  /** Autofocus ritardato (desktop/Android): secondo tentativo dopo il crossfade, per caret visibile. */
+  watch(() => {
+    if (!autofocus || !open() || !shellEl) return;
+    const delay = Math.round(D_OPEN * 0.35);
+    const id = window.setTimeout(() => {
+      const active = document.activeElement as HTMLElement | null;
+      /** Se il focus è già su un campo dentro la shell (es. da tryAutofocus sincrono), non reinterferire. */
+      if (active && shellEl?.contains(active)) return;
+      const target = shellEl?.querySelector<HTMLElement>("input, textarea, select, [contenteditable='true']");
+      target?.focus({ preventScroll: true });
+    }, delay);
+    watch.onCleanup(() => clearTimeout(id));
+  });
 
   const wrapStyle = () => ({
     position: "relative",
@@ -154,12 +300,6 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
     width: `${cw()}px`,
     height: `${ch()}px`,
   });
-
-  /** iOS-like: spring-ish per apertura (decelera morbido), più secco in chiusura. */
-  const EASE_OPEN = "cubic-bezier(0.32, 0.72, 0, 1)";
-  const EASE_CLOSE = "cubic-bezier(0.4, 0.0, 0.2, 1)";
-  const D_OPEN = 420;
-  const D_CLOSE = 260;
 
   const boxStyle = () => {
     const isOpen = open();
@@ -169,6 +309,12 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
     const pos = isOpen ? openPos : closedPos;
     const d = isOpen ? D_OPEN : D_CLOSE;
     const e = isOpen ? EASE_OPEN : EASE_CLOSE;
+    const baseTransform = pos.transform ?? "";
+    const pressScale = pressed() && !reduced ? "scale(0.97)" : "scale(1)";
+    const composed = baseTransform ? `${baseTransform} ${pressScale}` : pressScale;
+    const tick = bounceTick();
+    /** Alterna fra due nomi di keyframe identici per riavviare l'animazione su ogni insistenza. */
+    const bounceName = tick === 0 ? "none" : (tick % 2 === 1 ? "popmenu-bounce-a" : "popmenu-bounce-b");
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
@@ -176,7 +322,12 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
       cursor: "pointer",
       overflow: "hidden",
       opacity: ready ? "1" : "0",
+      zIndex: isOpen ? "50" : "1",
       willChange: "width, height, transform, opacity",
+      "--popmenu-base-transform": baseTransform || "none",
+      transform: composed,
+      transformOrigin: "center center",
+      animation: bounceName === "none" ? "none" : `${bounceName} 380ms cubic-bezier(0.25, 1.25, 0.5, 1) 1`,
       transition:
         `width ${d}ms ${e}, ` +
         `height ${d}ms ${e}, ` +
@@ -184,54 +335,166 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
         `left ${d}ms ${e}, ` +
         `right ${d}ms ${e}, ` +
         `bottom ${d}ms ${e}, ` +
-        `transform ${d}ms ${e}, ` +
-        `opacity 180ms linear`,
+        `transform 180ms cubic-bezier(0.4, 0, 0.2, 1), ` +
+        `opacity 180ms linear, ` +
+        `border-radius 0s, background-color 0s, color 0s`,
     };
     if (pos.styles.top != null) st.top = pos.styles.top;
     if (pos.styles.bottom != null) st.bottom = pos.styles.bottom;
     if (pos.styles.left != null) st.left = pos.styles.left;
     if (pos.styles.right != null) st.right = pos.styles.right;
-    if (pos.transform) st.transform = pos.transform;
     return st;
   };
 
-  /**
-   * Slot: dimensione naturale fissa, posizionato in base alla direzione.
-   * Opacity con delay: il contenuto nuovo appare **dopo** che la shell ha iniziato a crescere,
-   * e quello vecchio sparisce **prima**. Effetto premium "forma prima, contenuto dopo".
-   */
   const slotStyle = (w: () => number, h: () => number, visible: () => boolean) => (): Record<string, string> => {
     const isOpen = open();
     const d = isOpen ? D_OPEN : D_CLOSE;
-    /** Il contenuto visibile appare a ~35% dell'animazione; quello che esce sparisce nel primo ~25%. */
-    const inDelay = Math.round(d * 0.35);
-    const outDur = Math.round(d * 0.25);
-    const inDur = Math.round(d * 0.45);
+    const inDelay = Math.round(d * 0.3);
+    const outDur = Math.round(d * 0.22);
+    const inDur = Math.round(d * 0.5);
+    const vis = visible();
+    const scaleVal = vis || reduced ? "1" : "0.96";
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w()}px`,
       height: `${h()}px`,
-      opacity: visible() ? "1" : "0",
-      transition: visible()
-        ? `opacity ${inDur}ms linear ${inDelay}ms`
-        : `opacity ${outDur}ms linear 0ms`,
-      pointerEvents: visible() ? "auto" : "none",
+      opacity: vis ? "1" : "0",
+      transformOrigin: "center center",
+      transition: vis
+        ? `opacity ${inDur}ms cubic-bezier(0.2, 0.6, 0.2, 1) ${inDelay}ms, transform ${inDur}ms cubic-bezier(0.2, 0.6, 0.2, 1) ${inDelay}ms`
+        : `opacity ${outDur}ms linear 0ms, transform ${outDur}ms cubic-bezier(0.4, 0, 0.2, 1) 0ms`,
+      pointerEvents: vis ? "auto" : "none",
     };
-    if (direction === "center") {
-      st.top = "50%";
+    let tx = "0";
+    let ty = "0";
+    if (direction === "center" || dir.vx === 0) {
       st.left = "50%";
-      st.transform = "translate(-50%, -50%)";
-      return st;
+      tx = "-50%";
+    } else if (dir.vx === 1) {
+      st.left = "0";
+    } else {
+      st.right = "0";
     }
-    for (const side of dir.sides) st[side] = "0";
-    if (dir.vx === 0) st.left = "0";
-    if (dir.vy === 0) st.top = "0";
+    if (direction === "center" || dir.vy === 0) {
+      st.top = "50%";
+      ty = "-50%";
+    } else if (dir.vy === 1) {
+      st.top = "0";
+    } else {
+      st.bottom = "0";
+    }
+    st.transform = `translate(${tx}, ${ty}) scale(${scaleVal})`;
     return st;
+  };
+
+  /**
+   * Overlay conferma: action-sheet iOS-like. Patina scura + backdrop-filter blur
+   * per offuscare il contenuto sottostante della shell. Layout "glassmorphism".
+   */
+  const confirmBarStyle = () => ({
+    position: "absolute",
+    inset: "0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "center",
+    padding: "18px 16px 16px",
+    gap: "16px",
+    background: "rgba(10, 10, 12, 0.48)",
+    backdropFilter: "blur(14px) saturate(160%)",
+    WebkitBackdropFilter: "blur(14px) saturate(160%)",
+    color: "#fff",
+    opacity: confirming() ? "1" : "0",
+    transform: confirming() ? "translateY(0) scale(1)" : "translateY(6%) scale(0.98)",
+    transition:
+      "opacity 220ms cubic-bezier(0.2, 0.7, 0.2, 1), " +
+      "transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    pointerEvents: confirming() ? "auto" : "none",
+    zIndex: "3",
+  });
+
+  const confirmMessageStyle: Record<string, string> = {
+    flex: "1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: "1.02em",
+    lineHeight: "1.35",
+    padding: "4px 6px",
+    letterSpacing: "-0.01em",
+    color: "#fff",
+    textShadow: "0 1px 2px rgba(0,0,0,0.25)",
+  };
+
+  const confirmButtonsRowStyle: Record<string, string> = {
+    display: "flex",
+    gap: "10px",
+  };
+
+  const btnStyle = (variant: "yes" | "no"): Record<string, string> => ({
+    flex: "1",
+    padding: "12px 16px",
+    borderRadius: "14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.95em",
+    textAlign: "center",
+    userSelect: "none",
+    letterSpacing: "-0.005em",
+    transition: "background-color 160ms ease, transform 140ms ease, box-shadow 160ms ease",
+    background: variant === "yes"
+      ? "linear-gradient(180deg, rgba(255,92,92,1) 0%, rgba(235,66,66,1) 100%)"
+      : "rgba(255,255,255,0.18)",
+    color: "#fff",
+    boxShadow: variant === "yes"
+      ? "0 6px 16px rgba(235,66,66,0.35), inset 0 1px 0 rgba(255,255,255,0.2)"
+      : "inset 0 1px 0 rgba(255,255,255,0.12)",
+    border: variant === "yes" ? "none" : "1px solid rgba(255,255,255,0.14)",
+  });
+
+  /**
+   * Backdrop fullscreen: copre l'intera pagina quando il menu è aperto.
+   * Cliccando sul backdrop → chiude (o mostra conferma se confirmCollapsed).
+   * Se la conferma è già visibile, il backdrop la annulla (UX safe).
+   * Funziona al 100% su iOS, Android, desktop — nessun listener globale.
+   */
+  const backdropStyle = () => ({
+    position: "fixed",
+    inset: "0",
+    background: "transparent",
+    zIndex: "40",
+    pointerEvents: open() ? "auto" : "none",
+    /** touch-action: manipulation evita che iOS ritardi il click di 300ms. */
+    touchAction: "manipulation",
+    /** -webkit-tap-highlight per togliere l'highlight blu su tap iOS. */
+    WebkitTapHighlightColor: "transparent",
+  });
+
+  const onBackdropTap = (ev: Event) => {
+    ev.stopPropagation();
+    if (confirming()) {
+      /** Insistenza su tap-fuori con conferma attiva: feedback visivo sulla shell. */
+      triggerBounce();
+      return;
+    }
+    requestClose();
+  };
+
+  const onPressDown = () => pressed(true);
+  const onPressUp = () => pressed(false);
+  const onMouseEnter = () => {
+    if (hoverIn) requestOpen();
+  };
+  const onMouseLeave = () => {
+    pressed(false);
+    /** hoverOut chiude senza conferma (sarebbe UX fastidiosa). */
+    if (hoverOut && open()) open(false);
   };
 
   return (
     <div style={wrapStyle as any}>
-      {/* Misuratori fuori dal flusso: dimensione naturale dei due contenuti */}
       <div ref={observeSize(cw, ch)} style={measureHostStyle as any}>
         {collapsed()}
       </div>
@@ -239,17 +502,46 @@ export function Popmenu({ collapsed, extended, direction = "bottom-right", offse
         {extended()}
       </div>
 
-      {/* Shell animata (bg + radius qui) */}
+      {/* Backdrop fullscreen: intercetta click fuori dalla shell in modo affidabile (mobile + desktop). */}
       <div
+        style={backdropStyle as any}
+        click={onBackdropTap}
+      />
+
+      <div
+        ref={(el) => {
+          shellEl = el as HTMLElement | null;
+        }}
         s={s as any}
         style={boxStyle as any}
         click={() => {
-          if (!open()) open(true);
+          if (!open()) requestOpen();
         }}
-        clickout={() => open(false)}
+        mousedown={onPressDown}
+        mouseup={onPressUp}
+        mouseenter={onMouseEnter}
+        mouseleave={onMouseLeave}
+        touchstart={onPressDown}
+        touchend={onPressUp}
       >
         <div style={slotStyle(cw, ch, () => !open()) as any}>{collapsed()}</div>
         <div style={slotStyle(ew, eh, () => open()) as any}>{extended()}</div>
+
+        {/* Overlay conferma: action-sheet iOS-like sopra il contenuto (blur + patina scura) */}
+        <div
+          style={confirmBarStyle as any}
+          click={(ev: Event) => ev.stopPropagation()}
+        >
+          <div style={confirmMessageStyle as any}>{confirmMessage}</div>
+          <div style={confirmButtonsRowStyle as any}>
+            <div style={btnStyle("no") as any} click={confirmCloseNo}>
+              {confirmNo}
+            </div>
+            <div style={btnStyle("yes") as any} click={confirmCloseYes}>
+              {confirmYes}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -259,8 +551,9 @@ export default function Demo() {
   return (
     <div s="mt-30 ml-50">
       <Popmenu
-        direction="center"
+        direction="bottom"
         offset={{ x: 0, y: 0 }}
+        confirmCollapsed={true}
         s="bg-#545454 round-20px"
         collapsed={() => (
           <div s="p-2 row">

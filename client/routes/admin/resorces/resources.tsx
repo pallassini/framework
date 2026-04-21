@@ -16,9 +16,21 @@ export default function Resource() {
               actions={
                 <Popmenu
                   direction="bottom"
-                  s="bg-background round-20px"
-                  collapsed={() => <icon name="plus" size="6" s="p-1 bg-background " stroke={3} />}
-                  extended={() => <div s="  w-20 h-20"><t>ciao</t></div>}
+                  offset={{ x: 0, y: 0 }}
+                  hoverIn={false}
+                  hoverOut={false}
+                  autofocus={true}
+                  confirmCollapsed={true}
+                  s="bg-#2e2e2e round-20px"
+                  collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
+                  extended={() => (
+                    <div s="col gapy-2 px-4 py-3 ">
+                      <t s="text-4">Ciao</t>
+                      <t s="text-4">Ciao ciao</t>
+                      <t s="text-4">Ciao ciao ciao</t>
+                      <input></input>
+                    </div>
+                  )}
                 />
               }
             >
