@@ -4,16 +4,16 @@ import { data } from "..";
 import Popmenu from "../_components/popmenu";
 import Input from "../_components/input";
 
-export default function Resource() {
-  const space = Form({
-    bg: "#474747",
-    shape: {
-      name: v.string().min(5, "Nome troppo corto"),
-      capacity: v.number().min(1, "Min 1"),
-      description: v.string().optional(),
-    },
-  });
+const space = Form({
+  size: 3,
+  shape: {
+    name: v.string().min(5, "Nome troppo corto"),
+    capacity: v.number().min(1, "Min 1"),
+    description: v.string().optional(),
+  },
+});
 
+export default function Resource() {
   const createSpace = () =>
     space.submit(async ({ name, capacity, description }) => {
       await server.booker.resourceCreate(
@@ -63,40 +63,32 @@ export default function Resource() {
             actions={
               <Popmenu
                 direction="bottom"
-                offset={{ x: 0, y: 0 }}
-                hoverIn={false}
-                hoverOut={false}
                 autofocus={true}
-                s="bg-#000000 round-20px shadow-xl"
-                collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
+                mode="light"
+                shadow={{
+                  color: "#030303",
+                  opacity: 0.95,
+                  intensity: 2.4,
+                  blur: 34,
+                  spread: -6,
+                  y: 18,
+                }}
+                collapsedRound="10px"
+                collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2 text-secondary" />}
                 extended={() => (
-                  <div s="col gapy-2 px-5 py-6 w-26">
-                    <Input
-                      size={3}
-                      type="string"
-                      placeholder="Nome"
-                      field={space.name}
-                      accentColor="background"
-                      restingColor="rgba(255,255,255,0.15)"
-                      showFocusShadow={false}
-                    />
+                  <div s="col gapy-3 px-5 py-6 w-26">
+                    <Input placeholder="Nome" field={space.name} />
 
                     <div s="centerx">
-                      <Input size={3} type="number" placeholder="Capienza" field={space.capacity} />
+                      <Input placeholder="Capienza" field={space.capacity} />
                     </div>
-                    <Input
-                      size={3}
-                      type="string"
-                      placeholder="Descrizione"
-                      field={space.description}
-                    />
+                    <Input placeholder="Descrizione" field={space.description} />
                     <div
                       s={{
                         base: {
-                          "row children-center centerx mt-2 py-2 px-4 round-12px text-3 font-6 duration-150 select-none": true,
-                          "bg-primary text-background cursor-pointer hover:(opacity-90) scale-110 px-6":
+                          "row centerx mt-2 py-2 px-4 round-12px text-3 font-6 select-none bg-inputOptional color-#888 cursor-not-allowed": true,
+                          "bg-background text-primary cursor-pointer hover:(opacity-90) scale-110 px-6":
                             space.valid,
-                          "bg-#3a3a3a color-#888 cursor-not-allowed": () => !space.valid(),
                         },
                       }}
                       click={() => {
@@ -124,15 +116,6 @@ export default function Resource() {
               </For>
             </div>
           </Card>
-        </div>
-        <div s="w-30 px-5 py-5">
-          <Input
-            size={5}
-            type="number"
-            placeholder="Capienza"
-            field={space.capacity}
-            bg="background"
-          />
         </div>
       </div>
     </>
@@ -180,7 +163,7 @@ function ResourceCard({
 
   return (
     <div
-      s="col gapy-2 p-4 round-16px bg-#2a2a2a b-1 b-transparent hover:(bg-#303030) duration-150"
+      s="col gapy-2 p-4 round-16px bg-tertiary b-1 b-transparent hover:(bg-#303030) duration-150"
       hover={hover}
     >
       <div s="row centery gapx-1">

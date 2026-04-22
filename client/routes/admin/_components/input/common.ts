@@ -2,10 +2,18 @@ import { state, watch } from "client";
 import {
   resolveFieldBinding,
   type FieldBinding,
+  type FormStyle,
 } from "../../../../../core/client/form/form";
 import type { FieldTypeDesc } from "../../../../../core/client/validator/field-meta";
 import { inputMetrics } from "./sizes";
 import type { InputSize } from "./index";
+import {
+  mapColorToken,
+  inputSurfaceBg,
+  resolvePalette,
+  type InputMode,
+  type InputPalette,
+} from "./presets";
 
 /**
  * Utility condivise tra tutte le UI `<Input type="...">`.
@@ -26,6 +34,14 @@ export type CommonInputArgs<T> = {
   error?: string | undefined | (() => string | undefined);
   /** Override bg (altrimenti eredita da `field.bg()` o fallback). */
   bg?: string;
+  /** Override mode del preset (auto/dark/light). Se assente, eredita dal form. */
+  mode?: InputMode;
+  /** Override colore accent. Se assente, eredita dal form o dal preset. */
+  accentColor?: string;
+  /** Override colore resting. Se assente, eredita dal form o dal preset. */
+  restingColor?: string;
+  /** Override shadow di focus. Se assente, eredita dal form o dal preset. */
+  showFocusShadow?: boolean;
   /**
    * Letto dal field quando presente, altrimenti parsed dal `value` passato
    * alla UI (se supporta valore esterno non controllato).
@@ -41,13 +57,19 @@ export type CommonInput<T> = {
   /** Metriche reattive (viewport-aware) per `size`. */
   m: () => ReturnType<typeof inputMetrics>;
   /** `true` se l'input è attualmente focalizzato. */
-  focused: ReturnType<typeof state<boolean>>;
+  focused: {
+    (): boolean;
+    (value: boolean): void;
+  };
   /** Errore corrente (reattivo). `undefined` se valido. */
   readError: () => string | undefined;
   /** `true` se c'è un errore. */
   hasError: () => boolean;
   /** Signal testuale dell'errore (comoda per renderizzare direttamente). */
-  errorText: ReturnType<typeof state<string>>;
+  errorText: {
+    (): string;
+    (value: string): void;
+  };
   /** Sfondo risolto (prop → field → fallback). Reattivo. */
   resolvedBg: () => string;
   /** `true` se lo schema del field è `.optional()`. */
@@ -63,6 +85,13 @@ export type CommonInput<T> = {
   read: () => T | undefined;
   /** Scrive il valore tipato (aggiorna field se presente). */
   write: (v: T | undefined) => void;
+  /**
+   * Palette risolta (preset + override prop + override form). Reattiva nel
+   * senso che viene ricalcolata a ogni render che la invoca.
+   */
+  palette: () => InputPalette;
+  /** Stile del form (se presente). Reattivo via `field.style()`. */
+  formStyle: () => FormStyle | undefined;
 };
 
 /**
@@ -87,19 +116,14 @@ export function useInputCommon<T>(args: CommonInputArgs<T>): CommonInput<T> {
     errorText(readError() ?? "");
   });
 
-  /**
-   * Risolve `bg`:
-   *  - se è un token noto (`background`/`secondary`/`primary`/`error`) →
-   *    `var(--<token>)`, così `bg="background"` funziona come atteso.
-   *  - altrimenti lascia com'è (`#fff`, `var(--foo)`, `rgb(...)` ecc.).
-   */
-  const mapBg = (v: string | undefined): string | undefined => {
-    if (v === undefined) return undefined;
-    if (/^(background|secondary|primary|error)$/.test(v)) return `var(--${v})`;
-    return v;
-  };
   const resolvedBg = (): string =>
-    mapBg(args.bg) ?? mapBg(fieldCtl?.bg()) ?? "var(--secondary, #121212)";
+    mapColorToken(args.bg) ??
+    mapColorToken(fieldCtl?.bg()) ??
+    (() => {
+      const explicitMode = args.mode ?? formStyle()?.mode;
+      if (explicitMode !== undefined) return inputSurfaceBg(explicitMode);
+      return "var(--fw-popmenu-bg, var(--secondary, #121212))";
+    })();
 
   const isOptional = (): boolean => !!fieldCtl?.optional();
   const meta = (): FieldTypeDesc | undefined => fieldCtl?.meta();
@@ -115,6 +139,21 @@ export function useInputCommon<T>(args: CommonInputArgs<T>): CommonInput<T> {
 
   const m = () => inputMetrics(args.size);
 
+  const formStyle = (): FormStyle | undefined => fieldCtl?.style();
+
+  const palette = (): InputPalette => {
+    const fs = formStyle();
+    return resolvePalette({
+      mode: args.mode ?? fs?.mode,
+      accentColor: args.accentColor ?? fs?.accentColor,
+      restingColor: args.restingColor ?? fs?.restingColor,
+      showFocusShadow:
+        args.showFocusShadow !== undefined
+          ? args.showFocusShadow
+          : fs?.showFocusShadow,
+    });
+  };
+
   return {
     m,
     focused,
@@ -126,5 +165,7 @@ export function useInputCommon<T>(args: CommonInputArgs<T>): CommonInput<T> {
     meta,
     read,
     write,
+    palette,
+    formStyle,
   };
 }

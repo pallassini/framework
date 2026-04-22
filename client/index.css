@@ -2,19 +2,20 @@
  --background: #050505;
  --primary: #00f3d2;
  --secondary: #121212;
+ --tertiary: #2a2a2a;
+
+ /* INPUT */
+ --inputLight: #e6e6e6;
+ --inputDark: #171717;
+ --inputOptional: #5959599d;
+ --inputRound: 10px;
+
+ /* POPMENU */
+ --popmenuLigth: #e6e6e6;
+ --popmenuDark: #171717;
+ --popmenuRound: 20px;
+
  --error: #ff2525;
  --round: 20px;
  --duration: 200ms;
 }
-
-/* Rimuove le frecce native di <input type="number"> su tutti i browser. */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-

@@ -10,6 +10,20 @@ import { FIELD_OPTIONAL, readFieldType, type FieldTypeDesc } from "../validator/
 export type FormStorage = "session" | "persist";
 export type FieldBinding = { readonly field: string };
 
+/**
+ * Stile di default propagato dal `Form` a tutti gli `<Input field={...}>`.
+ * Le singole prop dell'`<Input>` hanno sempre la precedenza su questi valori.
+ */
+export type FormStyle = {
+	mode?: "normal" | "dark" | "light" | "auto";
+	accentColor?: string;
+	restingColor?: string;
+	showFocusShadow?: boolean;
+	borderWidth?: number | string;
+	size?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+	round?: number | string;
+};
+
 export type FormFieldController = {
 	get(): string;
 	set(v: string): void;
@@ -44,6 +58,11 @@ export type FormFieldController = {
 	 * i constraint da `v.number().min(1).max(100)` senza dover ripetere le prop.
 	 */
 	meta(): FieldTypeDesc | undefined;
+	/**
+	 * Stile di default propagato dal `Form` (mode, colori, bordo, shadow).
+	 * Le prop esplicite del singolo `<Input>` sovrascrivono questi valori.
+	 */
+	style(): FormStyle | undefined;
 };
 
 type InferObject<S extends Record<string, InputSchema<unknown>>> = {
@@ -218,8 +237,30 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	 * a label/errore di "tagliare" il bordo del box senza doverlo ripetere su ogni Input.
 	 */
 	bg?: string;
+	/**
+	 * Stile di default applicato a tutti gli `<Input field={...}>` del form.
+	 * Le singole prop dell'`<Input>` hanno sempre la precedenza.
+	 * Comodo per impostare `mode: "light"` una volta sola su un form dentro
+	 * un Popmenu bianco, invece di ripeterla su ogni campo.
+	 */
+	mode?: FormStyle["mode"];
+	accentColor?: string;
+	restingColor?: string;
+	showFocusShadow?: boolean;
+	borderWidth?: number | string;
+	size?: FormStyle["size"];
+	round?: FormStyle["round"];
 }): FormApi<Shape> {
 	const { shape, storage = null, bg } = options;
+	const formStyle: FormStyle = {
+		mode: options.mode,
+		accentColor: options.accentColor,
+		restingColor: options.restingColor,
+		showFocusShadow: options.showFocusShadow,
+		borderWidth: options.borderWidth,
+		size: options.size,
+		round: options.round,
+	};
 	const keys = Object.keys(shape) as (keyof Shape & string)[];
 
 	const defaults: Record<string, unknown> = {};
@@ -288,16 +329,17 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	 * qualsiasi watcher/stile che chiami `valid()` si ri-esegue al cambio valori.
 	 */
 	function valid(): boolean {
+		let ok = true;
 		for (const k of keys) {
 			const sub = shape[k as keyof Shape] as InputSchema<unknown>;
 			const raw = (values as Record<string, ValueSig>)[k]();
 			try {
 				sub.parse(raw);
 			} catch {
-				return false;
+				ok = false;
 			}
 		}
-		return true;
+		return ok;
 	}
 
 	async function submit<R>(
@@ -339,6 +381,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 			optional: () => isOptional,
 			bg: () => bg,
 			meta: () => readFieldType(subSchema),
+			style: () => formStyle,
 		});
 		out[k] = binding;
 	}

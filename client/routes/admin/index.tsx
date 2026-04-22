@@ -4,6 +4,7 @@ import Resources from "./resorces";
 import Prenotations from "./prenotaions";
 import Services from "./services";
 export const data = state(server.booker.getAllAdmin());
+
 export default function BookerDemo() {
   return (
     <>

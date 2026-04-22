@@ -2,6 +2,15 @@ import { state, watch } from "client";
 import { type FieldBinding } from "../../../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
 import { useInputCommon } from "./common";
+import {
+  inputSurfaceBg,
+  inputCutoutBackground,
+  inputRequiredRestingBorderColor,
+  formModeShellScopeVars,
+  mapColorToken,
+  optionalFieldMutedColor,
+} from "./presets";
+import { logInputDebug } from "./inputDebug";
 
 /**
  * `<Input type="number">` — scheletro.
@@ -44,7 +53,10 @@ export type InputNumberProps = InputPropsBase & {
    * ma senza hover diretto sull'input.
    */
   activeBorder?: string;
-  /** Override colore bordo quando il puntatore è sopra il wrapper. */
+  /**
+   * Se impostata, sostituisce il bordo **solo** quando il puntatore è sul wrapper.
+   * Senza di essa, l'hover **non** cambia il bordo (resta uguale allo stato a riposo).
+   */
   hoverBorder?: string;
   /** Override colore bordo quando l'input è focused. */
   focusBorder?: string;
@@ -78,6 +90,10 @@ export default function InputNumber(props: InputNumberProps) {
     field: props.field,
     error: props.error,
     bg: props.bg,
+    mode: props.mode,
+    accentColor: props.accentColor,
+    restingColor: props.restingColor,
+    showFocusShadow: props.showFocusShadow,
     readExternal: () =>
       typeof externalValue === "function"
         ? externalValue()
@@ -441,6 +457,7 @@ export default function InputNumber(props: InputNumberProps) {
   const bareInputStyle = (): Record<string, string> => {
     const met = c.m();
     const err = c.hasError();
+    const pal = c.palette();
     return {
       flex: "0 0 auto",
       // Larghezza misurata dal contenuto corrente (valore o placeholder).
@@ -453,16 +470,14 @@ export default function InputNumber(props: InputNumberProps) {
       outline: "none",
       padding: `${met.padY} 0`,
       margin: "0",
-      color: err ? "var(--error)" : "#fff",
+      color: err ? "var(--error)" : pal.text,
       font: "inherit",
       fontSize: met.font,
       fontWeight: "600",
       textAlign: "center",
       WebkitAppearance: "none",
       MozAppearance: "textfield",
-      caretColor: err
-        ? "var(--error)"
-        : (props.accentColor ?? "var(--primary)"),
+      caretColor: err ? "var(--error)" : pal.accent,
       transition:
         "width 240ms cubic-bezier(0.2, 0.8, 0.2, 1), " +
         "color 200ms ease",
@@ -482,7 +497,8 @@ export default function InputNumber(props: InputNumberProps) {
     const pressed = side === "minus" ? pressedMinus() : pressedPlus();
     const hovered = side === "minus" ? hoverMinus() : hoverPlus();
     const foc = c.focused();
-    const rgb = side === "minus" ? "239, 68, 68" : "34, 197, 94";
+    const pal = c.palette();
+    const rgb = side === "minus" ? pal.stepperMinusRgb : pal.stepperPlusRgb;
     const bg = pressed
       ? `rgba(${rgb}, 1)`
       : hovered
@@ -492,8 +508,16 @@ export default function InputNumber(props: InputNumberProps) {
       ? "#fff"
       : hovered
         ? `rgba(${rgb}, 1)`
-        : "rgba(255,255,255,0.9)";
-    const r = `calc(${c.m().radius} - 1px)`;
+        : pal.stepperResting;
+    const fs = c.formStyle();
+    const roundRaw = props.round ?? fs?.round;
+    const baseRadius =
+      roundRaw !== undefined
+        ? typeof roundRaw === "number"
+          ? `${roundRaw}px`
+          : roundRaw
+        : `var(--inputRound, var(--round, ${c.m().radius}))`;
+    const r = `calc(${baseRadius} - 1px)`;
     const radius = side === "minus" ? `${r} 0 0 ${r}` : `0 ${r} ${r} 0`;
     return {
       alignSelf: "stretch",
@@ -531,14 +555,21 @@ export default function InputNumber(props: InputNumberProps) {
     const foc = c.focused();
     const hv = displayText() !== "";
     const met = c.m();
-    const bg = c.resolvedBg();
-    const accent = props.accentColor ?? "var(--primary)";
-    const restingLabel = props.restingColor ?? "rgba(255,255,255,0.55)";
+    const cut = inputCutoutBackground(c.resolvedBg());
+    const pal = c.palette();
+    const optAtRest =
+      c.isOptional() &&
+      !foc &&
+      !hv &&
+      !err &&
+      props.restingColor === undefined;
     const color = err
       ? "var(--error)"
-      : foc || hv
-        ? accent
-        : restingLabel;
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc || hv
+          ? pal.accent
+          : pal.labelResting;
     const scale = floating ? 1 : 1.12;
     return {
       position: "absolute",
@@ -554,7 +585,7 @@ export default function InputNumber(props: InputNumberProps) {
       fontWeight: floating ? "600" : "500",
       letterSpacing: floating ? "0.02em" : "0",
       color,
-      background: floating ? bg : "transparent",
+      background: floating ? cut : "transparent",
       pointerEvents: "none",
       whiteSpace: "nowrap",
       lineHeight: "1",
@@ -586,30 +617,55 @@ export default function InputNumber(props: InputNumberProps) {
     const idle = isIdle();
     const hov = hoverWrap();
     const met = c.m();
-    const accent = props.accentColor ?? "var(--primary)";
-    const resting = props.restingColor ?? "rgba(255,255,255,0.22)";
+    const pal = c.palette();
+    const fs = c.formStyle();
     const idleBorderColor = props.idleBorder ?? "transparent";
-    const activeBorderColor = props.activeBorder ?? resting;
-    const hoverBorderColor = props.hoverBorder ?? "rgba(255,255,255,0.38)";
-    const focusBorderColor = props.focusBorder ?? accent;
+    const activeBorderColor =
+      props.activeBorder ??
+      (c.isOptional() ? pal.restingBorder : inputRequiredRestingBorderColor());
+    const optAtRest =
+      c.isOptional() &&
+      !foc &&
+      displayText() === "" &&
+      !err &&
+      props.restingColor === undefined;
+    const borderWhenActive = optAtRest
+      ? optionalFieldMutedColor()
+      : activeBorderColor;
+    /** Bordo a riposo: non alziamo la luminosità in hover a meno che non si passi `hoverBorder` esplicito. */
+    const hoverOverride =
+      hov && props.hoverBorder !== undefined
+        ? mapColorToken(props.hoverBorder) ?? props.hoverBorder
+        : null;
+    const focusBorderColor = props.focusBorder ?? pal.accent;
     const borderColor = err
       ? "var(--error)"
       : foc
         ? focusBorderColor
-        : hov
-          ? hoverBorderColor
+        : hoverOverride !== null
+          ? hoverOverride
           : idle
             ? idleBorderColor
-            : activeBorderColor;
-    const showShadow = props.showFocusShadow === true;
+            : borderWhenActive;
+    // `showFocusShadow` in `InputNumber` era storicamente off di default: il
+    // preset `auto` lo accende, ma manteniamo la retrocompat pretendendo un
+    // opt-in esplicito. Solo quando l'utente (o il form) passa `true`.
+    const showShadow =
+      props.showFocusShadow === true ||
+      (props.showFocusShadow === undefined && fs?.showFocusShadow === true);
     const ring =
       showShadow && foc && !err
-        ? `0 0 5px 0 ${accent}`
+        ? `0 0 5px 0 ${pal.accent}`
         : "0 0 0 0 rgba(0,0,0,0)";
-    const bw =
-      typeof props.borderWidth === "number"
-        ? `${props.borderWidth}px`
-        : (props.borderWidth ?? "1px");
+    const bwRaw = props.borderWidth ?? fs?.borderWidth ?? 2;
+    const bw = typeof bwRaw === "number" ? `${bwRaw}px` : bwRaw;
+    const roundRaw = props.round ?? fs?.round;
+    const radius =
+      roundRaw !== undefined
+        ? typeof roundRaw === "number"
+          ? `${roundRaw}px`
+          : roundRaw
+        : `var(--inputRound, var(--round, ${met.radius}))`;
     return {
       position: "relative",
       display: "inline-flex",
@@ -619,12 +675,13 @@ export default function InputNumber(props: InputNumberProps) {
       flex: "0 0 auto",
       alignItems: "stretch",
       border: `${bw} solid ${borderColor}`,
-      borderRadius: met.radius,
+      borderRadius: radius,
       background: "transparent",
       boxShadow: ring,
       transition:
         "box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1), " +
         "border-color 180ms ease",
+      ...formModeShellScopeVars(props.mode ?? c.formStyle()?.mode),
     };
   };
 
@@ -634,7 +691,8 @@ export default function InputNumber(props: InputNumberProps) {
    */
   const optionalStyle = (): Record<string, string> => {
     const met = c.m();
-    const bg = c.resolvedBg();
+    const cut = inputCutoutBackground(c.resolvedBg());
+    const pal = c.palette();
     return {
       position: "absolute",
       left: "50%",
@@ -645,16 +703,100 @@ export default function InputNumber(props: InputNumberProps) {
       fontSize: met.labelFloating,
       fontWeight: "500",
       letterSpacing: "0.02em",
-      color: "rgba(255,255,255,0.45)",
-      background: bg,
+      color: pal.optionalColor,
+      background: cut,
       lineHeight: "1",
       pointerEvents: "none",
       whiteSpace: "nowrap",
     };
   };
 
+  let numberWrapEl: HTMLDivElement | null = null;
+  const debugN = props.field?.field ?? "no-field";
+  watch(() => {
+    const fs = c.formStyle();
+    const pal = c.palette();
+    const foc = c.focused();
+    const err = c.hasError();
+    const idle = isIdle();
+    const hov = hoverWrap();
+    const w = wrapInlineStyle();
+    const b = bareInputStyle();
+    const optAtRest =
+      c.isOptional() &&
+      !foc &&
+      displayText() === "" &&
+      !err &&
+      props.restingColor === undefined;
+    let borderReason = "n/a";
+    if (err) borderReason = "error";
+    else if (foc) borderReason = "focus→focusBorder/accent";
+    else if (props.hoverBorder !== undefined && hov) borderReason = "hoverBorder prop";
+    else if (idle === true) borderReason = "idle→idleBorder (spesso transparent)";
+    else if (optAtRest) borderReason = "optionalEmpty→optionalFieldMuted (grigio)";
+    else if (!c.isOptional()) borderReason = "requiredResting→inputDark";
+    else borderReason = "optionalHasValue→restingBorder";
+
+    const palObj = {
+      accent: pal.accent,
+      restingBorder: pal.restingBorder,
+      hoverBorder: pal.hoverBorder,
+      text: pal.text,
+      labelResting: pal.labelResting,
+      optionalColor: pal.optionalColor,
+      stepperMinusRgb: pal.stepperMinusRgb,
+      stepperPlusRgb: pal.stepperPlusRgb,
+      stepperResting: pal.stepperResting,
+      showFocusShadow: pal.showFocusShadow,
+    };
+    const explicitMode = props.mode;
+    const inheritedMode = fs?.mode;
+    const effectiveMode = explicitMode ?? inheritedMode;
+    queueMicrotask(() => {
+      let dom: Record<string, string> | null = null;
+      if (numberWrapEl && typeof getComputedStyle !== "undefined") {
+        const el = getComputedStyle(numberWrapEl);
+        dom = {
+          borderTopColor: el.borderTopColor,
+          borderTopWidth: el.borderTopWidth,
+          backgroundColor: el.backgroundColor,
+        };
+      }
+      logInputDebug(`[InputStyleTrace number · ${debugN}]`, {
+        variant: "number",
+        field: debugN,
+        explicitInputMode: explicitMode,
+        inheritedFormMode: inheritedMode,
+        effectiveMode,
+        resolvePaletteInput: {
+          mode: props.mode ?? fs?.mode,
+          accentColor: props.accentColor ?? fs?.accentColor,
+          restingColor: props.restingColor ?? fs?.restingColor,
+          showFocusShadow:
+            props.showFocusShadow !== undefined
+              ? props.showFocusShadow
+              : fs?.showFocusShadow,
+        },
+        formStyleFromField: fs,
+        resolvedBg: c.resolvedBg(),
+        surfaceIfExplicitMode:
+          effectiveMode !== undefined ? inputSurfaceBg(effectiveMode) : undefined,
+        state: { focus: foc, hasError: err, idle, hoverWrap: hov, displayEmpty: displayText() === "" },
+        borderReason,
+        optAtRestOptionalEmpty: optAtRest,
+        fullPalette: palObj,
+        wrapStyle: w,
+        bareInputStyle: b,
+        domComputedOnWrap: dom,
+      });
+    });
+  });
+
   return (
     <div
+      ref={(el) => {
+        numberWrapEl = el as HTMLDivElement | null;
+      }}
       style={wrapInlineStyle as any}
       pointerenter={() => hoverWrap(true)}
       pointerleave={() => hoverWrap(false)}

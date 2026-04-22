@@ -5,6 +5,16 @@ import {
 } from "../../../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
 import { inputMetrics } from "./sizes";
+import {
+  mapColorToken,
+  optionalFieldMutedColor,
+  resolvePalette,
+  inputSurfaceBg,
+  inputCutoutBackground,
+  inputRequiredRestingBorderColor,
+  formModeShellScopeVars,
+} from "./presets";
+import { logInputDebug } from "./inputDebug";
 
 /**
  * Props specifiche per `<Input type="string">`.
@@ -55,15 +65,9 @@ export default function InputString({
   restingColor,
   showFocusShadow,
   borderWidth,
+  round,
+  mode,
 }: InputStringProps) {
-  const accent = accentColor ?? "var(--primary)";
-  const restingBorder = restingColor ?? "rgba(255,255,255,0.22)";
-  const restingLabel = restingColor ?? "rgba(255,255,255,0.55)";
-  const enableShadow = showFocusShadow !== false;
-  const bw =
-    typeof borderWidth === "number"
-      ? `${borderWidth}px`
-      : (borderWidth ?? "1px");
   const focused = state(false);
   /** Stato locale per input non controllati (senza `field`). */
   const localHasValue = state(false);
@@ -75,6 +79,7 @@ export default function InputString({
    *  3. undefined
    */
   const fieldCtl = field ? resolveFieldBinding(field) : null;
+  let stringInputEl: HTMLInputElement | null = null;
   const readError = (): string | undefined => {
     if (typeof error === "function") return error();
     if (error !== undefined) return error;
@@ -89,10 +94,43 @@ export default function InputString({
    *  3. fallback `var(--secondary)`
    */
   const resolvedBg = (): string =>
-    bgProp ?? fieldCtl?.bg() ?? "var(--secondary, #121212)";
+    mapColorToken(bgProp) ??
+    mapColorToken(fieldCtl?.bg()) ??
+    (() => {
+      const explicitMode = mode ?? fieldCtl?.style()?.mode;
+      if (explicitMode !== undefined) return inputSurfaceBg(explicitMode);
+      return "var(--fw-popmenu-bg, var(--secondary, #121212))";
+    })();
 
   /** `optional` auto-rilevato dallo schema del field (es. `v.string().optional()`). */
   const isOptional = (): boolean => !!fieldCtl?.optional();
+
+  /**
+   * Palette reattiva: unisce i default del preset (`mode`), l'override del
+   * `Form` (via `field.style()`) e le prop puntuali passate all'`<Input>`.
+   * Le prop puntuali vincono sempre.
+   */
+  const palette = () => {
+    const fs = fieldCtl?.style();
+    return resolvePalette({
+      mode: mode ?? fs?.mode,
+      accentColor: accentColor ?? fs?.accentColor,
+      restingColor: restingColor ?? fs?.restingColor,
+      showFocusShadow:
+        showFocusShadow !== undefined ? showFocusShadow : fs?.showFocusShadow,
+    });
+  };
+  const borderWidthCss = (): string => {
+    const fs = fieldCtl?.style();
+    const raw = borderWidth ?? fs?.borderWidth ?? 2;
+    return typeof raw === "number" ? `${raw}px` : raw;
+  };
+  const roundCss = (): string => {
+    const fs = fieldCtl?.style();
+    const raw = round ?? fs?.round;
+    if (raw !== undefined) return typeof raw === "number" ? `${raw}px` : raw;
+    return `var(--inputRound, var(--round, ${m().radius}))`;
+  };
 
   /**
    * `hasValue` reattivo: se c'è `field`, lo leggo dal controller (tracciato
@@ -140,6 +178,7 @@ export default function InputString({
     width: "100%",
     opacity: disabled ? "0.5" : "1",
     pointerEvents: disabled ? "none" : "auto",
+    ...formModeShellScopeVars(mode ?? fieldCtl?.style()?.mode),
   });
 
   /**
@@ -159,14 +198,25 @@ export default function InputString({
     const foc = focused();
     const hv = hasValue();
     const met = m();
+    const pal = palette();
+    const optAtRest =
+      isOptional() &&
+      !foc &&
+      !hv &&
+      !err &&
+      restingColor === undefined;
     const borderColor = err
       ? "var(--error)"
-      : foc || hv
-        ? accent
-        : restingBorder;
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc
+          ? pal.accent
+          : isOptional()
+            ? pal.restingBorder
+            : inputRequiredRestingBorderColor();
     const ring =
-      enableShadow && foc && !err
-        ? `0 0 5px 0 ${accent}`
+      pal.showFocusShadow && foc && !err
+        ? `0 0 5px 0 ${pal.accent}`
         : "0 0 0 0 rgba(0,0,0,0)";
     return {
       width: "100%",
@@ -175,9 +225,9 @@ export default function InputString({
       fontWeight: "500",
       lineHeight: "1.35",
       background: "transparent",
-      color: err ? "var(--error)" : "#fff",
-      border: `${bw} solid ${borderColor}`,
-      borderRadius: met.radius,
+      color: err ? "var(--error)" : pal.text,
+      border: `${borderWidthCss()} solid ${borderColor}`,
+      borderRadius: roundCss(),
       outline: "none",
       WebkitAppearance: "none",
       boxShadow: ring,
@@ -186,7 +236,7 @@ export default function InputString({
         "border-color 180ms ease, " +
         "color 180ms ease, " +
         "caret-color 180ms ease",
-      caretColor: err ? "var(--error)" : accent,
+      caretColor: err ? "var(--error)" : pal.accent,
     };
   };
 
@@ -200,12 +250,21 @@ export default function InputString({
     const foc = focused();
     const hv = hasValue();
     const met = m();
-    const bg = resolvedBg();
+    const cut = inputCutoutBackground(resolvedBg());
+    const pal = palette();
+    const optAtRest =
+      isOptional() &&
+      !foc &&
+      !hv &&
+      !err &&
+      restingColor === undefined;
     const color = err
       ? "var(--error)"
-      : foc || hv
-        ? accent
-        : restingLabel;
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc || hv
+          ? pal.accent
+          : pal.labelResting;
     const scale = floating ? 1 : 1.12;
     const translate = floating ? "translateY(-50%)" : "translateY(0)";
     return {
@@ -231,7 +290,7 @@ export default function InputString({
       fontWeight: floating ? "600" : "500",
       letterSpacing: floating ? "0.02em" : "0",
       color,
-      background: floating ? bg : "transparent",
+      background: floating ? cut : "transparent",
       pointerEvents: "none",
       whiteSpace: "nowrap",
       lineHeight: "1",
@@ -252,7 +311,8 @@ export default function InputString({
    */
   const optionalStyle = (): Record<string, string> => {
     const met = m();
-    const bg = resolvedBg();
+    const cut = inputCutoutBackground(resolvedBg());
+    const pal = palette();
     return {
       position: "absolute",
       right: `calc(${met.padX} - 0.25rem)`,
@@ -263,8 +323,8 @@ export default function InputString({
       fontSize: met.labelFloating,
       fontWeight: "500",
       letterSpacing: "0.02em",
-      color: "rgba(255,255,255,0.45)",
-      background: bg,
+      color: pal.optionalColor,
+      background: cut,
       lineHeight: "1",
       pointerEvents: "none",
       whiteSpace: "nowrap",
@@ -277,7 +337,7 @@ export default function InputString({
    */
   const errorStyle = (): Record<string, string> => {
     const err = !!readError();
-    const bg = resolvedBg();
+    const cut = inputCutoutBackground(resolvedBg());
     const met = m();
     return {
       position: "absolute",
@@ -296,7 +356,7 @@ export default function InputString({
       color: "var(--error)",
       letterSpacing: "0.02em",
       lineHeight: "1",
-      background: err ? bg : "transparent",
+      background: err ? cut : "transparent",
       opacity: err ? "1" : "0",
       transition:
         "opacity 180ms ease, " +
@@ -307,6 +367,90 @@ export default function InputString({
       textAlign: "center",
     };
   };
+
+  const debugName = field?.field ?? "no-field";
+  watch(() => {
+    const fs = fieldCtl?.style();
+    const pal = palette();
+    const err = !!readError();
+    const foc = focused();
+    const hv = hasValue();
+    const optAtRest =
+      isOptional() &&
+      !foc &&
+      !hv &&
+      !err &&
+      restingColor === undefined;
+    const borderColor = err
+      ? "var(--error)"
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc
+          ? pal.accent
+          : isOptional()
+            ? pal.restingBorder
+            : inputRequiredRestingBorderColor();
+    const borderReason = err
+      ? "error"
+      : optAtRest
+        ? "optionalAtRest→inputOptionalMuted (spesso bordo grigio chiaro)"
+        : foc
+          ? "focus→accent"
+          : isOptional()
+            ? "optional→restingBorder"
+            : "requiredResting→inputDark";
+    const st = inputStyle();
+    const effectiveMode = mode ?? fs?.mode;
+    queueMicrotask(() => {
+      let dom: Record<string, string> | null = null;
+      if (stringInputEl && typeof getComputedStyle !== "undefined") {
+        const c = getComputedStyle(stringInputEl);
+        dom = {
+          borderTopColor: c.borderTopColor,
+          borderTopWidth: c.borderTopWidth,
+          color: c.color,
+          backgroundColor: c.backgroundColor,
+        };
+      }
+      logInputDebug(`[InputStyleTrace string · ${debugName}]`, {
+        variant: "string",
+        field: debugName,
+        explicitInputMode: mode,
+        inheritedFormMode: fs?.mode,
+        effectiveMode,
+        formStyleFromField: fs,
+        resolvePaletteInput: {
+          mode: mode ?? fs?.mode,
+          accentColor: accentColor ?? fs?.accentColor,
+          restingColor: restingColor ?? fs?.restingColor,
+          showFocusShadow:
+            showFocusShadow !== undefined
+              ? showFocusShadow
+              : fs?.showFocusShadow,
+        },
+        isOptional: isOptional(),
+        state: { err, focus: foc, hasValue: hv, optAtRest },
+        borderReason,
+        borderColorResolved: borderColor,
+        optionalMuted: optionalFieldMutedColor(),
+        fullPalette: {
+          accent: pal.accent,
+          restingBorder: pal.restingBorder,
+          hoverBorder: pal.hoverBorder,
+          text: pal.text,
+          labelResting: pal.labelResting,
+          optionalColor: pal.optionalColor,
+          stepperMinusRgb: pal.stepperMinusRgb,
+          stepperPlusRgb: pal.stepperPlusRgb,
+          stepperResting: pal.stepperResting,
+          showFocusShadow: pal.showFocusShadow,
+        },
+        fullInputStyle: st,
+        surfaceFromFormOrMode: effectiveMode !== undefined ? inputSurfaceBg(effectiveMode) : undefined,
+        domComputed: dom,
+      });
+    });
+  });
 
   return (
     <div style={wrapStyle as any}>
@@ -326,6 +470,9 @@ export default function InputString({
           focused(false);
           localHasValue(v.length > 0);
           blur?.(v);
+        }}
+        ref={(el: HTMLInputElement | null) => {
+          stringInputEl = el;
         }}
         style={inputStyle as any}
       />

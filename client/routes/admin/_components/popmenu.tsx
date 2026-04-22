@@ -1,5 +1,6 @@
 import { state, watch } from "client";
 import { clientConfig } from "../../../config";
+import { logInputDebug } from "./input/inputDebug";
 
 /**
  * Converte "N" (in unità del canvas, stesse di w-N/h-N del framework) in rem.
@@ -54,6 +55,30 @@ interface PopmenuProps {
   hoverOut?: boolean;
   /** Al primo `open=true`, mette focus sul primo input/textarea dentro l'extended. */
   autofocus?: boolean;
+  /** Modalità cromatica base della shell. */
+  mode?: "normal" | "light" | "dark" | "auto";
+  /** Raggio angoli shell. Default globale: `var(--round)`. */
+  round?: number | string;
+  /** Raggio shell quando il popmenu è chiuso (solo collapsed). */
+  collapsedRound?: number | string;
+  /** Raggio shell quando il popmenu è aperto (solo extended). */
+  extendedRound?: number | string;
+  /**
+   * Ombra della shell quando è aperta.
+   * - `true`: usa i token CSS globali `--popmenuShadow*`
+   * - oggetto: override puntuale
+   */
+  shadow?: boolean | {
+    x?: number;
+    y?: number;
+    blur?: number;
+    spread?: number;
+    color?: string;
+    /** Opacità base ombra (0..1). Default: token CSS o 1. */
+    opacity?: number;
+    /** Moltiplicatore finale dell'ombra. 1 = normale, >1 più forte. */
+    intensity?: number;
+  };
 }
 
 type Axis = "top" | "bottom" | "left" | "right";
@@ -112,6 +137,41 @@ function computeShellPosition(dir: DirSpec, offset: { x?: number; y?: number }):
     transform = base ? `${base} ${extra}` : extra;
   }
   return { styles, transform };
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+function tryParseRgb(input: string): { r: number; g: number; b: number; a: number } | null {
+  const m = input
+    .trim()
+    .match(/^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
+  if (!m) return null;
+  const r = Number(m[1]);
+  const g = Number(m[2]);
+  const b = Number(m[3]);
+  const a = m[4] === undefined ? 1 : Number(m[4]);
+  if (![r, g, b, a].every(Number.isFinite)) return null;
+  return {
+    r: clamp(Math.round(r), 0, 255),
+    g: clamp(Math.round(g), 0, 255),
+    b: clamp(Math.round(b), 0, 255),
+    a: clamp(a, 0, 1),
+  };
+}
+
+function strengthenShadowColor(rawColor: string, strength: number): string {
+  const s = Math.max(0, strength);
+  const parsed = tryParseRgb(rawColor);
+  if (parsed) {
+    const alpha = clamp(parsed.a * s, 0, 1);
+    return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
+  }
+  if (s <= 0) return "transparent";
+  if (s === 1) return rawColor;
+  const pct = clamp(Math.round(s * 100), 0, 100);
+  return `color-mix(in srgb, ${rawColor} ${pct}%, transparent)`;
 }
 
 function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
@@ -187,6 +247,41 @@ function ensureBounceKeyframe() {
   document.head.appendChild(el);
 }
 
+/** Token iniettati sulla shell (fallback) quando il Field non ha `mode` / usa variabili `--fw-input-*`. */
+function inputShellTokensForFallback(fallbackInputMode: "light" | "dark"): {
+  accent: string;
+  restingBorder: string;
+  hoverBorder: string;
+  text: string;
+  labelResting: string;
+  optional: string;
+  stepperResting: string;
+  surface: string;
+} {
+  if (fallbackInputMode === "light") {
+    return {
+      accent: "rgba(0,0,0,0.85)",
+      restingBorder: "rgba(0,0,0,0.28)",
+      hoverBorder: "rgba(0,0,0,0.5)",
+      text: "#111",
+      labelResting: "rgba(0,0,0,0.85)",
+      optional: "var(--inputOptional, rgba(89,89,89,0.62))",
+      stepperResting: "rgba(0,0,0,0.75)",
+      surface: "var(--inputLight, #e6e6e6)",
+    };
+  }
+  return {
+    accent: "rgba(255,255,255,0.95)",
+    restingBorder: "rgba(255,255,255,0.22)",
+    hoverBorder: "rgba(255,255,255,0.38)",
+    text: "#fff",
+    labelResting: "rgba(255,255,255,0.55)",
+    optional: "var(--inputOptional, rgba(89,89,89,0.62))",
+    stepperResting: "rgba(255,255,255,0.95)",
+    surface: "var(--inputDark, #171717)",
+  };
+}
+
 export default function Popmenu(props: PopmenuProps) {
   const {
     collapsed,
@@ -198,7 +293,15 @@ export default function Popmenu(props: PopmenuProps) {
     hoverIn,
     hoverOut,
     autofocus,
+    mode = "normal",
+    round,
+    collapsedRound,
+    extendedRound,
+    shadow = true,
   } = props;
+  const resolvedMode =
+    mode === "auto" || mode === "normal" ? "dark" : mode;
+  const fallbackInputMode = resolvedMode === "light" ? "dark" : "light";
 
   ensureBounceKeyframe();
   const open = state(false);
@@ -280,6 +383,38 @@ export default function Popmenu(props: PopmenuProps) {
     tryAutofocus();
   };
 
+  watch(() => {
+    const inputOnThisPop = inputShellTokensForFallback(fallbackInputMode);
+    const shellBg =
+      resolvedMode === "light"
+        ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
+        : "var(--popmenuDark, #171717)";
+    logInputDebug(`[PopmenuThemeTrace]`, {
+      open: open(),
+      modeProp: mode,
+      resolvedMode,
+      fallbackInputMode,
+      shellBackground: shellBg,
+      colorSchemeOnShell: resolvedMode === "light" ? "light" : "dark",
+      inputOnThisPop,
+      note:
+        "Se Form ha mode esplicito, resolvePalette usa la palette (dark/light) del form; " +
+        "questi --fw-input-* valgono come fallback (mode `auto`/undefined) o dentro resolvePalette per mode 'normal'.",
+      cssVarsInjectedOnShell: {
+        "--fw-popmenu-bg": shellBg,
+        "--fw-popmenu-mode": resolvedMode,
+        "--fw-input-accent": inputOnThisPop.accent,
+        "--fw-input-resting-border": inputOnThisPop.restingBorder,
+        "--fw-input-hover-border": inputOnThisPop.hoverBorder,
+        "--fw-input-text": inputOnThisPop.text,
+        "--fw-input-label-resting": inputOnThisPop.labelResting,
+        "--fw-input-optional": inputOnThisPop.optional,
+        "--fw-input-stepper-resting": inputOnThisPop.stepperResting,
+        "--fw-input-surface": inputOnThisPop.surface,
+      },
+    });
+  });
+
   /**
    * Outside-click è gestito da un backdrop fullscreen (vedi JSX).
    * Qui non servono più listener globali: il backdrop è un elemento DOM reale che
@@ -342,6 +477,58 @@ export default function Popmenu(props: PopmenuProps) {
     const tick = bounceTick();
     /** Alterna fra due nomi di keyframe identici per riavviare l'animazione su ogni insistenza. */
     const bounceName = tick === 0 ? "none" : (tick % 2 === 1 ? "popmenu-bounce-a" : "popmenu-bounce-b");
+    const shellBg =
+      resolvedMode === "light"
+        ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
+        : "var(--popmenuDark, #171717)";
+    const shellRound =
+      round !== undefined
+        ? typeof round === "number"
+          ? `${round}px`
+          : round
+        : "var(--popmenuRound, var(--round, 20px))";
+    const closedRound =
+      collapsedRound !== undefined
+        ? typeof collapsedRound === "number"
+          ? `${collapsedRound}px`
+          : collapsedRound
+        : shellRound;
+    const openedRound =
+      extendedRound !== undefined
+        ? typeof extendedRound === "number"
+          ? `${extendedRound}px`
+          : extendedRound
+        : shellRound;
+    const activeRound = isOpen ? openedRound : closedRound;
+    const shadowCfg = typeof shadow === "object" && shadow !== null ? shadow : {};
+    const rootStyle =
+      typeof document !== "undefined"
+        ? getComputedStyle(document.documentElement)
+        : null;
+    const cssNum = (name: string, fallback: number): number => {
+      const raw = rootStyle?.getPropertyValue(name) ?? "";
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const sx = shadowCfg.x ?? cssNum("--popmenuShadowX", 0);
+    const sy = shadowCfg.y ?? cssNum("--popmenuShadowY", 10);
+    const sblur = shadowCfg.blur ?? cssNum("--popmenuShadowBlur", 26);
+    const sspread = shadowCfg.spread ?? cssNum("--popmenuShadowSpread", 0);
+    const scolor =
+      shadowCfg.color ??
+      (rootStyle?.getPropertyValue("--popmenuShadowColor").trim() ||
+        "rgba(0, 0, 0, 0.35)");
+    const cssIntensity = cssNum("--popmenuShadowIntensity", 1);
+    const sintensity = shadowCfg.intensity ?? (Number.isFinite(cssIntensity) ? cssIntensity : 1);
+    const cssOpacity = cssNum("--popmenuShadowOpacity", 1);
+    const sopacity = shadowCfg.opacity ?? (Number.isFinite(cssOpacity) ? cssOpacity : 1);
+    const shadowStrength = Math.max(0, sintensity * sopacity);
+    const resolvedShadowColor = strengthenShadowColor(scolor, shadowStrength);
+    const shellShadow =
+      shadow === false || !isOpen
+        ? "none"
+        : `${sx}px ${sy}px ${sblur}px ${sspread}px ${resolvedShadowColor}`;
+    const inputOnThisPop = inputShellTokensForFallback(fallbackInputMode);
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
@@ -354,6 +541,26 @@ export default function Popmenu(props: PopmenuProps) {
       "--popmenu-base-transform": baseTransform || "none",
       transform: composed,
       transformOrigin: "center center",
+      /**
+       * `html`/`body` hanno `color-scheme: dark` (tema app). Se non lo
+       * ristabiliamo qui, browser + UA style dei form restano in “dark
+       * controls” e gli input in popmenu **chiari** possono sembrare scuri.
+       */
+      colorScheme: resolvedMode === "light" ? "light" : "dark",
+      color: inputOnThisPop.text,
+      background: shellBg,
+      borderRadius: activeRound,
+      boxShadow: shellShadow,
+      "--fw-popmenu-bg": shellBg,
+      "--fw-popmenu-mode": resolvedMode,
+      "--fw-input-accent": inputOnThisPop.accent,
+      "--fw-input-resting-border": inputOnThisPop.restingBorder,
+      "--fw-input-hover-border": inputOnThisPop.hoverBorder,
+      "--fw-input-text": inputOnThisPop.text,
+      "--fw-input-label-resting": inputOnThisPop.labelResting,
+      "--fw-input-optional": inputOnThisPop.optional,
+      "--fw-input-stepper-resting": inputOnThisPop.stepperResting,
+      "--fw-input-surface": inputOnThisPop.surface,
       animation: bounceName === "none" ? "none" : `${bounceName} 380ms cubic-bezier(0.25, 1.25, 0.5, 1) 1`,
       transition:
         `width ${d}ms ${e}, ` +

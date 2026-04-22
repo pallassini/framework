@@ -30,6 +30,17 @@ button {
 	font: inherit;
 }
 
+/* Rimuove le frecce native di <input type="number"> su tutti i browser. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+input[type="number"] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+
 /* Stacking: figli con z-index negativo (es. Meteors `fill`) restano sopra lo sfondo di #root. */
 #root {
 	isolation: isolate;
