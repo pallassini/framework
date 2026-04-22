@@ -1,7 +1,7 @@
 import { v } from "../core/client/validator";
 import { schema } from "../core/db/schema/namespace";
 import { table } from "../core/db/schema/table";
-
+import { preset } from "../client/presets/type";
 // "ID" & "UPDATED AT" & "CREATED AT" & "DELETED AT" ARE AUTOMATICALLY ADDED
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -24,24 +24,30 @@ export const sessions = table({
 // SETTINGS
 // ───────────────────────────────────────────────────────────────────────────────
 export const settings = table({
-  domain: v.string(),                          // "saloneluisa.it" — usato dal widget per riconoscere il tenant
+  name: v.string(),
+  domain: v.string(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
+  type:  preset,
+  color: v.string(),
+  theme: v.enum(["light", "dark"]),
 
   // Fatturazione (IT): minimo per fattura elettronica
-  companyName: v.string().optional(),          // ragione sociale o "Nome Cognome"
-  taxId: v.string().optional(),                // Codice Fiscale o P.IVA
-  sdiCode: v.string().optional(),              // SDI (7 char) o PEC
+  companyName: v.string().optional(), // ragione sociale o "Nome Cognome"
+  taxId: v.string().optional(), // Codice Fiscale o P.IVA
+  sdiCode: v.string().optional(), // SDI (7 char) o PEC
 
   // Stripe: solo ID di riferimento (no dati sensibili)
   stripeCustomerId: v.string().optional(),
   stripeSubscriptionId: v.string().optional(),
-  subscriptionStatus: v.enum(["trialing", "active", "past_due", "canceled", "incomplete"]).optional(),
+  subscriptionStatus: v
+    .enum(["trialing", "active", "past_due", "canceled", "incomplete"])
+    .optional(),
 
   userId: "users",
 });
 // ───────────────────────────────────────────────────────────────────────────────
 // OPENING HOURS
 // ───────────────────────────────────────────────────────────────────────────────
-// resourceId 
+// resourceId
 export const openingHours = table({
   resourceId: v.fk("resources").optional(),
   dayOfWeek: v.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),

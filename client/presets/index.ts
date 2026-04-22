@@ -1,9 +1,14 @@
-import { RESTAURANT_PRESET } from "./restaurant";
-import { Preset, PresetType } from "./type";
+import type { Preset, PresetType } from "./type";
 
 export const PRESETS: Record<PresetType, Preset> = {
-  restaurant: RESTAURANT_PRESET,
-
+  restaurant: {
+    type: "restaurant",
+    items: {
+      label: "Items",
+      icon: "items",
+    },
+    resources: {
+      kind: "space",
+    },
+  },
 };
-
-export const preset: Preset = PRESETS["restaurant"];

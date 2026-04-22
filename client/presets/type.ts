@@ -1,10 +1,10 @@
-export type PresetType = "restaurant";
+import { v, type InferSchema } from "client";
+
+export const preset = v.enum(["restaurant"]);
+export type PresetType = InferSchema<typeof preset>;
 
 export interface Preset {
   type: PresetType;
-  name: string;
-  theme: "dark" | "light";
-  primaryColor: string;
 
   // ITEMS
   items: {
@@ -14,33 +14,6 @@ export interface Preset {
 
   // RESOURCES
   resources: {
-    label: string; // "Spazi", "Persone"
-    icon: string;
-    // SPACES
-    spaces: {
-      enabled: boolean;
-      spaces?: {
-        label: string; // "Tavoli", "Sale"
-        icon: string;
-        create?: boolean;
-        edit?: boolean;
-        delete?: boolean;
-      };
-      // PERSONS
-      persons?: {
-        label: string; // "Operatori", "Staff"
-        icon: string;
-        canCreate?: boolean;
-        canEdit?: boolean;
-        canDelete?: boolean;
-        fields: {
-          key: string;
-          label: string;
-          type: "string" | "number";
-          optional?: boolean;
-          min?: number;
-        }[];
-      };
-    };
+    kind: "space" | "person";
   };
 }
