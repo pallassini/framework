@@ -3,6 +3,7 @@ import Card from "../_components/card";
 import { data } from "..";
 import Popmenu from "../_components/popmenu";
 import Input from "../_components/input";
+import { useAdminDataMutations } from "../dataMutations";
 
 const space = Form({
   size: 3,
@@ -13,44 +14,53 @@ const space = Form({
   },
 });
 
+const person = Form({
+  size: 3,
+  shape: {
+    name: v.string().min(2, "Nome troppo corto"),
+    capacity: v.number().min(1, "Min 1"),
+    description: v.string().optional(),
+  },
+});
+
 export default function Resource() {
-  const createSpace = () =>
-    space.submit(async ({ name, capacity, description }) => {
-      await server.booker.resourceCreate(
-        [
-          {
-            name,
-            kind: "space",
-            capacity,
-            description,
-            active: true,
-            others: {},
-          },
-        ],
-        {
-          onSuccess: (res) => {
-            data((d) => (d ? { ...d, resources: [...(d.resources ?? []), ...res.resources] } : d));
-            space.reset();
-          },
-        },
-      );
-    });
+  const SPACE_DEFAULTS = {
+    kind: "space" as const,
+    active: true,
+    others: {},
+  };
+  const PERSON_DEFAULTS = {
+    kind: "person" as const,
+    active: true,
+    others: {},
+  };
+  const { dataCreate, dataUpdate } = useAdminDataMutations(data);
+
+  const createSpace = async () => {
+    const payload = { ...space.values(), ...SPACE_DEFAULTS };
+    await dataCreate(
+      "resources",
+      payload,
+      () => server.booker.resourceCreate([payload]),
+    );
+    space.reset();
+  };
+  const createPerson = async () => {
+    const payload = { ...person.values(), ...PERSON_DEFAULTS };
+    await dataCreate(
+      "resources",
+      payload,
+      () => server.booker.resourceCreate([payload]),
+    );
+    person.reset();
+  };
 
   const patchResource = (id: string, patch: { name?: string; capacity?: number }) =>
-    server.booker.resourceUpdate(
-      { id, ...patch },
-      {
-        onSuccess: ({ resource }) => {
-          data((d) =>
-            d
-              ? {
-                  ...d,
-                  resources: (d.resources ?? []).map((r) => (r.id === resource.id ? resource : r)),
-                }
-              : d,
-          );
-        },
-      },
+    dataUpdate(
+      "resources",
+      id,
+      patch,
+      () => server.booker.resourceUpdate({ id, ...patch }),
     );
 
   return (
@@ -76,7 +86,7 @@ export default function Resource() {
                 collapsedRound="10px"
                 collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2 text-secondary" />}
                 extended={() => (
-                  <div s="col gapy-3 px-5 py-6 w-26">
+                  <div s="col gapy-3 px-5 py-6 w-16">
                     <Input placeholder="Nome" field={space.name} />
 
                     <div s="centerx">
@@ -109,7 +119,52 @@ export default function Resource() {
               </For>
             </div>
           </Card>
-          <Card title="Persone" icon="users">
+          <Card
+            title="Persone"
+            icon="users"
+            actions={
+              <Popmenu
+                direction="bottom-left"
+                autofocus={true}
+                mode="light"
+                shadow={{
+                  color: "#030303",
+                  opacity: 0.95,
+                  intensity: 2.4,
+                  blur: 34,
+                  spread: -6,
+                  y: 18,
+                }}
+                collapsedRound="10px"
+                collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2 text-secondary" />}
+                extended={() => (
+                  <div s="col gapy-3 px-5 py-6 w-16">
+                    <Input placeholder="Nome" field={person.name} />
+
+                    <div s="centerx">
+                      <Input placeholder="Capienza" field={person.capacity} />
+                    </div>
+                    <Input placeholder="Descrizione" field={person.description} />
+                    <div
+                      s={{
+                        base: {
+                          "row centerx mt-2 py-2 px-4 round-12px text-3 font-6 select-none bg-inputOptional color-#888 cursor-not-allowed": true,
+                          "bg-background text-primary cursor-pointer hover:(opacity-90) scale-110 px-6":
+                            person.valid,
+                        },
+                      }}
+                      click={() => {
+                        if (!person.valid()) return;
+                        createPerson();
+                      }}
+                    >
+                      Crea
+                    </div>
+                  </div>
+                )}
+              />
+            }
+          >
             <div s="col-2 gapx-4 gapy-4 mt-4">
               <For each={() => (data.resources() ?? []).filter((r) => r.kind === "person")}>
                 {(resource) => ResourceCard({ resource, patchResource })}
