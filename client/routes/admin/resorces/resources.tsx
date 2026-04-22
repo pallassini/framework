@@ -57,68 +57,65 @@ export default function Resource() {
 
   return (
     <>
-      <div s="w-80% centerx ">
-        <Card title="Risorse" icon="layers" s="mt-10 bg-background b-2 b-secondary">
-          <div s="row gapx-10 mt-5">
-            <Card
-              title="Spazi"
-              icon="boxes"
-              actions={
-                <Popmenu
-                  direction="bottom"
-                  offset={{ x: 0, y: 0 }}
-                  hoverIn={false}
-                  hoverOut={false}
-                  autofocus={true}
-                  s="bg-#474747 round-20px shadow-xl"
-                  collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
-                  extended={() => (
-                    <div s="col gapy-2 px-5 py-6 w-26">
-                      <Input size={3} type="string" placeholder="Nome" field={space.name} />
-                 
-                   <div s='centerx'>
-                      <Input size={3} type="number" placeholder="Capienza" field={space.capacity}  />
-                 
-                   </div>
-                      <Input size={3} type="string" placeholder="Descrizione" field={space.description} />
-                      <div
-                        s={{
-                          base: {
-                            "row children-center centerx mt-2 py-2 px-4 round-12px text-3 font-6 duration-150 select-none": true,
-                            "bg-primary color-background cursor-pointer hover:(opacity-90)": space.valid,
-                            "bg-#3a3a3a color-#888 cursor-not-allowed": () => !space.valid(),
-                          },
-                        }}
-                        click={() => {
-                          if (!space.valid()) return;
-                          createSpace();
-                        }}
-                      >
-                        Crea
-                      </div>
+      <div s="w-90% centerx">
+        <div s="row gapx-10 mt-10">
+          <Card
+            title="Spazi"
+            icon="boxes"
+            actions={
+              <Popmenu
+                direction="bottom"
+                offset={{ x: 0, y: 0 }}
+                hoverIn={false}
+                hoverOut={false}
+                autofocus={true}
+                s="bg-#474747 round-20px shadow-xl"
+                collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
+                extended={() => (
+                  <div s="col gapy-2 px-5 py-6 w-26">
+                    <Input size={3} type="string" placeholder="Nome" field={space.name} />
+
+                    <div s="centerx">
+                      <Input size={3} type="number" placeholder="Capienza" field={space.capacity} />
                     </div>
-                  )}
-                />
-              }
-            >
-              <div s="col-2 gapx-4 gapy-4 mt-4">
-                <For each={() => (data.resources() ?? []).filter((r) => r.kind === "space")}>
-                  {(resource) => ResourceCard({ resource, patchResource })}
-                </For>
-              </div>
-            </Card>
-            <Card title="Persone" icon="users">
-              <div s="col-2 gapx-4 gapy-4 mt-4">
-                <For each={() => (data.resources() ?? []).filter((r) => r.kind === "person")}>
-                  {(resource) => ResourceCard({ resource, patchResource })}
-                </For>
-              </div>
-            </Card>
-          </div>
-        </Card>
-       <div s='w-30 px-5 py-5'>
-        <Input size={5} type="number" placeholder="Capienza" field={space.capacity} bg="background" />
-       </div>
+                    <Input size={3} type="string" placeholder="Descrizione" field={space.description} />
+                    <div
+                      s={{
+                        base: {
+                          "row children-center centerx mt-2 py-2 px-4 round-12px text-3 font-6 duration-150 select-none": true,
+                          "bg-primary color-background cursor-pointer hover:(opacity-90)": space.valid,
+                          "bg-#3a3a3a color-#888 cursor-not-allowed": () => !space.valid(),
+                        },
+                      }}
+                      click={() => {
+                        if (!space.valid()) return;
+                        createSpace();
+                      }}
+                    >
+                      Crea
+                    </div>
+                  </div>
+                )}
+              />
+            }
+          >
+            <div s="col-2 gapx-4 gapy-4 mt-4">
+              <For each={() => (data.resources() ?? []).filter((r) => r.kind === "space")}>
+                {(resource) => ResourceCard({ resource, patchResource })}
+              </For>
+            </div>
+          </Card>
+          <Card title="Persone" icon="users">
+            <div s="col-2 gapx-4 gapy-4 mt-4">
+              <For each={() => (data.resources() ?? []).filter((r) => r.kind === "person")}>
+                {(resource) => ResourceCard({ resource, patchResource })}
+              </For>
+            </div>
+          </Card>
+        </div>
+        <div s="w-30 px-5 py-5">
+          <Input size={5} type="number" placeholder="Capienza" field={space.capacity} bg="background" />
+        </div>
       </div>
     </>
   );
@@ -135,10 +132,33 @@ function ResourceCard({
 }) {
   const hover = state(false);
   let nameEl: HTMLInputElement | undefined;
+  let capEl: HTMLInputElement | undefined;
 
   const autosizeName = (value: string) => {
     if (nameEl) nameEl.size = Math.max(6, value.length + 1);
   };
+
+  const commitCapacity = () => {
+    if (!capEl) return;
+    const n = parseInt(capEl.value, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      capEl.value = String(resource.capacity);
+      return;
+    }
+    if (n === resource.capacity) return;
+    void patchResource(resource.id, { capacity: n });
+  };
+
+  const inputClass = {
+    base: {
+      "bg-transparent color-white outline-none b-1 round-6px px-0.5 py-0.5 duration-120 focus:(b-#666) hover:(b-#555)": true,
+      "b-transparent": () => !hover(),
+      "b-#3a3a3a": () => hover(),
+    },
+  };
+
+  const capFocused = state(false);
+  const capHover = state(false);
 
   return (
     <div
@@ -159,9 +179,8 @@ function ResourceCard({
           ref={(el: HTMLInputElement) => (nameEl = el)}
           s={{
             base: {
-              "bg-transparent color-white text-3.5 font-6 outline-none b-1 round-6px px-0.5 py-0.5 duration-120 focus:(b-#666) hover:(b-#555)": true,
-              "b-transparent": () => !hover(),
-              "b-#3a3a3a": () => hover(),
+              ...inputClass.base,
+              "text-3.5 font-6": true,
             },
           }}
           input={autosizeName}
@@ -181,27 +200,42 @@ function ResourceCard({
       </div>
       <div s="row centery gapx-1">
         <icon name="armchair" size="6" stroke={2} s="color-#888" />
-        <Input
-          size={2}
-          type="number"
-          min={1}
-          hidePlaceholder
-          idle={() => !hover()}
-          bg="#2a2a2a"
-          idleBorder="transparent"
-          activeBorder="#3a3a3a"
-          hoverBorder="#555"
-          focusBorder="#666"
-          initialValue={resource.capacity}
-          change={(v) => {
-            if (v === undefined || v === resource.capacity) return;
-            void patchResource(resource.id, { capacity: v });
+        <div
+          hover={capHover}
+          mousedown={(ev: MouseEvent) => {
+            if ((ev.target as HTMLElement).tagName !== "INPUT") ev.preventDefault();
           }}
-          blur={(v) => {
-            if (v === undefined || v === resource.capacity) return;
-            void patchResource(resource.id, { capacity: v });
+          s={{
+            base: {
+              "row centery b-1 round-6px duration-120": true,
+              "b-transparent": () => !hover() && !capHover() && !capFocused(),
+              "b-#3a3a3a": () => hover() && !capHover() && !capFocused(),
+              "b-#555": () => capHover() && !capFocused(),
+              "b-#666": () => capFocused(),
+            },
           }}
-        />
+        >
+          <input
+            type="text"
+            inputmode="numeric"
+            defaultValue={resource.capacity}
+            size={2}
+            ref={(el: HTMLInputElement) => (capEl = el)}
+            s="bg-transparent color-white outline-none b-0 text-3.5 font-6 text-center tabular-nums py-0 w-5 lh-1  px-1 py-1 "
+            focus={() => capFocused(true)}
+            keydown={(e: KeyboardEvent) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") {
+                (e.target as HTMLInputElement).value = String(resource.capacity);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            blur={() => {
+              capFocused(false);
+              commitCapacity();
+            }}
+          />
+        </div>
       </div>
     </div>
   );

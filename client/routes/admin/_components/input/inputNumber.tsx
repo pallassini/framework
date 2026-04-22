@@ -49,6 +49,12 @@ export type InputNumberProps = InputPropsBase & {
   /** Override colore bordo quando l'input è focused. */
   focusBorder?: string;
   /**
+   * Se `true` mostra il "ring" (box-shadow) cyan al focus. Default: `false`
+   * per un look più pulito basato solo su border. Abilitalo esplicitamente
+   * se serve l'effetto glow.
+   */
+  showFocusShadow?: boolean;
+  /**
    * Se `true` l'input è in "stato dormiente": bordo invisibile e bottoni
    * `+` / `−` smorzati. Pensato per pattern dove l'input vive dentro una
    * card interattiva e diventa visibile solo all'hover del parent o al focus.
@@ -61,8 +67,16 @@ export type InputNumberProps = InputPropsBase & {
 export default function InputNumber(props: InputNumberProps) {
   const { size = 3, value: externalValue } = props;
 
-  /** Valore tipato numerico (reattivo). Init da `defaultValue` se fornito. */
-  const value = state<number | undefined>(props.defaultValue);
+  /**
+   * Valore iniziale: preferisco `initialValue` (non in conflitto con l'attributo
+   * HTML `defaultValue` che alcuni JSX runtime intercettano prima che arrivi
+   * qui come prop). Fallback su `defaultValue` per retrocompatibilità.
+   */
+  const initialNumber: number | undefined =
+    props.initialValue !== undefined ? props.initialValue : props.defaultValue;
+
+  /** Valore tipato numerico (reattivo). Init dal valore iniziale risolto. */
+  const value = state<number | undefined>(initialNumber);
 
   // Utility comuni (errore, bg, optional, metriche, focused). Usa ciò che ti serve.
   const c = useInputCommon<number>({
@@ -105,7 +119,7 @@ export default function InputNumber(props: InputNumberProps) {
 
   /** Stringa mostrata nell'`<input>` (tieni anche stati intermedi come "12."). */
   const displayText = state<string>(
-    props.defaultValue !== undefined ? String(props.defaultValue) : "",
+    initialNumber !== undefined ? String(initialNumber) : "",
   );
 
   /** Stati di press per dare feedback colorato ai bottoni − / +. */
@@ -219,23 +233,8 @@ export default function InputNumber(props: InputNumberProps) {
   let holdTimer: ReturnType<typeof setTimeout> | null = null;
   let repeatTimer: ReturnType<typeof setTimeout> | null = null;
   let activePointer: number | null = null;
-  // Alzato durante il click sugli stepper per intercettare il `blur` dell'input
-  // e riforzare il focus prima che la UI collassi (e prima che `props.blur`
-  // venga propagato al consumer). Tenuto "alzato" per una finestra temporale
-  // sufficiente a coprire sia eventi sync che microtask asincroni del browser.
-  let steppingNow = false;
-  let steppingReleaseTimer: ReturnType<typeof setTimeout> | null = null;
-  const markStepping = (): void => {
-    steppingNow = true;
-    if (steppingReleaseTimer !== null) clearTimeout(steppingReleaseTimer);
-    steppingReleaseTimer = setTimeout(() => {
-      steppingNow = false;
-      steppingReleaseTimer = null;
-    }, 200);
-  };
   const stealFocusBlock = (ev: Event): void => {
     ev.preventDefault();
-    markStepping();
     if (inputEl && document.activeElement !== inputEl) {
       inputEl.focus({ preventScroll: true });
     }
@@ -285,20 +284,11 @@ export default function InputNumber(props: InputNumberProps) {
 
   /** Attacca a `pointerdown` del bottone. Fa 1 bump immediato + arma hold. */
   const startStepper = (dir: 1 | -1) => (ev: PointerEvent): void => {
-    console.log("[InputNumber] startStepper FIRED", {
-      dir,
-      type: ev.type,
-      defaultPrevented_before: ev.defaultPrevented,
-      activeElement: (document.activeElement as HTMLElement | null)?.tagName,
-      steppingNow,
-    });
     if (activePointer !== null) return;
     if (dir > 0 && !canInc()) return;
     if (dir < 0 && !canDec()) return;
     ev.preventDefault();
-    markStepping();
     if (inputEl && document.activeElement !== inputEl) {
-      console.log("[InputNumber] startStepper: refocusing input");
       inputEl.focus({ preventScroll: true });
     }
     activePointer = ev.pointerId;
@@ -333,11 +323,14 @@ export default function InputNumber(props: InputNumberProps) {
    * field; riscrivere ora farebbe saltare il caret e sovrascrivere ciò che
    * l'utente sta scrivendo.
    */
+  const hasExternalSource = (): boolean =>
+    !!props.field || props.value !== undefined;
   watch(() => {
     const ext = c.read();
-    // Se focused, lascia stare: è la UI la source-of-truth in questo momento.
     if (c.focused()) return;
-    // Se il valore esterno coincide già con quello mostrato, nessun lavoro.
+    // Nessun field né value esterno → rispettiamo `initialValue`/stato locale,
+    // non lasciamo che il `c.read()` "vuoto" cancelli ciò che c'è.
+    if (!hasExternalSource()) return;
     if (ext === value()) return;
     value(ext);
     const nextStr = ext === undefined ? "" : String(ext);
@@ -506,13 +499,12 @@ export default function InputNumber(props: InputNumberProps) {
         : "rgba(255,255,255,0.9)";
     const r = `calc(${c.m().radius} - 1px)`;
     const radius = side === "minus" ? `${r} 0 0 ${r}` : `0 ${r} ${r} 0`;
-    const collapsed = !foc;
     return {
       alignSelf: "stretch",
-      width: collapsed ? "0" : `calc(${c.m().font} * 2.4)`,
-      minWidth: collapsed ? "0" : "2.2rem",
-      opacity: collapsed ? "0" : "1",
-      pointerEvents: collapsed ? "none" : "auto",
+      width: foc ? `calc(${c.m().font} * 2.4)` : "0",
+      minWidth: foc ? "2.2rem" : "0",
+      opacity: foc ? "1" : "0",
+      pointerEvents: foc ? "auto" : "none",
       overflow: "hidden",
       display: "flex",
       alignItems: "center",
@@ -609,8 +601,9 @@ export default function InputNumber(props: InputNumberProps) {
           : idle
             ? idleBorderColor
             : activeBorderColor;
+    const showShadow = props.showFocusShadow === true;
     const ring =
-      foc && !err
+      showShadow && foc && !err
         ? "0 0 5px 0 rgba(0,243,210,0.65)"
         : "0 0 0 0 rgba(0,0,0,0)";
     return {
@@ -657,7 +650,11 @@ export default function InputNumber(props: InputNumberProps) {
   };
 
   return (
-    <div style={wrapInlineStyle as any}>
+    <div
+      style={wrapInlineStyle as any}
+      pointerenter={() => hoverWrap(true)}
+      pointerleave={() => hoverWrap(false)}
+    >
       <div
         style={() => stepperStyle("minus")}
         pointerenter={() => hoverMinus(true)}
@@ -676,27 +673,13 @@ export default function InputNumber(props: InputNumberProps) {
         disabled={props.disabled}
         autofocus={props.autofocus}
         style={bareInputStyle as any}
-        defaultValue={
-          props.defaultValue !== undefined ? String(props.defaultValue) : ""
-        }
+        defaultValue={initialNumber !== undefined ? String(initialNumber) : ""}
         ref={(el: HTMLElement | SVGElement | null) => {
           inputEl = el as HTMLInputElement | null;
         }}
         input={onType}
-        focus={() => {
-          console.log("[InputNumber] input FOCUS");
-          c.focused(true);
-        }}
+        focus={() => c.focused(true)}
         blur={() => {
-          console.log("[InputNumber] input BLUR", {
-            steppingNow,
-            activeElement: (document.activeElement as HTMLElement | null)?.tagName,
-          });
-          if (steppingNow && inputEl) {
-            console.log("[InputNumber] input BLUR: intercepted, refocusing");
-            inputEl.focus({ preventScroll: true });
-            return;
-          }
           c.focused(false);
           props.blur?.(value());
         }}
