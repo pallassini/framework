@@ -51,7 +51,19 @@ export default function InputString({
   maxLength,
   autocomplete,
   bg: bgProp,
+  accentColor,
+  restingColor,
+  showFocusShadow,
+  borderWidth,
 }: InputStringProps) {
+  const accent = accentColor ?? "var(--primary)";
+  const restingBorder = restingColor ?? "rgba(255,255,255,0.22)";
+  const restingLabel = restingColor ?? "rgba(255,255,255,0.55)";
+  const enableShadow = showFocusShadow !== false;
+  const bw =
+    typeof borderWidth === "number"
+      ? `${borderWidth}px`
+      : (borderWidth ?? "1px");
   const focused = state(false);
   /** Stato locale per input non controllati (senza `field`). */
   const localHasValue = state(false);
@@ -150,11 +162,11 @@ export default function InputString({
     const borderColor = err
       ? "var(--error)"
       : foc || hv
-        ? "var(--primary)"
-        : "rgba(255,255,255,0.22)";
+        ? accent
+        : restingBorder;
     const ring =
-      foc && !err
-        ? "0 0 5px 0 rgba(0,243,210,0.65)"
+      enableShadow && foc && !err
+        ? `0 0 5px 0 ${accent}`
         : "0 0 0 0 rgba(0,0,0,0)";
     return {
       width: "100%",
@@ -164,7 +176,7 @@ export default function InputString({
       lineHeight: "1.35",
       background: "transparent",
       color: err ? "var(--error)" : "#fff",
-      border: `1px solid ${borderColor}`,
+      border: `${bw} solid ${borderColor}`,
       borderRadius: met.radius,
       outline: "none",
       WebkitAppearance: "none",
@@ -174,7 +186,7 @@ export default function InputString({
         "border-color 180ms ease, " +
         "color 180ms ease, " +
         "caret-color 180ms ease",
-      caretColor: err ? "var(--error)" : "var(--primary)",
+      caretColor: err ? "var(--error)" : accent,
     };
   };
 
@@ -192,8 +204,8 @@ export default function InputString({
     const color = err
       ? "var(--error)"
       : foc || hv
-        ? "var(--primary)"
-        : "rgba(255,255,255,0.55)";
+        ? accent
+        : restingLabel;
     const scale = floating ? 1 : 1.12;
     const translate = floating ? "translateY(-50%)" : "translateY(0)";
     return {

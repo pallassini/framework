@@ -33,6 +33,29 @@ export type InputPropsBase = {
    * Default: `"var(--secondary, #121212)"`.
    */
   bg?: string;
+  /**
+   * Colore "attivo" usato per bordo focus, label floating, caret e ring.
+   * Sostituisce `var(--primary)` di default. Accetta qualsiasi valore CSS
+   * (`"#ff8800"`, `"var(--accent)"`, ecc.).
+   */
+  accentColor?: string;
+  /**
+   * Colore "a riposo" usato per bordo e label quando l'input non è in focus
+   * e non ha valore. Sostituisce il grigio tenue di default
+   * (`rgba(255,255,255,0.22)` per il bordo, `rgba(255,255,255,0.55)` per la label).
+   * Se passato, viene usato per entrambi.
+   */
+  restingColor?: string;
+  /**
+   * Se `false`, nasconde completamente il "ring" (box-shadow cyan) al focus.
+   * Default: dipende dalla variante (attivo per `string`, spento per `number`).
+   */
+  showFocusShadow?: boolean;
+  /**
+   * Spessore del bordo in pixel. Default: `1`.
+   * Accetta un numero (px) o una stringa CSS completa (`"2px"`, `"0.1rem"`).
+   */
+  borderWidth?: number | string;
 };
 
 /**

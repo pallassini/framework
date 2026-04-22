@@ -49,12 +49,6 @@ export type InputNumberProps = InputPropsBase & {
   /** Override colore bordo quando l'input è focused. */
   focusBorder?: string;
   /**
-   * Se `true` mostra il "ring" (box-shadow) cyan al focus. Default: `false`
-   * per un look più pulito basato solo su border. Abilitalo esplicitamente
-   * se serve l'effetto glow.
-   */
-  showFocusShadow?: boolean;
-  /**
    * Se `true` l'input è in "stato dormiente": bordo invisibile e bottoni
    * `+` / `−` smorzati. Pensato per pattern dove l'input vive dentro una
    * card interattiva e diventa visibile solo all'hover del parent o al focus.
@@ -466,7 +460,9 @@ export default function InputNumber(props: InputNumberProps) {
       textAlign: "center",
       WebkitAppearance: "none",
       MozAppearance: "textfield",
-      caretColor: err ? "var(--error)" : "var(--primary)",
+      caretColor: err
+        ? "var(--error)"
+        : (props.accentColor ?? "var(--primary)"),
       transition:
         "width 240ms cubic-bezier(0.2, 0.8, 0.2, 1), " +
         "color 200ms ease",
@@ -536,11 +532,13 @@ export default function InputNumber(props: InputNumberProps) {
     const hv = displayText() !== "";
     const met = c.m();
     const bg = c.resolvedBg();
+    const accent = props.accentColor ?? "var(--primary)";
+    const restingLabel = props.restingColor ?? "rgba(255,255,255,0.55)";
     const color = err
       ? "var(--error)"
       : foc || hv
-        ? "var(--primary)"
-        : "rgba(255,255,255,0.55)";
+        ? accent
+        : restingLabel;
     const scale = floating ? 1 : 1.12;
     return {
       position: "absolute",
@@ -588,10 +586,12 @@ export default function InputNumber(props: InputNumberProps) {
     const idle = isIdle();
     const hov = hoverWrap();
     const met = c.m();
+    const accent = props.accentColor ?? "var(--primary)";
+    const resting = props.restingColor ?? "rgba(255,255,255,0.22)";
     const idleBorderColor = props.idleBorder ?? "transparent";
-    const activeBorderColor = props.activeBorder ?? "rgba(255,255,255,0.22)";
+    const activeBorderColor = props.activeBorder ?? resting;
     const hoverBorderColor = props.hoverBorder ?? "rgba(255,255,255,0.38)";
-    const focusBorderColor = props.focusBorder ?? "var(--primary)";
+    const focusBorderColor = props.focusBorder ?? accent;
     const borderColor = err
       ? "var(--error)"
       : foc
@@ -604,8 +604,12 @@ export default function InputNumber(props: InputNumberProps) {
     const showShadow = props.showFocusShadow === true;
     const ring =
       showShadow && foc && !err
-        ? "0 0 5px 0 rgba(0,243,210,0.65)"
+        ? `0 0 5px 0 ${accent}`
         : "0 0 0 0 rgba(0,0,0,0)";
+    const bw =
+      typeof props.borderWidth === "number"
+        ? `${props.borderWidth}px`
+        : (props.borderWidth ?? "1px");
     return {
       position: "relative",
       display: "inline-flex",
@@ -614,7 +618,7 @@ export default function InputNumber(props: InputNumberProps) {
       alignSelf: "flex-start",
       flex: "0 0 auto",
       alignItems: "stretch",
-      border: `1px solid ${borderColor}`,
+      border: `${bw} solid ${borderColor}`,
       borderRadius: met.radius,
       background: "transparent",
       boxShadow: ring,

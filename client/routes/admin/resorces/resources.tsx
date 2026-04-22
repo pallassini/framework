@@ -29,9 +29,7 @@ export default function Resource() {
         ],
         {
           onSuccess: (res) => {
-            data((d) =>
-              d ? { ...d, resources: [...(d.resources ?? []), ...res.resources] } : d,
-            );
+            data((d) => (d ? { ...d, resources: [...(d.resources ?? []), ...res.resources] } : d));
             space.reset();
           },
         },
@@ -69,21 +67,35 @@ export default function Resource() {
                 hoverIn={false}
                 hoverOut={false}
                 autofocus={true}
-                s="bg-#474747 round-20px shadow-xl"
+                s="bg-#000000 round-20px shadow-xl"
                 collapsed={() => <icon name="plus" size="6" stroke={3} s="p-2" />}
                 extended={() => (
                   <div s="col gapy-2 px-5 py-6 w-26">
-                    <Input size={3} type="string" placeholder="Nome" field={space.name} />
+                    <Input
+                      size={3}
+                      type="string"
+                      placeholder="Nome"
+                      field={space.name}
+                      accentColor="background"
+                      restingColor="rgba(255,255,255,0.15)"
+                      showFocusShadow={false}
+                    />
 
                     <div s="centerx">
                       <Input size={3} type="number" placeholder="Capienza" field={space.capacity} />
                     </div>
-                    <Input size={3} type="string" placeholder="Descrizione" field={space.description} />
+                    <Input
+                      size={3}
+                      type="string"
+                      placeholder="Descrizione"
+                      field={space.description}
+                    />
                     <div
                       s={{
                         base: {
                           "row children-center centerx mt-2 py-2 px-4 round-12px text-3 font-6 duration-150 select-none": true,
-                          "bg-primary color-background cursor-pointer hover:(opacity-90)": space.valid,
+                          "bg-primary text-background cursor-pointer hover:(opacity-90) scale-110 px-6":
+                            space.valid,
                           "bg-#3a3a3a color-#888 cursor-not-allowed": () => !space.valid(),
                         },
                       }}
@@ -114,7 +126,13 @@ export default function Resource() {
           </Card>
         </div>
         <div s="w-30 px-5 py-5">
-          <Input size={5} type="number" placeholder="Capienza" field={space.capacity} bg="background" />
+          <Input
+            size={5}
+            type="number"
+            placeholder="Capienza"
+            field={space.capacity}
+            bg="background"
+          />
         </div>
       </div>
     </>
@@ -216,7 +234,7 @@ function ResourceCard({
           }}
         >
           <input
-            type="text"
+            type="number"
             inputmode="numeric"
             defaultValue={resource.capacity}
             size={2}
