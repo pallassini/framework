@@ -27,8 +27,9 @@ export const clientConfig = {
     smoothScroll: true,
     /**
      * Canvas di design per `w-N` / `h-N` / `maxw-N` / `maxh-N` / `minw-N` (N = % del canvas, 0–100, anche decimale: `w-1.2`, `h-3.7`).
-     * Il valore è **% del canvas convertito in `rem`** → su schermi più grandi del canvas NON esplode.
-     * Default 1920×1080 @ 16px/rem: `w-70` = 84rem (= 1344px @ 16px/rem).
+     * Il valore è **% del canvas (lato `des`) convertita in `rem`**, poi scalata per viewport come `base` (mob 75%, tab 87.5% del `rem` desktop).
+     * Default 1920×1080 @ 16px/rem: su `des`, `w-70` = 84rem; su `mob` = 63rem.
+     * Su schermi più grandi del canvas l’`rem` resta stabile (niente crescita tipo `vw` puro).
      */
     canvas: {
       width: 1920,

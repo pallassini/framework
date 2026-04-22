@@ -1,4 +1,4 @@
-import { server, state } from "client";
+import { device, server, state } from "client";
 import AdminMenu, { tab } from "./_components/menu";
 import Resources from "./resorces";
 import Prenotations from "./prenotaions";
@@ -6,32 +6,46 @@ import Services from "./services";
 export const data = state(server.booker.getAllAdmin());
 
 export default function BookerDemo() {
+  const Content = () => (
+    <div s="col centerx w-100% pb-20">
+      <switch value={tab}>
+        <case when="prenotations">
+          <Prenotations />
+        </case>
+        <case when="services">
+          <Services />
+        </case>
+        <case when="resources">
+          <Resources />
+        </case>
+      </switch>
+    </div>
+  );
+
   return (
     <>
-      <div s="row children-top">
-        {/* Niente `left` qui: con `left` il primo figlio usa margin-right:auto e “mangia” lo spazio → il fratello con `centerx` finisce incollato a destra invece che centrato nello spazio rimasto. */}
-
-        <div s="sticky">
+      <icon
+        name="box"
+        show={() => device() === "mob"}
+        size="8"
+        stroke={3}
+        s="p-2 text-secondary right absolute bg-primary round-circle text-background z-100"
+        click={()=>window.location.reload()}
+      />
+      <switch value={device}>
+        <case when="mob">
+          <Content />
           <AdminMenu />
-        </div>
-
-   
-      <div s='col centerx w-100'>
-
-          <switch value={tab}>
-            <case when="prenotations">
-              <Prenotations />
-            </case>
-            <case when="services">
-              <Services />
-            </case>
-            <case when="resources">
-              <Resources />
-            </case>
-          </switch>
-      
-      </div>
-      </div>
+        </case>
+        <case when={(v) => v === "tab" || v === "des"}>
+          <div s="row children-top">
+            <div s="sticky top-0 z-40">
+              <AdminMenu />
+            </div>
+            <Content />
+          </div>
+        </case>
+      </switch>
     </>
   );
 }

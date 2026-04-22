@@ -1,3 +1,5 @@
+import { styleViewport } from "../../viewport";
+
 /**
  * Scala spacing `base` (stessa progressione documentata in `client/config.ts`):
  * - **1–20**: +0.25rem/step → `1`=0.25rem, `20`=5rem
@@ -14,6 +16,16 @@ export function baseRemDes(n: number): number {
 
 function remStr(desRem: number): string {
 	return `${Number(desRem.toFixed(4))}rem`;
+}
+
+/**
+ * `w-N` / `h-N` (percentuale canvas in rem “design”): stessi fattori di `baseViewportRow`
+ * così su `mob` / `tab` le larghezze in rem non restano identiche al desktop.
+ */
+export function desRemScaledToCurrentViewport(desRem: number): string {
+	const vp = styleViewport();
+	const factor = vp === "mob" ? 0.75 : vp === "tab" ? 0.875 : 1;
+	return remStr(desRem * factor);
 }
 
 export function baseViewportRow(n: number): { mob: string; tab: string; des: string } | null {

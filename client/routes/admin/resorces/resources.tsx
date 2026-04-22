@@ -1,4 +1,4 @@
-import { For, Form, server, state, v } from "client";
+import { For, Form, device, server, state, v } from "client";
 import Card from "../_components/card";
 import { data } from "..";
 import Popmenu from "../_components/popmenu";
@@ -66,7 +66,15 @@ export default function Resource() {
   return (
     <>
       <div s="w-80% centerx">
-        <div s="row gapx-10 mt-10">
+        <div
+          s={{
+            base: {
+              "mt-10": true,
+              "row gapx-10": () => device() === "des",
+              "col gapy-10": () => device() !== "des",
+            },
+          }}
+        >
           <Card
             title="Spazi"
             icon="boxes"

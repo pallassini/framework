@@ -2,7 +2,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Logger, PluginOption } from "vite";
 import mkcert from "vite-plugin-mkcert";
-import { VitePWA } from "vite-plugin-pwa";
 import { createLogger, defineConfig } from "vite-plus";
 import { desktopConfig } from "../../desktop/config";
 import { SERVER_RPC_HOST, SERVER_RPC_PORT } from "../server/routes/config";
@@ -56,41 +55,6 @@ export default defineConfig({
 		genFwDbDataWatch(root),
 		genDesktopRoutes(root),
 		mkcert(),
-		VitePWA({
-			registerType: "autoUpdate",
-			devOptions: {
-				enabled: true,
-			},
-			includeAssets: ["favicon.png", "pwa-192.png", "pwa-512.png"],
-			manifest: {
-				name: "Flow",
-				short_name: "Flow",
-				description: "",
-				theme_color: "#0b0f17",
-				background_color: "#0b0f17",
-				display: "standalone",
-				start_url: "./",
-				scope: "./",
-				icons: [
-					{
-						src: "pwa-192.png",
-						sizes: "192x192",
-						type: "image/png",
-						purpose: "any maskable",
-					},
-					{
-						src: "pwa-512.png",
-						sizes: "512x512",
-						type: "image/png",
-						purpose: "any maskable",
-					},
-				],
-			},
-			workbox: {
-				disableDevLogs: true,
-				globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
-			},
-		}),
 	] as PluginOption[],
 	lint: {
 		ignorePatterns: ["build/**", "node_modules/**"],

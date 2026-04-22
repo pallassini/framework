@@ -5,10 +5,10 @@ import OpeningHours from "./openingHours";
 export default function Resources() {
   return (
     <>
-  <div s='-ml-8%'>
-      <OpeningHours />
-      <Resource />
-  </div>
+      <div s="des:(-ml-6%)">
+        <OpeningHours />
+        <Resource />
+      </div>
     </>
   );
 }
