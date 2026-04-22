@@ -3,7 +3,6 @@ import { schema } from "../core/db/schema/namespace";
 import { table } from "../core/db/schema/table";
 
 // "ID" & "UPDATED AT" & "CREATED AT" & "DELETED AT" ARE AUTOMATICALLY ADDED
-// userId = tenant owner (proprietario del dato). customerId (su bookings) = cliente finale.
 
 // ───────────────────────────────────────────────────────────────────────────────
 // AUTH
@@ -12,7 +11,7 @@ export const users = table({
   email: v.string().unique(),
   password: v.string(),
   username: v.string().optional(),
-  role: v.enum(["admin", "user"]),
+  role: v.enum(["admin", "user", "customer"]),
 });
 
 export const sessions = table({
@@ -25,32 +24,29 @@ export const sessions = table({
 // SETTINGS
 // ───────────────────────────────────────────────────────────────────────────────
 export const settings = table({
-  domain: v.string(),                          // "saloneluisa.it" — il widget lo usa per sapere chi è il tenant
-  color: v.string().optional(),                // brand color primario
+  domain: v.string(),                          // "saloneluisa.it" — usato dal widget per riconoscere il tenant
 
-  // Fatturazione (IT): minimo per emettere fattura elettronica verso il tenant
+  // Fatturazione (IT): minimo per fattura elettronica
   companyName: v.string().optional(),          // ragione sociale o "Nome Cognome"
   taxId: v.string().optional(),                // Codice Fiscale o P.IVA
-  sdiCode: v.string().optional(),              // SDI (7 char) o PEC — uno dei due
+  sdiCode: v.string().optional(),              // SDI (7 char) o PEC
 
-  // Stripe: solo ID di riferimento
-  stripeCustomerId: v.string().optional(),     // "cus_xxx"
-  stripeSubscriptionId: v.string().optional(), // "sub_xxx"
-  subscriptionStatus: v.enum(["active", "past_due", "canceled"]).optional(),
+  // Stripe: solo ID di riferimento (no dati sensibili)
+  stripeCustomerId: v.string().optional(),
+  stripeSubscriptionId: v.string().optional(),
+  subscriptionStatus: v.enum(["trialing", "active", "past_due", "canceled", "incomplete"]).optional(),
 
   userId: "users",
 });
 // ───────────────────────────────────────────────────────────────────────────────
 // OPENING HOURS
 // ───────────────────────────────────────────────────────────────────────────────
-// resourceId null = orario del posto (globale). Altrimenti orario della risorsa.
+// resourceId 
 export const openingHours = table({
   resourceId: v.fk("resources").optional(),
   dayOfWeek: v.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
   startTime: v.time(),
   endTime: v.time(),
-  validFrom: v.date().optional(),
-  validTo: v.date().optional(),
   userId: "users",
 });
 
@@ -67,13 +63,11 @@ export const closures = table({
 
 // ───────────────────────────────────────────────────────────────────────────────
 // BOOKING
-// ───────────────────────────────────────────────────────────────────────────────
-const bookingOthers = v.object({}); // additional fields in the booking
 export const bookings = table({
-  //DATE TIME
+  // DATE TIME
   startAt: v.datetime(),
   endAt: v.datetime(),
-  //STATUS
+  // STATUS
   status: v.enum(["pending", "confirmed", "cancelled", "done"]),
   //ITEMS & PRICING
   items: v.array(
@@ -84,7 +78,6 @@ export const bookings = table({
   ),
   //RESOURCES ASIGNED
   assignments: v.array(v.fk("resources")).optional(),
-  others: bookingOthers,
   //OWNERSHIP
   customerId: v.fk("users").optional(), // cliente finale (null = anonimo)
   userId: "users", // tenant owner
@@ -126,13 +119,9 @@ export const items = table({
 // ───────────────────────────────────────────────────────────────────────────────
 // RESOURCE
 // ───────────────────────────────────────────────────────────────────────────────
-const resourceOthers = v.object({});
 export const resources = table({
   name: v.string(), // "Luisa", "Sala coperta", "Tavolo 7", "Sala yoga"
-  kind: v.enum(["person", "space"]),
   capacity: v.number(), // 1 per persona/tavolo, 80 per sala coperta, ecc.
-  description: v.string().optional(),
-  others: resourceOthers,
   userId: "users",
 });
 
