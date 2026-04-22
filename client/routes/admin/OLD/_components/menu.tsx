@@ -1,5 +1,5 @@
 import { device, For, persistState, state } from "client";
-import type { Icon } from "../../../../core/client/runtime/tag/tags/icon";
+import type { Icon } from "../../../../../core/client/runtime/tag/tags/icon";
 
 export const tab = persistState<"prenotations" | "services" | "resources" | "settings">(
   "resources",

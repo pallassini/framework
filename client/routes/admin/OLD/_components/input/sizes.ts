@@ -1,5 +1,5 @@
 import { device } from "client";
-import { clientConfig } from "../../../../config";
+import { clientConfig } from "../../../../../config";
 import type { InputSize } from "./index";
 
 /**

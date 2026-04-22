@@ -3,6 +3,7 @@ import { schema } from "../core/db/schema/namespace";
 import { table } from "../core/db/schema/table";
 
 // "ID" & "UPDATED AT" & "CREATED AT" & "DELETED AT" ARE AUTOMATICALLY ADDED
+// userId = tenant owner (proprietario del dato). customerId (su bookings) = cliente finale.
 
 // ───────────────────────────────────────────────────────────────────────────────
 // AUTH
@@ -21,6 +22,25 @@ export const sessions = table({
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
+// SETTINGS
+// ───────────────────────────────────────────────────────────────────────────────
+export const settings = table({
+  domain: v.string(),                          // "saloneluisa.it" — il widget lo usa per sapere chi è il tenant
+  color: v.string().optional(),                // brand color primario
+
+  // Fatturazione (IT): minimo per emettere fattura elettronica verso il tenant
+  companyName: v.string().optional(),          // ragione sociale o "Nome Cognome"
+  taxId: v.string().optional(),                // Codice Fiscale o P.IVA
+  sdiCode: v.string().optional(),              // SDI (7 char) o PEC — uno dei due
+
+  // Stripe: solo ID di riferimento
+  stripeCustomerId: v.string().optional(),     // "cus_xxx"
+  stripeSubscriptionId: v.string().optional(), // "sub_xxx"
+  subscriptionStatus: v.enum(["active", "past_due", "canceled"]).optional(),
+
+  userId: "users",
+});
+// ───────────────────────────────────────────────────────────────────────────────
 // OPENING HOURS
 // ───────────────────────────────────────────────────────────────────────────────
 // resourceId null = orario del posto (globale). Altrimenti orario della risorsa.
@@ -31,6 +51,7 @@ export const openingHours = table({
   endTime: v.time(),
   validFrom: v.date().optional(),
   validTo: v.date().optional(),
+  userId: "users",
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -41,6 +62,7 @@ export const closures = table({
   resourceId: v.fk("resources").optional(),
   startAt: v.datetime(),
   endAt: v.datetime(),
+  userId: "users",
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -48,8 +70,6 @@ export const closures = table({
 // ───────────────────────────────────────────────────────────────────────────────
 const bookingOthers = v.object({}); // additional fields in the booking
 export const bookings = table({
-  //CUSTOMER
-  customerId: v.fk("users").optional(),
   //DATE TIME
   startAt: v.datetime(),
   endAt: v.datetime(),
@@ -65,6 +85,9 @@ export const bookings = table({
   //RESOURCES ASIGNED
   assignments: v.array(v.fk("resources")).optional(),
   others: bookingOthers,
+  //OWNERSHIP
+  customerId: v.fk("users").optional(), // cliente finale (null = anonimo)
+  userId: "users", // tenant owner
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -72,7 +95,8 @@ export const bookings = table({
 // ───────────────────────────────────────────────────────────────────────────────
 export const itemCategories = table({
   name: v.string(),
-  order: v.number().optional(),   // drag-to-reorder nel menu
+  order: v.number().optional(), // drag-to-reorder nel menu
+  userId: "users",
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -83,9 +107,9 @@ export const items = table({
   description: v.string().optional(),
   categoryId: v.fk("itemCategories").optional(),
   price: v.number().optional(),
-  duration: v.number().optional(),                   // MINUTI
-  capacity: v.number(),                              // Quanto occupa sulla risorsa (1 persona, 4 per tavolo da 4, 0 = asporto)
-  resources: v.array(v.fk("resources")).optional(),  // Pool di risorse candidate per erogare questo item.
+  duration: v.number().optional(), // MINUTI
+  capacity: v.number(), // Quanto occupa sulla risorsa (1 persona, 4 per tavolo da 4, 0 = asporto)
+  resources: v.array(v.fk("resources")).optional(), // Pool di risorse candidate per erogare questo item.
   relations: v
     .array(
       v.object({
@@ -96,6 +120,7 @@ export const items = table({
     )
     .optional(),
   standalone: v.boolean(), // se false, visibile solo come parte di un bundle
+  userId: "users",
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -103,15 +128,16 @@ export const items = table({
 // ───────────────────────────────────────────────────────────────────────────────
 const resourceOthers = v.object({});
 export const resources = table({
-  name: v.string(),               // "Luisa", "Sala coperta", "Tavolo 7", "Sala yoga"
+  name: v.string(), // "Luisa", "Sala coperta", "Tavolo 7", "Sala yoga"
   kind: v.enum(["person", "space"]),
-  capacity: v.number(),            // 1 per persona/tavolo, 80 per sala coperta, ecc.
+  capacity: v.number(), // 1 per persona/tavolo, 80 per sala coperta, ecc.
   description: v.string().optional(),
   others: resourceOthers,
+  userId: "users",
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
-// SCHEMAS (namespaces) 
+// SCHEMAS (namespaces)
 // ───────────────────────────────────────────────────────────────────────────────
 export const auth = schema([users, sessions]);
 export const availability = schema([openingHours, closures]);

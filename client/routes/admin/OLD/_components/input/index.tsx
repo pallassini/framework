@@ -1,7 +1,7 @@
 import InputString, { type InputStringProps } from "./inputString";
 import InputNumber, { type InputNumberProps } from "./inputNumber";
 import type { InputMode } from "./presets";
-import { resolveFieldBinding, type FieldBinding } from "../../../../../core/client/form/form";
+import { resolveFieldBinding, type FieldBinding } from "../../../../../../core/client/form/form";
 
 export type { InputMode } from "./presets";
 

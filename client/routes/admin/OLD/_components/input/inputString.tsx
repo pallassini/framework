@@ -2,7 +2,7 @@ import { state, watch } from "client";
 import {
   resolveFieldBinding,
   type FieldBinding,
-} from "../../../../../core/client/form/form";
+} from "../../../../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
 import { inputMetrics } from "./sizes";
 import {

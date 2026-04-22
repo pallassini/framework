@@ -1,5 +1,5 @@
 import { state, watch } from "client";
-import { type FieldBinding } from "../../../../../core/client/form/form";
+import { type FieldBinding } from "../../../../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
 import { useInputCommon } from "./common";
 import {

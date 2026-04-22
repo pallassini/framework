@@ -1,5 +1,5 @@
 import { state, watch } from "client";
-import { clientConfig } from "../../../config";
+import { clientConfig } from "../../../../config";
 import { logInputDebug } from "./input/inputDebug";
 
 /**

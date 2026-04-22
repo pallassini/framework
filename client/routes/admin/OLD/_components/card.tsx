@@ -1,4 +1,4 @@
-import { Icon } from "../../../../core/client/runtime/tag/tags/icon";
+import { Icon } from "../../../../../core/client/runtime/tag/tags/icon";
 
 type CardProps = {
   title?: string;

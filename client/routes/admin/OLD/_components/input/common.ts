@@ -3,8 +3,8 @@ import {
   resolveFieldBinding,
   type FieldBinding,
   type FormStyle,
-} from "../../../../../core/client/form/form";
-import type { FieldTypeDesc } from "../../../../../core/client/validator/field-meta";
+} from "../../../../../../core/client/form/form";
+import type { FieldTypeDesc } from "../../../../../../core/client/validator/field-meta";
 import { inputMetrics } from "./sizes";
 import type { InputSize } from "./index";
 import {
