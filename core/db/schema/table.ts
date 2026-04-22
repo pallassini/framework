@@ -51,6 +51,7 @@ export type FullRow<S extends Record<string, InputSchema<unknown> | string>> = {
 	id: string;
 	createdAt?: Date;
 	updatedAt?: Date;
+	deletedAt?: Date;
 } & InferTableRow<S>;
 
 function isFieldSchema(x: unknown): x is InputSchema<unknown> {
@@ -91,11 +92,12 @@ function injectId(shape: Record<string, InputSchema<unknown>>): Record<string, I
 	return { id: v.string(), ...shape };
 }
 
-/** Aggiunto a ogni tabella se non dichiarato (timestamps opzionali). */
+/** Aggiunto a ogni tabella se non dichiarato (timestamps opzionali + soft delete). */
 function injectTimestamps(shape: Record<string, InputSchema<unknown>>): Record<string, InputSchema<unknown>> {
 	const out = { ...shape };
 	if (!("createdAt" in out)) out.createdAt = v.datetime().optional();
 	if (!("updatedAt" in out)) out.updatedAt = v.datetime().optional();
+	if (!("deletedAt" in out)) out.deletedAt = v.datetime().optional();
 	return out;
 }
 

@@ -30,7 +30,7 @@ export default function AdminMenu() {
                     "text-background bg-primary hover:(bg-primary)": [tab, item.id],
                   },
                 }}
-                stroke={3}
+                stroke={2.5}
                 size={9}
                 click={() => tab(item.id as any)}
               />

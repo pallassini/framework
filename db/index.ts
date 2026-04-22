@@ -2,7 +2,7 @@ import { v } from "../core/client/validator";
 import { schema } from "../core/db/schema/namespace";
 import { table } from "../core/db/schema/table";
 
-// "UPDATED AT" & "CREATED AT" ARE AUTOMATICALLY ADDED
+// "ID" & "UPDATED AT" & "CREATED AT" & "DELETED AT" ARE AUTOMATICALLY ADDED
 
 // ───────────────────────────────────────────────────────────────────────────────
 // AUTH
@@ -96,7 +96,6 @@ export const items = table({
     )
     .optional(),
   standalone: v.boolean(), // se false, visibile solo come parte di un bundle
-  active: v.boolean(),
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -108,7 +107,6 @@ export const resources = table({
   kind: v.enum(["person", "space"]),
   capacity: v.number(),            // 1 per persona/tavolo, 80 per sala coperta, ecc.
   description: v.string().optional(),
-  active: v.boolean(),             // soft-delete: false = dismessa
   others: resourceOthers,
 });
 

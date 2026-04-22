@@ -26,12 +26,10 @@ const person = Form({
 export default function Resource() {
   const SPACE_DEFAULTS = {
     kind: "space" as const,
-    active: true,
     others: {},
   };
   const PERSON_DEFAULTS = {
     kind: "person" as const,
-    active: true,
     others: {},
   };
   const { dataCreate, dataUpdate } = useAdminDataMutations(data);

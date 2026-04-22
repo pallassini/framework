@@ -82,7 +82,7 @@ export const itemList = s({
 	run: async ({ categoryId, includeArchived }) => {
 		const where: Record<string, unknown> = {};
 		if (categoryId) where.categoryId = categoryId;
-		if (!includeArchived) where.active = true;
+		if (!includeArchived) where.deletedAt = null;
 		return { items: await db.items.find({ where }) };
 	},
 });
@@ -115,7 +115,7 @@ export const resourceDelete = s({
 export const resourceList = s({
 	input: v.object({ includeArchived: v.boolean().optional() }),
 	run: async ({ includeArchived }) => ({
-		resources: await db.resources.find({ where: includeArchived ? {} : { active: true } }),
+		resources: await db.resources.find({ where: includeArchived ? {} : { deletedAt: null } }),
 	}),
 });
 
