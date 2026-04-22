@@ -33,9 +33,25 @@ export function TimePicker(props: {
   const placePanel = (): void => {
     if (!triggerEl || !panelRoot) return;
     const r = triggerEl.getBoundingClientRect();
-    panelRoot.style.top = `${r.bottom + 6}px`;
-    panelRoot.style.left = `${r.left + r.width / 2}px`;
+    const top = r.bottom + 6;
+    const left = r.left + r.width / 2;
+    panelRoot.style.top = `${top}px`;
+    panelRoot.style.left = `${left}px`;
   };
+
+  /** Stile pannello senza transizioni: evita il “salto” visivo da 0,0 al trigger. */
+  const panelShellStyle = (top: number, left: number): string =>
+    [
+      "position:fixed",
+      `top:${top}px`,
+      `left:${left}px`,
+      "transform:translateX(-50%)",
+      "z-index:100081",
+      "box-shadow:0 10px 30px rgba(0,0,0,0.6)",
+      "transition:none",
+      "opacity:1",
+      "will-change:auto",
+    ].join(";");
 
   const destroyPanel = (): void => {
     stopPosWatch?.();
@@ -59,18 +75,25 @@ export function TimePicker(props: {
   };
 
   const buildPanel = (): void => {
+    if (!triggerEl) return;
+    const r = triggerEl.getBoundingClientRect();
+    const top = r.bottom + 6;
+    const left = r.left + r.width / 2;
+
     backdrop = document.createElement("div");
-    backdrop.style.cssText = "position:fixed;inset:0;z-index:9998;";
+    backdrop.style.cssText = "position:fixed;inset:0;z-index:100080;transition:none;";
     backdrop.addEventListener("click", close);
     document.body.appendChild(backdrop);
 
     panelRoot = document.createElement("div");
-    panelRoot.style.cssText =
-      "position:fixed;top:0;left:0;transform:translateX(-50%);z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.6);";
+    panelRoot.style.cssText = panelShellStyle(top, left);
     document.body.appendChild(panelRoot);
 
     const inner = (
-      <div s={{ base: "row bg-background b-1px b-#2a2a2a round-10px overflow-hidden" }}>
+      <div
+        style={{ transition: "none" }}
+        s={{ base: "row bg-background b-1px b-#2a2a2a round-10px overflow-hidden" }}
+      >
         <PickerColumn values={HOURS} selected={hour} onPick={(v) => hour(v)} />
         <div style={{ width: "1px", alignSelf: "stretch" }} s="bg-#2a2a2a" />
         <PickerColumn
@@ -95,8 +118,10 @@ export function TimePicker(props: {
     window.addEventListener("resize", onWinScrollOrResize);
   };
 
-  const toggle = (ev: MouseEvent): void => {
-    triggerEl = ev.currentTarget as HTMLElement;
+  const onToggle = (ev: Event): void => {
+    ev.stopPropagation();
+    const el = (ev.currentTarget ?? ev.target) as HTMLElement;
+    triggerEl = el;
     if (open()) {
       close();
       return;
@@ -107,11 +132,12 @@ export function TimePicker(props: {
 
   return (
     <div
-      click={toggle}
+      click={onToggle}
       style={{
         fontVariantNumeric: "tabular-nums",
         boxSizing: "border-box",
         display: "inline-flex",
+        touchAction: "manipulation",
       }}
       s={{
         base: {
@@ -150,11 +176,12 @@ function PickerColumn(props: {
             click={() => props.onPick(v)}
             s={{
               base: {
-                "text-2 px-0.7vw py-0.2vh cursor-pointer duration-100 centerx font-6": true,
+                "text-2 px-0.7vw py-0.2vh cursor-pointer centerx font-6": true,
                 "bg-primary text-background": () => props.selected() === v,
                 "hover:(bg-#2a2a2a)": () => props.selected() !== v,
               },
             }}
+            style={{ transition: "none" }}
           >
             {v}
           </div>

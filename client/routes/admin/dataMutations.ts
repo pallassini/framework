@@ -134,6 +134,32 @@ export async function optimisticPatchCall<K extends AdminCollectionKey, TPatch, 
   return optimisticPatch({ store, key, id, patch, update });
 }
 
+export async function optimisticDeleteCall<K extends AdminCollectionKey>(
+  store: AdminDataSignal,
+  key: K,
+  id: string,
+  del: () => Promise<unknown>,
+): Promise<void> {
+  let previousRows: AdminCollectionRow<K>[] | undefined;
+  store((d) => {
+    if (!d) return d;
+    const current = (d[key] ?? []) as unknown as AdminCollectionRow<K>[];
+    previousRows = [...current];
+    return {
+      ...d,
+      [key]: current.filter((r) => r.id !== id),
+    } as AdminData;
+  });
+  try {
+    await del();
+  } catch (error) {
+    if (previousRows) {
+      store((d) => (d ? { ...d, [key]: previousRows! } as AdminData : d));
+    }
+    throw error;
+  }
+}
+
 export function useAdminDataMutations(store: AdminDataSignal) {
   return {
     dataCreate: <K extends AdminCollectionKey, TResult>(
@@ -147,6 +173,8 @@ export function useAdminDataMutations(store: AdminDataSignal) {
       patch: TPatch,
       update: () => Promise<TResult>,
     ) => optimisticPatchCall(store, key, id, patch, update),
+    dataDelete: <K extends AdminCollectionKey>(key: K, id: string, del: () => Promise<unknown>) =>
+      optimisticDeleteCall(store, key, id, del),
   };
 }
 

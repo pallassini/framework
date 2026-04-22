@@ -2,7 +2,7 @@
  * Log diagnostici per tema Input / Popmenu. Rimuovi o disattiva `INPUT_DEBUG`
  * quando non serve più.
  */
-export const INPUT_DEBUG = true;
+export const INPUT_DEBUG = false;
 
 const lastByKey = new Map<string, string>();
 

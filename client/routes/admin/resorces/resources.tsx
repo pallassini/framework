@@ -65,7 +65,7 @@ export default function Resource() {
 
   return (
     <>
-      <div s="w-90% centerx">
+      <div s="w-80% centerx">
         <div s="row gapx-10 mt-10">
           <Card
             title="Spazi"
