@@ -20,10 +20,10 @@ export default function Card({ title, icon: iconName, children, s, actions }: Ca
     >
       <div
         s={{
-          des: "font-6 text-6 row round-5px  gapx-2 children-center",
+          base: "font-6 text-6 row round-5px gapx-2 children-center ",
         }}
       >
-        <icon name={iconName as Icon} stroke={2.5} />
+        <icon name={iconName as Icon} size="7" stroke={2.5} s="text-primary" />
         <t>{title}</t>
         <div s="right">{actions}</div>
       </div>

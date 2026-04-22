@@ -65,7 +65,7 @@ export default function Resource() {
 
   return (
     <>
-      <div s="w-80% centerx">
+      <div s="des:(w-80%) mob:(w-96%) centerx">
         <div
           s={{
             base: {
