@@ -1,24 +1,22 @@
 import type { RpcCallbacks } from "../server/server";
 import type { ServerRoutes } from "../server/routes-gen";
 import { server } from "../server/server";
-import { createState, signal } from "../state";
+import { signal, type Signal } from "../state";
 import { clearSession, getSessionId, setSessionId } from "./session";
 
 const a = server.auth;
 
 type LoginOut = ServerRoutes["auth.login"]["out"];
 type RegisterOut = ServerRoutes["auth.register"]["out"];
+type MeOut = ServerRoutes["auth.me"]["out"];
 
-/** Stesso shape di `auth.me` lato server (JSON: date → ISO string). */
-export type AuthPublicUser = {
-	readonly id: string;
-	readonly email: string;
-	readonly username?: string;
-	readonly role: "admin" | "user" | "customer";
-	readonly createdAt?: string;
-	readonly updatedAt?: string;
-	readonly deletedAt?: string | null;
-};
+/**
+ * Shape di `auth.me` **inferito** dal ritorno di `server.auth.me`.
+ * Aggiungendo un campo alla tabella `users` in `db/index.ts`, il ritorno del server lo include
+ * automaticamente (`publicUserFromRow` itera lo shape meno `password`) e quindi `AuthPublicUser`
+ * lo eredita senza alcun altro edit lato client.
+ */
+export type AuthPublicUser = MeOut extends { user: infer U } ? U : never;
 
 /**
  * Ritorno **sempre** di `auth.login` / `auth.register`: non fanno throw;
@@ -34,27 +32,70 @@ export function isAuthRateLimitError(e: unknown): boolean {
 }
 
 /**
- * Sessione utente reattiva: popolata da `auth.refresh()` (che chiama `server.auth.me`)
- * e da login/register. In UI: `auth.me.role()`, `auth.me.email()`, …
- * Ospite: `auth.me.id() === ""`.
+ * Reattività utente: **un solo signal** `userSignal` contiene l'intero oggetto (o `null` ospite);
+ * `auth.me.campoX()` è un signal derivato creato al volo tramite proxy → qualsiasi campo presente
+ * nel payload del server è automaticamente disponibile senza liste hardcoded.
+ *
+ * Convenzione: ospite = `auth.me.role() === ""` (il server non manda mai `""`, quindi è un marker
+ * sicuro “non loggato”). Altri campi → `undefined` quando ospite.
  */
-/** Ruolo vuoto = ospite (mai inviato dal server così). */
-type LocalRole = "" | AuthPublicUser["role"];
-
-const session = createState({
-	me: {
-		id: "",
-		email: "",
-		username: undefined as string | undefined,
-		role: "" as LocalRole,
-		createdAt: undefined as string | undefined,
-		updatedAt: undefined as string | undefined,
-		deletedAt: null as string | null,
-	},
-});
+const userSignal = signal<AuthPublicUser | null>(null);
 
 /** Dopo la prima `auth.refresh()` in App: evita redirect con `role === ""` prima che `server.auth.me` abbia risposto. */
 const sessionResolved = signal(false);
+
+/** Tipo di `auth.me`: signal dell’utente (o null) + signal derivato per ogni campo di `AuthPublicUser`. */
+export type AuthMe = Signal<AuthPublicUser | null> & {
+	readonly [K in keyof AuthPublicUser]-?: Signal<
+		K extends "role" ? "" | NonNullable<AuthPublicUser[K]> : AuthPublicUser[K] | undefined
+	>;
+};
+
+const derivedCache = new Map<string, Signal<unknown>>();
+
+/** Property del signal base che **non** vanno intercettate (altrimenti rompono `auth.me(…)`, `.get()`, ecc.). */
+const RESERVED_ME_KEYS = new Set<string | symbol>([
+	"value",
+	"valueOf",
+	"toString",
+	"get",
+	"reset",
+	"length",
+	"name",
+	"prototype",
+	"apply",
+	"call",
+	"bind",
+	"then",
+	"catch",
+	"finally",
+	"constructor",
+]);
+
+function deriveField(key: string): Signal<unknown> {
+	const cached = derivedCache.get(key);
+	if (cached) return cached;
+	const s = signal(() => {
+		const u = userSignal();
+		if (u == null) {
+			/** `role === ""` = ospite (convenzione storica); altri campi → undefined. */
+			if (key === "role") return "";
+			return undefined;
+		}
+		return (u as Record<string, unknown>)[key];
+	}) as Signal<unknown>;
+	derivedCache.set(key, s);
+	return s;
+}
+
+const me: AuthMe = new Proxy(userSignal as unknown as AuthMe, {
+	get(target, prop, receiver) {
+		if (typeof prop === "symbol" || RESERVED_ME_KEYS.has(prop)) {
+			return Reflect.get(target, prop, receiver);
+		}
+		return deriveField(prop);
+	},
+});
 
 function persistSessionId(out: unknown): void {
 	if (out && typeof out === "object" && "sessionId" in out) {
@@ -71,24 +112,7 @@ function pickUser(out: unknown): AuthPublicUser | null {
 }
 
 function applyPublicUser(u: AuthPublicUser | null): void {
-	const m = session.me;
-	if (!u) {
-		m.id("");
-		m.email("");
-		m.username(undefined);
-		m.role("");
-		m.createdAt(undefined);
-		m.updatedAt(undefined);
-		m.deletedAt(null);
-		return;
-	}
-	m.id(u.id);
-	m.email(u.email);
-	m.username(u.username);
-	m.role(u.role);
-	m.createdAt(u.createdAt);
-	m.updatedAt(u.updatedAt);
-	m.deletedAt(u.deletedAt ?? null);
+	userSignal(u);
 }
 
 /**
@@ -155,8 +179,13 @@ async function authRegister(
 }
 
 export const auth = {
-	/** Snapshot reattivo dell’utente (da `server.auth.me`), non la funzione RPC. */
-	me: session.me,
+	/**
+	 * Snapshot reattivo dell’utente. Ogni property letta (`auth.me.role()`, `auth.me.email()`, …)
+	 * ritorna un signal **derivato** dal payload di `server.auth.me`: aggiungendo un campo in `users`
+	 * è subito accessibile senza edit qui.
+	 * `auth.me.role() === ""` ⇒ ospite / sessione non ancora risolta.
+	 */
+	me,
 	/** `true` dopo almeno un `auth.refresh` completato (ospite o utente). */
 	ready: sessionResolved,
 	/**
