@@ -10,11 +10,29 @@
  */
 import { s } from "server";
 import { db, applyCatalogJsonString, readCurrentCatalogJsonString, forceCheckpoint, getLiveFwTables } from "db";
-import { error } from "../../../core/server/error";
+import { error, FlowError } from "../../../core/server/error";
 import { ValidationError, type InputSchema } from "../../../core/client/validator/properties/defs";
-import type { TableOp } from "../../../core/db/remote/protocol";
+import type { BatchableOp, RemoteErrorBody, TableOp, TableOpResult } from "../../../core/db/remote/protocol";
 import { assertAdminAuth } from "../../../core/db/remote/server-auth";
 import { getFwTableColumns } from "../../../core/db/schema/table";
+
+const KNOWN_OPS = new Set([
+	"table.find",
+	"table.findOpts",
+	"table.byId",
+	"table.count",
+	"table.countOpts",
+	"table.create",
+	"table.update",
+	"table.updateOpts",
+	"table.delete",
+	"table.deleteOpts",
+	"table.clear",
+	"db.clearAll",
+	"catalog.get",
+	"catalog.push",
+	"checkpoint",
+]);
 
 const opSchema: InputSchema<TableOp> = {
 	parse(raw) {
@@ -22,36 +40,27 @@ const opSchema: InputSchema<TableOp> = {
 		const o = raw as Record<string, unknown>;
 		const op = o.op;
 		if (typeof op !== "string") throw new ValidationError("op required");
-		switch (op) {
-			case "table.find":
-			case "table.findOpts":
-			case "table.byId":
-			case "table.count":
-			case "table.countOpts":
-			case "table.create":
-			case "table.update":
-			case "table.updateOpts":
-			case "table.delete":
-			case "table.deleteOpts":
-			case "table.clear":
-			case "db.clearAll":
-			case "catalog.get":
-			case "catalog.push":
-			case "checkpoint":
-				return raw as TableOp;
-			default:
-				throw new ValidationError(`unknown op: ${op}`);
+		if (op === "batch") {
+			if (!Array.isArray(o.ops)) throw new ValidationError("batch.ops must be an array");
+			for (const child of o.ops as unknown[]) {
+				if (typeof child !== "object" || child === null) {
+					throw new ValidationError("batch.ops[*] must be an object");
+				}
+				const cop = (child as { op?: unknown }).op;
+				if (typeof cop !== "string") throw new ValidationError("batch.ops[*].op required");
+				if (cop === "batch") throw new ValidationError("nested batch not allowed");
+				if (!KNOWN_OPS.has(cop)) throw new ValidationError(`unknown op: ${cop}`);
+			}
+			return raw as TableOp;
 		}
+		if (KNOWN_OPS.has(op)) return raw as TableOp;
+		throw new ValidationError(`unknown op: ${op}`);
 	},
 };
 
-export const rpc = s({
-	input: opSchema,
-	// Auth fatto a mano: non è una sessione, è un secret condiviso tramite env.
-	async run(input, ctx) {
-		assertAdminAuth(ctx.headers);
-
-		switch (input.op) {
+/** Esegue UNA `BatchableOp` ritornando un `TableOpResult` (o lancia FlowError). */
+async function dispatchOp(input: BatchableOp): Promise<TableOpResult> {
+	switch (input.op) {
 			case "table.find": {
 				const acc = db.table(input.table as never);
 				const rows = await acc.find(input.where as never, input.opts as never);
@@ -154,7 +163,48 @@ export const rpc = s({
 					error("INTERNAL", `[admin/db] checkpoint: ${msg}`);
 				}
 			}
+	}
+	// Unreachable ma richiesto per tipizzazione.
+	error("INTERNAL", "[admin/db] op non gestita");
+}
+
+/** Serializza un errore per un singolo slot del batch (non fa buttar giù l'intera richiesta). */
+function errorToRemoteBody(e: unknown): RemoteErrorBody {
+	if (e instanceof FlowError) {
+		return {
+			ok: false,
+			error: {
+				type: e.type as RemoteErrorBody["error"]["type"],
+				message: e.message,
+			},
+		};
+	}
+	const msg = e instanceof Error ? e.message : String(e);
+	return { ok: false, error: { type: "INTERNAL", message: msg } };
+}
+
+export const rpc = s({
+	input: opSchema,
+	// Auth fatto a mano: non è una sessione, è un secret condiviso tramite env.
+	async run(input, ctx) {
+		assertAdminAuth(ctx.headers);
+
+		if (input.op === "batch") {
+			// Eseguite IN ORDINE: le mutazioni non vanno parallelizzate (stesso
+			// WAL). Le letture pure potrebbero, ma la semplicità batte la
+			// micro-ottimizzazione — il WIN vero è il round-trip risparmiato.
+			const results: (TableOpResult | RemoteErrorBody)[] = [];
+			for (const sub of input.ops) {
+				try {
+					results.push(await dispatchOp(sub));
+				} catch (e) {
+					results.push(errorToRemoteBody(e));
+				}
+			}
+			return { ok: true as const, results };
 		}
+
+		return dispatchOp(input);
 	},
 	// L'endpoint admin può ricevere catalog.json grandi: aumentiamo leggermente il limite.
 	sizeLimit: { in: 16 * 1024 * 1024 },

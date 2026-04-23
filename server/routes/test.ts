@@ -12,8 +12,12 @@ import { db, dbCustomBackend } from "db";
 
 export default s({
 	async run() {
-		const users = await db.users.find(undefined, { limit: 5 });
-		const count = await db.users.count();
+		// NB: usiamo Promise.all così le due chiamate, se il DB è remoto, vengono
+		// coalescate dal batcher in un'unica HTTP request (1 round-trip invece di 2).
+		const [users, count] = await Promise.all([
+			db.users.find(undefined, { limit: 5 }),
+			db.users.count(),
+		]);
 		return {
 			ok: true as const,
 			mode: dbCustomBackend,

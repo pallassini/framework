@@ -18,6 +18,7 @@ import type {
 import {
 	REMOTE_ADMIN_RPC_PATH,
 	REMOTE_AUTH_HEADER,
+	type BatchableOp,
 	type RemoteErrorBody,
 	type RemoteRpcResponse,
 	type TableOp,
@@ -53,8 +54,8 @@ function defaultTimeoutMs(): number {
 	return 30_000;
 }
 
-/** Esegue POST JSON su `<base>/_server/_admin/db/rpc` con auth bearer. */
-async function callRemote(target: RemoteTarget, op: TableOp): Promise<TableOpResult> {
+/** POST JSON "crudo" su `<base>/_server/_admin/db/rpc` con auth bearer. */
+async function rawCall(target: RemoteTarget, input: TableOp): Promise<TableOpResult> {
 	const url = target.baseUrl.replace(/\/+$/, "") + REMOTE_ADMIN_RPC_PATH;
 	const ac = new AbortController();
 	const to = setTimeout(() => ac.abort(), defaultTimeoutMs());
@@ -66,7 +67,7 @@ async function callRemote(target: RemoteTarget, op: TableOp): Promise<TableOpRes
 				"content-type": "application/json",
 				[REMOTE_AUTH_HEADER]: `Bearer ${target.password}`,
 			},
-			body: JSON.stringify({ input: op }),
+			body: JSON.stringify({ input }),
 			signal: ac.signal,
 		});
 	} catch (e) {
@@ -91,6 +92,130 @@ async function callRemote(target: RemoteTarget, op: TableOp): Promise<TableOpRes
 		throw new RemoteDbError(err.type, `[fwdb/remote:${target.alias}] ${err.message}`, res.status);
 	}
 	return body;
+}
+
+// ─── Batcher ──────────────────────────────────────────────────────────────────
+// Tutte le op batchabili emesse nello stesso "turn" (stesso microtask burst)
+// vengono coalesciute in una SOLA fetch con op `batch`. Risparmia N-1 round-trip.
+//
+// Ops NON batchabili: `batch` stesso. Per sicurezza non batchiamo neanche
+// `catalog.push` / `checkpoint` / `db.clearAll` / `catalog.get`: sono operazioni
+// rare ad alto impatto, preferiamo il fail-loud su 1 solo op piuttosto che
+// nascondere errori in un batch.
+
+type BatchEntry = {
+	op: BatchableOp;
+	resolve: (r: TableOpResult) => void;
+	reject: (e: unknown) => void;
+};
+
+type Queue = {
+	entries: BatchEntry[];
+	scheduled: boolean;
+};
+
+const BATCHABLE_OPS = new Set<BatchableOp["op"]>([
+	"table.find",
+	"table.findOpts",
+	"table.byId",
+	"table.count",
+	"table.countOpts",
+	"table.create",
+	"table.update",
+	"table.updateOpts",
+	"table.delete",
+	"table.deleteOpts",
+	"table.clear",
+]);
+
+const queues = new Map<string, Queue>();
+
+function queueKey(target: RemoteTarget): string {
+	// Target per baseUrl: se cambi password/alias con stesso URL, riusi comunque
+	// la stessa connessione HTTP/TLS (Bun keep-alive). L'alias è solo metadata.
+	return target.baseUrl;
+}
+
+function schedule(target: RemoteTarget, q: Queue): void {
+	if (q.scheduled) return;
+	q.scheduled = true;
+	// `queueMicrotask` farebbe partire il flush appena finito il turn sincrono;
+	// usiamo `Promise.resolve().then` che è identico ma più leggibile e permette
+	// di essere un filo più "tardivo" di un microtask.
+	Promise.resolve().then(() => {
+		void flush(target, q);
+	});
+}
+
+async function flush(target: RemoteTarget, q: Queue): Promise<void> {
+	q.scheduled = false;
+	const batch = q.entries;
+	q.entries = [];
+	if (batch.length === 0) return;
+
+	// Shortcut: se c'è 1 sola op, saltiamo l'overhead del batch wrapper.
+	if (batch.length === 1) {
+		const only = batch[0]!;
+		try {
+			const r = await rawCall(target, only.op);
+			only.resolve(r);
+		} catch (e) {
+			only.reject(e);
+		}
+		return;
+	}
+
+	try {
+		const res = await rawCall(target, { op: "batch", ops: batch.map((b) => b.op) });
+		if (!("results" in res)) {
+			for (const e of batch) {
+				e.reject(new RemoteDbError("INTERNAL", `[fwdb/remote:${target.alias}] batch response missing 'results'`));
+			}
+			return;
+		}
+		const results = res.results;
+		for (let i = 0; i < batch.length; i++) {
+			const entry = batch[i]!;
+			const slot = results[i];
+			if (!slot) {
+				entry.reject(new RemoteDbError("INTERNAL", `[fwdb/remote:${target.alias}] batch slot ${String(i)} missing`));
+				continue;
+			}
+			if ("ok" in slot && slot.ok === true) {
+				entry.resolve(slot as TableOpResult);
+			} else {
+				const err = (slot as RemoteErrorBody).error;
+				entry.reject(new RemoteDbError(err.type, `[fwdb/remote:${target.alias}] ${err.message}`));
+			}
+		}
+	} catch (e) {
+		for (const entry of batch) entry.reject(e);
+	}
+}
+
+function enqueueBatchable(target: RemoteTarget, op: BatchableOp): Promise<TableOpResult> {
+	const key = queueKey(target);
+	let q = queues.get(key);
+	if (!q) {
+		q = { entries: [], scheduled: false };
+		queues.set(key, q);
+	}
+	return new Promise<TableOpResult>((resolve, reject) => {
+		q.entries.push({ op, resolve, reject });
+		schedule(target, q);
+	});
+}
+
+/**
+ * API pubblica: instrada ogni op al batcher se possibile, altrimenti va diretta.
+ * Il comportamento osservabile (await → risultato) è identico, cambia solo quante
+ * HTTP partono sotto il cofano.
+ */
+async function callRemote(target: RemoteTarget, op: TableOp): Promise<TableOpResult> {
+	if (op.op !== "batch" && BATCHABLE_OPS.has(op.op as BatchableOp["op"])) {
+		return enqueueBatchable(target, op as BatchableOp);
+	}
+	return rawCall(target, op);
 }
 
 /** Costruisce un TableAccessor che delega ogni operazione al remoto. */

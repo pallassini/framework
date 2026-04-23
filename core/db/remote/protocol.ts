@@ -89,7 +89,19 @@ export type TableOp =
 	  }
 	| {
 			op: "checkpoint";
+	  }
+	| {
+			/**
+			 * Batch di op serializzate in UN unico round-trip.
+			 * Le op vengono eseguite in ordine, ciascuna con il suo risultato/errore
+			 * isolato nel corrispondente slot dell'array di risposta.
+			 */
+			op: "batch";
+			ops: readonly BatchableOp[];
 	  };
+
+/** Op consentite dentro `batch` (niente ricorsione `batch` dentro `batch`). */
+export type BatchableOp = Exclude<TableOp, { op: "batch" }>;
 
 export type TableOpResult =
 	| { ok: true; rows: DbRow[] }
@@ -100,7 +112,8 @@ export type TableOpResult =
 	| { ok: true; catalog: CatalogJson | null }
 	| { ok: true; cleared: number }
 	| { ok: true; reloaded: true; tableNames: string[] }
-	| { ok: true; voidOk: true };
+	| { ok: true; voidOk: true }
+	| { ok: true; results: readonly (TableOpResult | RemoteErrorBody)[] };
 
 export type RemoteErrorBody = {
 	ok: false;
