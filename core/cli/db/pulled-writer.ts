@@ -42,6 +42,14 @@ type RemoteCatalog = {
 	readonly tables: Record<string, RemoteTable>;
 };
 
+/** Lo stesso `SchemaNode` di `core/db/collect.ts`, ripetuto qui per evitare import circolari. */
+export type SchemaNode = {
+	readonly name: string;
+	readonly path: readonly string[];
+	readonly tables: readonly string[];
+	readonly children: readonly SchemaNode[];
+};
+
 const AUTO_COLUMNS = new Set(["id", "createdAt", "updatedAt", "deletedAt"]);
 
 function sep(title: string): string {
@@ -154,16 +162,54 @@ function renderTable(name: string, table: RemoteTable): string {
 	return lines.join("\n");
 }
 
+/**
+ * Restituisce `[node, ...]` in **post-order** (figli prima del genitore) senza
+ * duplicati. Serve a garantire che un `schema([a, b])` sia emesso DOPO
+ * che `a` e `b` sono già dichiarati — altrimenti TS dà errore di use-before-declaration.
+ */
+function flattenSchemasPostOrder(tree: readonly SchemaNode[]): SchemaNode[] {
+	const out: SchemaNode[] = [];
+	const seen = new Set<string>();
+	const visit = (n: SchemaNode): void => {
+		const key = n.path.join("/");
+		if (seen.has(key)) return;
+		for (const c of n.children) visit(c);
+		seen.add(key);
+		out.push(n);
+	};
+	for (const root of tree) visit(root);
+	return out;
+}
+
+/** `export const auth = schema([users, sessions]);` — elenca tabelle + children. */
+function renderSchemaNode(n: SchemaNode): string {
+	const members: string[] = [];
+	for (const t of n.tables) members.push(t);
+	for (const c of n.children) members.push(c.name);
+	if (members.length === 0) {
+		return `export const ${n.name} = schema([]);`;
+	}
+	if (members.length <= 4) {
+		return `export const ${n.name} = schema([${members.join(", ")}]);`;
+	}
+	// Tante voci → a capo per leggibilità.
+	return `export const ${n.name} = schema([\n  ${members.join(",\n  ")},\n]);`;
+}
+
 export function renderPulledTs(
 	catalog: RemoteCatalog,
 	tableOrder: readonly string[] | undefined,
 	remoteAlias: string,
 	remoteUrl: string,
+	schemaTree?: readonly SchemaNode[],
 ): string {
 	const names =
 		tableOrder && tableOrder.length > 0
 			? tableOrder
 			: Object.keys(catalog.tables).sort();
+	const flatSchemas = schemaTree ? flattenSchemasPostOrder(schemaTree) : [];
+	const hasSchemas = flatSchemas.length > 0;
+
 	const parts: string[] = [];
 	parts.push(
 		`/**`,
@@ -178,13 +224,29 @@ export function renderPulledTs(
 		` */`,
 		`import { v } from "../core/client/validator";`,
 		`import { table } from "../core/db/schema/table";`,
-		``,
 	);
+	if (hasSchemas) {
+		parts.push(`import { schema } from "../core/db/schema/namespace";`);
+	}
+	parts.push(``);
 	for (const name of names) {
 		const tbl = catalog.tables[name];
 		if (!tbl) continue;
 		parts.push(renderTable(name, tbl));
 		parts.push("");
 	}
+
+	if (hasSchemas) {
+		parts.push(
+			`// ${"─".repeat(79)}`,
+			`// SCHEMAS (namespaces)`,
+			`// ${"─".repeat(79)}`,
+		);
+		for (const n of flatSchemas) {
+			parts.push(renderSchemaNode(n));
+		}
+		parts.push("");
+	}
+
 	return parts.join("\n");
 }

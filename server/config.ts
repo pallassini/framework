@@ -20,7 +20,7 @@ export interface ServerConfig {
 }
 
 export const serverConfig: ServerConfig = {
-	cors: "same-origin",
+	cors: "all",
 	log: {
 		enabled: true,
 		detail: "full",

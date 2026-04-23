@@ -9,10 +9,18 @@
  * Il WAL binario (pull/push) non passa da qui: è gestito come route raw in `core/cli/dev` / `core/server/routes/serve.ts`.
  */
 import { s } from "server";
-import { db, applyCatalogJsonString, readCurrentCatalogJsonString, forceCheckpoint, getLiveFwTables } from "db";
+import {
+	db,
+	applyCatalogJsonString,
+	readCurrentCatalogJsonString,
+	forceCheckpoint,
+	getLiveFwTables,
+	getLiveDbSchemaTree,
+	getLiveDbTableOrder,
+} from "db";
 import { error, FlowError } from "../../../core/server/error";
 import { ValidationError, type InputSchema } from "../../../core/client/validator/properties/defs";
-import type { BatchableOp, RemoteErrorBody, TableOp, TableOpResult } from "../../../core/db/remote/protocol";
+import type { BatchableOp, CatalogJson, RemoteErrorBody, TableOp, TableOpResult } from "../../../core/db/remote/protocol";
 import { assertAdminAuth } from "../../../core/db/remote/server-auth";
 import { getFwTableColumns } from "../../../core/db/schema/table";
 
@@ -123,23 +131,26 @@ async function dispatchOp(input: BatchableOp): Promise<TableOpResult> {
 			case "catalog.get": {
 				try {
 					const jsonStr = readCurrentCatalogJsonString();
-					const catalog = JSON.parse(jsonStr) as {
-						tables: Record<string, Record<string, unknown>>;
-					};
-					// Arricchiamo il catalog con i tipi delle colonne presi dal bundle live:
-					// il catalog.json "puro" contiene solo pk/indexes/foreignKeys, servono anche
-					// i tipi per poter rigenerare uno schema TS leggibile in `db/pulled.ts`.
+					// Il protocollo tipizza `catalog` come `CatalogJson` (struttura "stretta"):
+					// per il `pull` ci servono in più i *tipi* delle colonne, che iniettiamo
+					// runtime dentro ogni table meta. TS non deve inferire il tipo allargato,
+					// quindi manteniamo la firma come `CatalogJson` e trattiamo l'aggiunta di
+					// `columns` come "campo runtime-only" lato writer client.
+					const catalog = JSON.parse(jsonStr) as CatalogJson;
 					const fwByName = new Map(
 						getLiveFwTables().map((t) => [t.name, t]),
 					);
-					const tableOrder: string[] = [];
 					for (const [name, meta] of Object.entries(catalog.tables)) {
-						tableOrder.push(name);
 						const fw = fwByName.get(name);
 						const cols = fw ? getFwTableColumns(fw) : undefined;
-						if (cols) (meta as Record<string, unknown>).columns = cols;
+						if (cols) (meta as unknown as Record<string, unknown>).columns = cols;
 					}
-					return { ok: true as const, catalog, tableOrder };
+					// `tableOrder` e `schemaTree` arrivano dal bundle live (non dal
+					// catalog.json su disco). Servono al `pull` per rigenerare i
+					// namespace `schema([...])` e l'ordine di dichiarazione.
+					const tableOrder = [...getLiveDbTableOrder()];
+					const schemaTree = getLiveDbSchemaTree();
+					return { ok: true as const, catalog, tableOrder, schemaTree };
 				} catch (e) {
 					const msg = e instanceof Error ? e.message : String(e);
 					error("INTERNAL", `[admin/db] catalog.get: ${msg}`);

@@ -103,13 +103,32 @@ export type TableOp =
 /** Op consentite dentro `batch` (niente ricorsione `batch` dentro `batch`). */
 export type BatchableOp = Exclude<TableOp, { op: "batch" }>;
 
+/**
+ * Nodo di schema (namespace) ricostruito dal bundle live lato server.
+ * Serve al `pull` per rigenerare i gruppi `schema([...])` in `db/pulled.ts`.
+ * Campo opzionale nel result di `catalog.get`: i vecchi server possono non mandarlo.
+ */
+export type ProtocolSchemaNode = {
+	readonly name: string;
+	readonly path: readonly string[];
+	readonly tables: readonly string[];
+	readonly children: readonly ProtocolSchemaNode[];
+};
+
 export type TableOpResult =
 	| { ok: true; rows: DbRow[] }
 	| { ok: true; row: DbRow | null }
 	| { ok: true; count: number }
 	| { ok: true; result: UpdateResult<DbRow> }
 	| { ok: true; result: DeleteResult }
-	| { ok: true; catalog: CatalogJson | null }
+	| {
+			ok: true;
+			catalog: CatalogJson | null;
+			/** Ordine di dichiarazione delle tabelle nel bundle live. */
+			tableOrder?: readonly string[];
+			/** Albero dei namespace `schema([...])` del bundle live. */
+			schemaTree?: readonly ProtocolSchemaNode[];
+	  }
 	| { ok: true; cleared: number }
 	| { ok: true; reloaded: true; tableNames: string[] }
 	| { ok: true; voidOk: true }
