@@ -57,8 +57,9 @@ async function createSession(userId: string) {
 
 export const login = s({
 	input: v.object({
-		email: v.string(),
-		password: v.string(),
+		email: v.email(),
+		/** Stesso criterio del client: `v.password("noError")` — niente min in validazione. */
+		password: v.password("noError"),
 	}),
 	run: async (input, _ctx) => {
 		const rows = await db.users.find({ email: { $eq: input.email } }, { limit: 1 });
@@ -80,8 +81,8 @@ export const login = s({
 
 export const register = s({
 	input: v.object({
-		email: v.string(),
-		password: v.string(),
+		email: v.email(),
+		password: v.password(),
 		username: v.string().optional(),
 		role: v.enum(["admin", "user"]).optional(),
 	}),

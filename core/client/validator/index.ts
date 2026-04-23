@@ -1,4 +1,4 @@
-export { v } from "./properties";
+export { v, noPasswordError } from "./properties";
 /**
  * Tipo per `satisfies`: `v.Enum<["a","b"]>` — `enum` è riservato in TS, non si può esporre come `v.enum<…>` nel merge col valore `v`.
  * A runtime il parse resta `v.enum([...])`.

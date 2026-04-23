@@ -1,5 +1,5 @@
 import { device, server, state } from "client";
-import AdminMenu, { tab } from "./_components/menu";
+import AdminMenu, { tab } from "../../_components/menu";
 import Resources from "./resorces";
 import Prenotations from "./prenotaions";
 import Services from "./services";

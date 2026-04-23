@@ -90,16 +90,28 @@ export async function refreshAuthSession(): Promise<void> {
 export const auth = {
 	/** Snapshot reattivo dell’utente (da `server.auth.me`), non la funzione RPC. */
 	me: session.me,
-	login: async (input: Parameters<typeof a.login>[0]) => {
-		const out = await a.login(input);
-		persistSessionId(out);
-		applyPublicUser(pickUser(out));
+	login: async (...args: Parameters<typeof a.login>) => {
+		const [input, opts] = args;
+		const out = await a.login(input, {
+			...opts,
+			onSuccess: (data) => {
+				persistSessionId(data);
+				applyPublicUser(pickUser(data));
+				opts?.onSuccess?.(data);
+			},
+		});
 		return out;
 	},
-	register: async (input: Parameters<typeof a.register>[0]) => {
-		const out = await a.register(input);
-		persistSessionId(out);
-		applyPublicUser(pickUser(out));
+	register: async (...args: Parameters<typeof a.register>) => {
+		const [input, opts] = args;
+		const out = await a.register(input, {
+			...opts,
+			onSuccess: (data) => {
+				persistSessionId(data);
+				applyPublicUser(pickUser(data));
+				opts?.onSuccess?.(data);
+			},
+		});
 		return out;
 	},
 	refresh: refreshAuthSession,

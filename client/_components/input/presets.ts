@@ -1,19 +1,19 @@
 /**
  * Modalità cromatica globale per gli `<Input>`.
  *
- * - `"auto"`: defaults storici del framework (bordo tenue bianco, label grigia,
- *   accent = `var(--primary)`). Adatto a sfondi neutri/medi.
  * - `"dark"`: pensato per bg **scuri** (nero/quasi nero). Bordi e label più
  *   chiari per staccarsi dal fondo.
  * - `"light"`: pensato per bg **chiari** (bianco/quasi bianco). Bordi e label
  *   scuri per essere leggibili. L'etichetta "opzionale" e i bottoni `+/−`
  *   vengono virati scuri così non si perdono.
+ *
+ * Se non passi `mode` sul `Form`/`Input`, il default effettivo è equivalente a
+ * `"dark"`.
  */
-export type InputMode = "normal" | "dark" | "light" | "auto";
+export type InputMode = "dark" | "light";
 
 export function normalizeInputMode(mode: InputMode | undefined): "dark" | "light" {
   if (mode === "light") return "light";
-  // Default assoluto: se non specificato (o normal/auto) usiamo sempre dark.
   return "dark";
 }
 
@@ -174,12 +174,7 @@ export function formModeShellScopeVars(
   if (mode === undefined) return {};
   const n = normalizeInputMode(mode);
   const p = PALETTES[n];
-  const surface =
-    n === "light"
-      ? "var(--inputLight)"
-      : n === "dark"
-        ? "var(--inputDark)"
-        : "var(--secondary)";
+  const surface = n === "light" ? "var(--inputLight)" : "var(--inputDark)";
   return {
     "--fw-input-accent": p.accent,
     "--fw-input-resting-border": p.restingBorder,
@@ -194,19 +189,24 @@ export function formModeShellScopeVars(
 
 /**
  * Risolve la palette effettiva da applicare a un `<Input>`:
- *  1. parte dal preset della `mode` (default `"auto"`);
- *  2. sovrascrive `accent` / `restingBorder` / `labelResting` se
- *     sono state passate prop esplicite (`accentColor` / `restingColor`);
- *  3. sovrascrive `showFocusShadow` se esplicita.
+ *  1. parte dal preset della `mode` (default come `"dark"`);
+ *  2. sovrascrive bordo/label a focus con `accentColor` o, in alternativa, `focusColor`;
+ *  3. sovrascrive bordo/label a riposo con `restingColor`;
+ *  4. sovrascrive `showFocusShadow` se esplicita.
  */
 export function resolvePalette(args: {
   mode: InputMode | undefined;
+  /** Bordo/ring a focus; se manca si usa `focusColor`, altrimenti il preset. */
   accentColor?: string;
+  /** Stesso ruolo di `accentColor` (nome più esplicito: bordo focus). `accentColor` vince se entrambi. */
+  focusColor?: string;
+  /** Bordo a riposo (no focus) e label floating a riposo, salvo override sull'`<Input>`. */
   restingColor?: string;
   showFocusShadow?: boolean;
 }): InputPalette {
   const base = PALETTES[normalizeInputMode(args.mode)];
-  const accent = mapColorToken(args.accentColor) ?? base.accent;
+  const accent =
+    mapColorToken(args.accentColor) ?? mapColorToken(args.focusColor) ?? base.accent;
   const resting = mapColorToken(args.restingColor);
   return {
     ...base,

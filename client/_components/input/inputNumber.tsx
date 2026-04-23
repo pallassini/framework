@@ -1,7 +1,7 @@
 import { state, watch } from "client";
-import { type FieldBinding } from "../../../../../../core/client/form/form";
+import { type FieldBinding } from "../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
-import { useInputCommon } from "./common";
+import { useInputCommon, pickInputElementDom } from "./common";
 import {
   inputSurfaceBg,
   inputCutoutBackground,
@@ -92,6 +92,7 @@ export default function InputNumber(props: InputNumberProps) {
     bg: props.bg,
     mode: props.mode,
     accentColor: props.accentColor,
+    focusColor: props.focusColor,
     restingColor: props.restingColor,
     showFocusShadow: props.showFocusShadow,
     readExternal: () =>
@@ -619,16 +620,20 @@ export default function InputNumber(props: InputNumberProps) {
     const met = c.m();
     const pal = c.palette();
     const fs = c.formStyle();
+    const hasRestingOverride =
+      props.restingColor !== undefined || fs?.restingColor !== undefined;
     const idleBorderColor = props.idleBorder ?? "transparent";
     const activeBorderColor =
       props.activeBorder ??
-      (c.isOptional() ? pal.restingBorder : inputRequiredRestingBorderColor());
+      (c.isOptional() || hasRestingOverride
+        ? pal.restingBorder
+        : inputRequiredRestingBorderColor());
     const optAtRest =
       c.isOptional() &&
       !foc &&
       displayText() === "" &&
       !err &&
-      props.restingColor === undefined;
+      !hasRestingOverride;
     const borderWhenActive = optAtRest
       ? optionalFieldMutedColor()
       : activeBorderColor;
@@ -771,6 +776,7 @@ export default function InputNumber(props: InputNumberProps) {
         resolvePaletteInput: {
           mode: props.mode ?? fs?.mode,
           accentColor: props.accentColor ?? fs?.accentColor,
+          focusColor: props.focusColor ?? fs?.focusColor,
           restingColor: props.restingColor ?? fs?.restingColor,
           showFocusShadow:
             props.showFocusShadow !== undefined
@@ -791,6 +797,8 @@ export default function InputNumber(props: InputNumberProps) {
       });
     });
   });
+
+  const domPass = pickInputElementDom(props as Record<string, unknown>);
 
   return (
     <div
@@ -814,6 +822,7 @@ export default function InputNumber(props: InputNumberProps) {
         −
       </div>
       <input
+        {...domPass}
         type="text"
         inputmode="decimal"
         disabled={props.disabled}
@@ -824,8 +833,13 @@ export default function InputNumber(props: InputNumberProps) {
           inputEl = el as HTMLInputElement | null;
         }}
         input={onType}
-        focus={() => c.focused(true)}
-        blur={() => {
+        focusout={props.focusout}
+        focus={(e: FocusEvent) => {
+          c.focused(true);
+          const f = props.focus;
+          if (typeof f === "function") void f(e);
+        }}
+        blur={(_s, _e) => {
           c.focused(false);
           props.blur?.(value());
         }}

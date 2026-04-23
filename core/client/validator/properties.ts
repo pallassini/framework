@@ -9,7 +9,13 @@ import { empty } from "./properties/empty";
 import { literal } from "./properties/literal";
 import { literals } from "./properties/literals";
 import { number } from "./properties/number";
-import { string } from "./properties/string";
+import {
+	string,
+	email,
+	password,
+	passwordField,
+	noPasswordError,
+} from "./properties/string";
 import { unknown } from "./properties/unknown";
 import { uuid } from "./properties/uuid";
 import { fk } from "./fk";
@@ -17,6 +23,11 @@ import { fk } from "./fk";
 export const v = {
 	uuid,
 	string,
+	email,
+	password,
+	passwordField,
+	/** Uso: `v.password(v.noPasswordError)` o `v.password("noError")` (login, no policy). */
+	noPasswordError,
 	number,
 	date,
 	datetime,
@@ -34,3 +45,5 @@ export const v = {
 	/** FK verso `tableName.id` (stesso comportamento di `fk()` da `core/db/schema/table`). */
 	fk,
 } as const;
+
+export { noPasswordError } from "./properties/string";

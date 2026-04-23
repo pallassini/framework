@@ -128,7 +128,9 @@ function makeStringSchema(
 		email(message?: string) {
 			return derive((s) => {
 				if (!EMAIL_RE.test(s)) {
-					throw new ValidationError(message ?? `invalid email`);
+					throw new ValidationError(
+						message ?? "Inserisci un indirizzo email valido",
+					);
 				}
 				return s;
 			});
@@ -201,3 +203,48 @@ function makeStringSchema(
 export function string(): StringSchema {
 	return makeStringSchema(baseParse, false);
 }
+
+/** Scorciatoia per `v.string().email()` (formato email RFC‑lite, messaggio predefinito in italiano). */
+export function email(message?: string): StringSchema {
+	return string().email(message);
+}
+
+const PASSWORD_MIN = 8;
+
+const NO_PASSWORD_ERROR = "noError";
+
+function isNoPasswordErrorToken(msg: string | undefined): boolean {
+	if (msg === undefined) return false;
+	return msg.trim().toLowerCase() === "noerror";
+}
+
+/**
+ * Campo password (stessa UI) **senza** vincolo di lunghezza — solo non vuoto.
+ * Preferisci `v.password("noError")` per il login.
+ */
+export function passwordField(emptyMessage?: string): StringSchema {
+	const out = string().nonempty(emptyMessage ?? "Inserisci la password");
+	tagFieldType(out, { kind: "password" });
+	return out;
+}
+
+/**
+ * - `v.password()` — min 8, messaggio default (registrazione, cambio password, …).
+ * - `v.password("testo custom")` — min 8 con messaggio per errore sotto al min.
+ * - `v.password("noError")` — **nessun min** (solo non vuoto), niente indizi sulla
+ *   policy; stesso di `v.passwordField()`. `noerror` / `NOERROR` accettati.
+ */
+export function password(message?: string): StringSchema {
+	if (isNoPasswordErrorToken(message)) {
+		return passwordField();
+	}
+	const out = string().min(
+		PASSWORD_MIN,
+		message ?? "Password troppo corta",
+	);
+	tagFieldType(out, { kind: "password", min: PASSWORD_MIN });
+	return out;
+}
+
+/** Letterale per `v.password(noPasswordError)` con autocomplete. */
+export const noPasswordError = NO_PASSWORD_ERROR;

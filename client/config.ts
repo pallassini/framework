@@ -123,10 +123,13 @@ export const clientConfig = {
    */
   /**
    * Proporzioni coerenti con la scala del framework: `mob = 75%`, `tab = 87.5%`,
-   * `des = 100%` (stessa regola di `buildBaseScaleMap`). Così su mobile gli input
-   * sono realmente più compatti senza override manuali.
+   * `des = 100%` (stessa regola di `buildBaseScaleMap`), tranne `padY` su `mob`
+   * (leggermente più alto, v. `mobPadYScale` nel builder) per altezza campo / touch.
    */
   input: (() => {
+    /** `padY` su mobile: un filo sopra la scala globale 0.75 (font/padX) così i campi
+     *  non restano “schiacciati” in altezza (touch / leggibilità). */
+    const mobPadYScale = 0.88;
     /** Base (100% = des) per size 1..10, poi scalata per mob/tab. */
     const base: Record<string, { font: number; padX: number; padY: number; radius: number; labelFloating: number }> = {
       "1": { font: 0.8125, padX: 0.65, padY: 0.55, radius: 0.55, labelFloating: 0.7 },
@@ -146,7 +149,7 @@ export const clientConfig = {
       return {
         font: { mob: rem(b.font * 0.75), tab: rem(b.font * 0.875), des: rem(b.font) },
         padX: { mob: rem(b.padX * 0.75), tab: rem(b.padX * 0.875), des: rem(b.padX) },
-        padY: { mob: rem(b.padY * 0.75), tab: rem(b.padY * 0.875), des: rem(b.padY) },
+        padY: { mob: rem(b.padY * mobPadYScale), tab: rem(b.padY * 0.875), des: rem(b.padY) },
         radius: { mob: rem(b.radius * 0.75), tab: rem(b.radius * 0.875), des: rem(b.radius) },
         labelFloating: { mob: rem(b.labelFloating * 0.75), tab: rem(b.labelFloating * 0.875), des: rem(b.labelFloating) },
       };

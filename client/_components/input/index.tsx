@@ -1,7 +1,10 @@
 import InputString, { type InputStringProps } from "./inputString";
 import InputNumber, { type InputNumberProps } from "./inputNumber";
 import type { InputMode } from "./presets";
-import { resolveFieldBinding, type FieldBinding } from "../../../../../../core/client/form/form";
+import type { InputElementDom } from "./common";
+import type { ClientEvents } from "../../../core/client/runtime/tag/props";
+import type { InputProps as FwInputProps } from "../../../core/client/runtime/tag/tags/input";
+import { resolveFieldBinding, type FieldBinding } from "../../../core/client/form/form";
 
 export type { InputMode } from "./presets";
 
@@ -10,7 +13,7 @@ export type { InputMode } from "./presets";
  * Ogni tipo ha la sua UI dedicata in un file separato (`inputString.tsx`, `inputNumber.tsx`, …).
  * Il tipo di default è `"string"`.
  */
-export type InputType = "string" | "number";
+export type InputType = "string" | "number" | "password";
 
 /**
  * `size` numerico da 1 a 10 (coerente col resto del framework: `text-N`, `p-N`, `round-Npx`).
@@ -41,17 +44,19 @@ export type InputPropsBase = {
    */
   bg?: string;
   /**
-   * Colore "attivo" usato per bordo focus, label floating, caret e ring.
-   * Sostituisce `var(--primary)` di default. Valore CSS completo (`#…`, `var(…)`)
-   * oppure un **nome** di variabile senza scrivere `var()`: `inputOptional` →
-   * `var(--inputOptional)` (se definita in `:root`).
+   * Colore a **focus** (bordo, label floating, caret, ring), come `focusColor`.
+   * Se entrambe sono impostate, vince `accentColor`. Stessa convenzione
+   * nomi/hex/`var()` degli altri colori.
    */
   accentColor?: string;
   /**
-   * Colore "a riposo" usato per bordo e label quando l'input non è in focus
-   * e non ha valore. Sostituisce il grigio tenue di default
-   * (`rgba(255,255,255,0.22)` per il bordo, `rgba(255,255,255,0.55)` per la label).
-   * Se passato, viene usato per entrambi. Stessa convenzione nomi/hex/`var()`.
+   * Colore del bordo (e stessi usi di `accentColor`) a **focus**; comodo su
+   * `Form({ focusColor: "primary" })`. Se anche `accentColor` c'è, vince `accentColor`.
+   */
+  focusColor?: string;
+  /**
+   * Colore "a riposo" (senza focus) per bordo e label finché la label non ha valore
+   * flottante, salvo opzionali. Stessa convenzione nomi/hex/`var()`.
    */
   restingColor?: string;
   /**
@@ -70,17 +75,18 @@ export type InputPropsBase = {
    */
   round?: number | string;
   /**
-   * Preset di colori globale. Determina bordi, label, "opzionale" e bottoni
-   * `+`/`−` in modo coerente con lo sfondo del contenitore:
-   *  - `"auto"` (default): tema scuro "medio" del framework.
-   *  - `"dark"`: ottimizzato per bg molto scuri (nero).
-   *  - `"light"`: ottimizzato per bg chiari (bianco).
-   * Le prop puntuali (`accentColor`, `restingColor`, `showFocusShadow`,
-   * `borderWidth`) hanno sempre la precedenza sul preset.
-   * Può essere impostata una volta sola su `Form({ mode })` e viene
-   * propagata a tutti gli `<Input field={...}>`.
+   * Preset cromatico: `"dark"` o `"light"`, in linea con lo sfondo del
+   * contenitore. Se ometti `mode` sul Form, vale il preset **scuro**.
+   * `focusColor` / `restingColor` (o `accentColor` / `restingColor`) su Form o
+   * sull'input sovrascrivono i bordi a focus e a riposo.
+   * Può essere impostata su `Form({ mode })` e si propaga a tutti i campi.
    */
   mode?: InputMode;
+} & InputElementDom & {
+  /** Come `<input>` del framework: si concatena con lo stato interno. */
+  focus?: ClientEvents["focus"];
+  /** Valore stringa (come il DOM) + `FocusEvent` (bolla), come sull'`<input>` nativo. */
+  focusout?: FwInputProps["focusout"];
 };
 
 /**
@@ -89,6 +95,7 @@ export type InputPropsBase = {
  */
 export type InputProps =
   | ({ type?: "string" } & InputStringProps)
+  | ({ type: "password" } & InputStringProps)
   | ({ type: "number" } & InputNumberProps);
 
 function inferTypeFromField(field: FieldBinding | undefined): InputType | undefined {
@@ -96,6 +103,7 @@ function inferTypeFromField(field: FieldBinding | undefined): InputType | undefi
   try {
     const meta = resolveFieldBinding(field).meta();
     if (meta?.kind === "number") return "number";
+    if (meta?.kind === "password") return "password";
     if (meta?.kind === "string") return "string";
   } catch {
     // In fallback manteniamo il default storico.
@@ -126,6 +134,12 @@ export default function Input(props: InputProps) {
     <switch value={type}>
       <case when="string">
         <InputString {...(merged as InputStringProps)} />
+      </case>
+      <case when="password">
+        <InputString
+          {...(merged as InputStringProps)}
+          passwordMode
+        />
       </case>
       <case when="number">
         <InputNumber {...(merged as InputNumberProps)} />

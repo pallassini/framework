@@ -23,6 +23,19 @@ export function toNodes(child: unknown): DOMChildNode[] {
 		onNodeDispose(text, dispose);
 		return [frag];
 	}
+	/** `() => string | number` (non signal): rieseguito a ogni tick dipendente. */
+	if (typeof child === "function") {
+		const frag = document.createDocumentFragment();
+		const text = document.createTextNode("");
+		frag.append(text);
+		const fn = child as () => unknown;
+		const dispose = watch(() => {
+			const v = fn();
+			text.data = v == null || v === false ? "" : String(v);
+		});
+		onNodeDispose(text, dispose);
+		return [frag];
+	}
 	if (
 		child instanceof HTMLElement ||
 		child instanceof SVGElement ||

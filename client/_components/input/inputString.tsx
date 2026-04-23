@@ -1,8 +1,8 @@
-import { state, watch } from "client";
+import { icon, state, watch } from "client";
 import {
   resolveFieldBinding,
   type FieldBinding,
-} from "../../../../../../core/client/form/form";
+} from "../../../core/client/form/form";
 import type { InputPropsBase } from "./index";
 import { inputMetrics } from "./sizes";
 import {
@@ -15,6 +15,7 @@ import {
   formModeShellScopeVars,
 } from "./presets";
 import { logInputDebug } from "./inputDebug";
+import { pickInputElementDom } from "./common";
 
 /**
  * Props specifiche per `<Input type="string">`.
@@ -26,7 +27,8 @@ export type InputStringProps = InputPropsBase & {
   value?: string | (() => string);
   input?: (value: string) => void;
   change?: (value: string) => void;
-  blur?: (value: string) => void;
+  /** Alla `blur` nativa: valore (string) e opzionalmente l’evento, come sull'`<input>` del framework. */
+  blur?: (value: string, ev?: Event) => void;
   /** Binding al campo di un `Form({...})`. Se presente, l'errore è automatico. */
   field?: FieldBinding;
   /**
@@ -37,6 +39,12 @@ export type InputStringProps = InputPropsBase & {
   error?: string | undefined | (() => string | undefined);
   maxLength?: number;
   autocomplete?: string;
+  /**
+   * Stesso stile e behaviour di un input testo, con `type` password, toggle
+   * visibilità (occhio) e spazio a destra per l’icona. Si usa con
+   * `<Input type="password" />` o con `v.password()` nel form (inferito).
+   */
+  passwordMode?: boolean;
 };
 
 /**
@@ -47,27 +55,32 @@ export type InputStringProps = InputPropsBase & {
  *  - stato error: bordo/label/testo/ring rossi, messaggio inline sotto
  *  - l'errore è letto automaticamente dal `field` se presente
  */
-export default function InputString({
-  size = 3,
-  placeholder,
-  disabled,
-  autofocus,
-  value,
-  input,
-  change,
-  blur,
-  field,
-  error,
-  maxLength,
-  autocomplete,
-  bg: bgProp,
-  accentColor,
-  restingColor,
-  showFocusShadow,
-  borderWidth,
-  round,
-  mode,
-}: InputStringProps) {
+export default function InputString(props: InputStringProps) {
+  const {
+    size = 3,
+    placeholder,
+    disabled,
+    autofocus,
+    value,
+    input,
+    change,
+    blur,
+    field,
+    error,
+    maxLength,
+    autocomplete,
+    passwordMode = false,
+    bg: bgProp,
+    accentColor,
+    focusColor,
+    restingColor,
+    showFocusShadow,
+    borderWidth,
+    round,
+    mode,
+    focus: userFocus,
+    focusout: userFocusOut,
+  } = props;
   const focused = state(false);
   /** Stato locale per input non controllati (senza `field`). */
   const localHasValue = state(false);
@@ -80,6 +93,15 @@ export default function InputString({
    */
   const fieldCtl = field ? resolveFieldBinding(field) : null;
   let stringInputEl: HTMLInputElement | null = null;
+  let eyeShownEl: Element | null = null;
+  let eyeHiddenEl: Element | null = null;
+  /**
+   * Visibilità password: `let` imperativo (tipo + icone). Il `style={inputStyle}` è
+   * in un `watch` che *non* si riallinea al solo `let`, quindi incrementiamo un
+   * segnale contatore per far ricalcolare letter-spacing / font mascherati.
+   */
+  let passwordShown = false;
+  const passwordStyleNonce = state(0);
   const readError = (): string | undefined => {
     if (typeof error === "function") return error();
     if (error !== undefined) return error;
@@ -115,6 +137,7 @@ export default function InputString({
     return resolvePalette({
       mode: mode ?? fs?.mode,
       accentColor: accentColor ?? fs?.accentColor,
+      focusColor: focusColor ?? fs?.focusColor,
       restingColor: restingColor ?? fs?.restingColor,
       showFocusShadow:
         showFocusShadow !== undefined ? showFocusShadow : fs?.showFocusShadow,
@@ -158,11 +181,62 @@ export default function InputString({
     errorText(readError() ?? "");
   });
 
+  const logPw = (msg: string, extra?: Record<string, unknown>) => {
+    if (!passwordMode) return;
+    const payload = {
+      field: field?.field ?? "no-field",
+      shown: passwordShown,
+      inputType: stringInputEl?.type,
+      disabled: !!disabled,
+      ...extra,
+    };
+    console.log(`[input.password] ${msg}`, payload);
+  };
+
+  const setNodeDisplay = (el: Element | null, display: string): void => {
+    if (!el) return;
+    (el as HTMLElement | SVGElement).style.display = display;
+  };
+
   /**
    * Metriche reattive (cambiano automaticamente al resize mob↔tab↔des).
    * Centralizzate in `clientConfig.input[size]` per coerenza su tutto il framework.
    */
   const m = () => inputMetrics(size);
+
+  /** Bordo e alone focus: condiviso tra input testo, shell password e campo interno. */
+  const fieldChrome = () => {
+    const err = !!readError();
+    const foc = focused();
+    const hv = hasValue();
+    const met = m();
+    const pal = palette();
+    const fs = fieldCtl?.style();
+    const hasRestingOverride =
+      restingColor !== undefined || fs?.restingColor !== undefined;
+    const optAtRest =
+      isOptional() &&
+      !foc &&
+      !hv &&
+      !err &&
+      !hasRestingOverride;
+    const borderColor = err
+      ? "var(--error)"
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc
+          ? pal.accent
+          : isOptional()
+            ? pal.restingBorder
+            : hasRestingOverride
+              ? pal.restingBorder
+              : inputRequiredRestingBorderColor();
+    const ring =
+      pal.showFocusShadow && foc && !err
+        ? `0 0 5px 0 ${pal.accent}`
+        : "0 0 0 0 rgba(0,0,0,0)" as const;
+    return { err, foc, met, pal, optAtRest, borderColor, ring, hv };
+  };
 
   /**
    * Wrapper: `relative` per ospitare la label floating e il messaggio
@@ -194,35 +268,28 @@ export default function InputString({
    *  - text color: rosso in error, bianco altrimenti.
    */
   const inputStyle = (): Record<string, string> => {
-    const err = !!readError();
-    const foc = focused();
-    const hv = hasValue();
-    const met = m();
-    const pal = palette();
-    const optAtRest =
-      isOptional() &&
-      !foc &&
-      !hv &&
-      !err &&
-      restingColor === undefined;
-    const borderColor = err
-      ? "var(--error)"
-      : optAtRest
-        ? optionalFieldMutedColor()
-        : foc
-          ? pal.accent
-          : isOptional()
-            ? pal.restingBorder
-            : inputRequiredRestingBorderColor();
-    const ring =
-      pal.showFocusShadow && foc && !err
-        ? `0 0 5px 0 ${pal.accent}`
-        : "0 0 0 0 rgba(0,0,0,0)";
+    void passwordStyleNonce();
+    const { err, met, pal, borderColor, ring } = fieldChrome();
+    const masked = passwordMode && !passwordShown;
+    const textMetrics =
+      passwordMode && masked
+        ? {
+            fontSize: `calc(${met.font} + 2px)`,
+            fontWeight: "600" as const,
+            letterSpacing: "0.22em",
+          }
+        : {
+            fontSize: met.font,
+            fontWeight: "500" as const,
+            ...(passwordMode && passwordShown ? { letterSpacing: "normal" as const } : {}),
+          };
     return {
+      position: "relative",
       width: "100%",
-      padding: `${met.padY} ${met.padX}`,
-      fontSize: met.font,
-      fontWeight: "500",
+      padding: passwordMode
+        ? `${met.padY} calc(${met.padX} + 1.7rem) ${met.padY} ${met.padX}`
+        : `${met.padY} ${met.padX}`,
+      ...textMetrics,
       lineHeight: "1.35",
       background: "transparent",
       color: err ? "var(--error)" : pal.text,
@@ -315,7 +382,9 @@ export default function InputString({
     const pal = palette();
     return {
       position: "absolute",
-      right: `calc(${met.padX} - 0.25rem)`,
+      right: isOptional() && passwordMode
+        ? `calc(${met.padX} + 1.65rem)`
+        : `calc(${met.padX} - 0.25rem)`,
       top: "0",
       transform: "translateY(-50%)",
       paddingLeft: "0.4rem",
@@ -375,12 +444,14 @@ export default function InputString({
     const err = !!readError();
     const foc = focused();
     const hv = hasValue();
+    const hasRestingOverride =
+      restingColor !== undefined || fs?.restingColor !== undefined;
     const optAtRest =
       isOptional() &&
       !foc &&
       !hv &&
       !err &&
-      restingColor === undefined;
+      !hasRestingOverride;
     const borderColor = err
       ? "var(--error)"
       : optAtRest
@@ -389,7 +460,9 @@ export default function InputString({
           ? pal.accent
           : isOptional()
             ? pal.restingBorder
-            : inputRequiredRestingBorderColor();
+            : hasRestingOverride
+              ? pal.restingBorder
+              : inputRequiredRestingBorderColor();
     const borderReason = err
       ? "error"
       : optAtRest
@@ -398,7 +471,9 @@ export default function InputString({
           ? "focus→accent"
           : isOptional()
             ? "optional→restingBorder"
-            : "requiredResting→inputDark";
+            : hasRestingOverride
+              ? "requiredResting→palette.restingBorder (override)"
+              : "requiredResting→inputDark";
     const st = inputStyle();
     const effectiveMode = mode ?? fs?.mode;
     queueMicrotask(() => {
@@ -413,7 +488,7 @@ export default function InputString({
         };
       }
       logInputDebug(`[InputStyleTrace string · ${debugName}]`, {
-        variant: "string",
+        variant: passwordMode ? "password" : "string",
         field: debugName,
         explicitInputMode: mode,
         inheritedFormMode: fs?.mode,
@@ -422,6 +497,7 @@ export default function InputString({
         resolvePaletteInput: {
           mode: mode ?? fs?.mode,
           accentColor: accentColor ?? fs?.accentColor,
+          focusColor: focusColor ?? fs?.focusColor,
           restingColor: restingColor ?? fs?.restingColor,
           showFocusShadow:
             showFocusShadow !== undefined
@@ -452,27 +528,109 @@ export default function InputString({
     });
   });
 
+  const passwordToggleStyle = (): Record<string, string> => {
+    const { borderColor } = fieldChrome();
+    return {
+      position: "absolute",
+      right: "0.45rem",
+      top: "50%",
+      transform: "translateY(-50%)",
+      zIndex: "40",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "1.8rem",
+      height: "1.8rem",
+      padding: "0",
+      borderRadius: roundCss(),
+      cursor: disabled ? "default" : "pointer",
+      /** Stesso colore del bordo del campo: a riposo = resting (o muted se opzionale), a focus = accent. */
+      color: borderColor,
+      opacity: disabled ? "0.4" : "1",
+      userSelect: "none",
+      touchAction: "manipulation" as const,
+      pointerEvents: "auto" as const,
+    };
+  };
+
+  const resolvedAutocomplete =
+    autocomplete !== undefined
+      ? autocomplete
+      : passwordMode
+        ? "current-password"
+        : undefined;
+
+  const domPass = pickInputElementDom(props as Record<string, unknown>, new Set(["pointerdown"]));
+  const userPointerDown = (props as { pointerdown?: (e: PointerEvent) => void }).pointerdown;
+
+  const togglePasswordVisibility = (e: Event): void => {
+    const targetTag = (e.target as HTMLElement | null)?.tagName;
+    const currentTag = (e.currentTarget as HTMLElement | null)?.tagName;
+    logPw("toggle: event", {
+      eventType: e.type,
+      targetTag,
+      currentTag,
+    });
+    e.stopPropagation();
+    if (typeof (e as { preventDefault?: () => void }).preventDefault === "function") {
+      (e as { preventDefault: () => void }).preventDefault();
+    }
+    if (disabled) {
+      logPw("toggle: blocked-disabled");
+      return;
+    }
+    const next = !passwordShown;
+    logPw("toggle: set-state", { nextShown: next });
+    passwordShown = next;
+    passwordStyleNonce((n) => n + 1);
+    if (stringInputEl) {
+      const t = next ? "text" : "password";
+      if (stringInputEl.type !== t) stringInputEl.type = t;
+    }
+    setNodeDisplay(eyeShownEl, next ? "none" : "contents");
+    setNodeDisplay(eyeHiddenEl, next ? "contents" : "none");
+    queueMicrotask(() => {
+      logPw("toggle: microtask-after", { expectedShown: next });
+    });
+  };
+
   return (
     <div style={wrapStyle as any}>
       <input
-        type="text"
+        {...domPass}
+        type={passwordMode ? "password" : "text"}
         placeholder=""
         disabled={disabled}
         autofocus={autofocus}
         maxLength={maxLength as any}
-        autocomplete={autocomplete}
+        autocomplete={resolvedAutocomplete as any}
+        spellcheck={passwordMode ? false : undefined}
         bind={field}
         value={value as any}
         input={onInputChanged}
         change={change}
-        focus={() => focused(true)}
-        blur={(v: string) => {
+        focusout={userFocusOut}
+        pointerdown={(e: PointerEvent) => {
+          logPw("input:pointerdown", {
+            targetTag: (e.target as HTMLElement | null)?.tagName,
+          });
+          userPointerDown?.(e);
+        }}
+        focus={(e: FocusEvent) => {
+          focused(true);
+          const f = userFocus;
+          if (typeof f === "function") void f(e);
+        }}
+        blur={(v: string, ev?: Event) => {
           focused(false);
           localHasValue(v.length > 0);
-          blur?.(v);
+          blur?.(v, ev);
         }}
         ref={(el: HTMLInputElement | null) => {
           stringInputEl = el;
+          if (el && passwordMode) {
+            el.type = passwordShown ? "text" : "password";
+          }
         }}
         style={inputStyle as any}
       />
@@ -483,6 +641,38 @@ export default function InputString({
 
       {isOptional() ? (
         <div style={optionalStyle as any}>opzionale</div>
+      ) : null}
+
+      {passwordMode ? (
+        <div
+          style={passwordToggleStyle as any}
+          tabIndex={disabled ? -1 : 0}
+          role="button"
+          title="Mostra o nascondi password"
+          click={togglePasswordVisibility}
+          pointerup={(e: PointerEvent) => {
+            logPw("toggle:pointerup", {
+              targetTag: (e.target as HTMLElement | null)?.tagName,
+            });
+          }}
+        >
+          <div
+            ref={(el: Element | null) => {
+              eyeShownEl = el;
+            }}
+            style={{ display: "contents" } as any}
+          >
+            <icon name="eye" size={5} />
+          </div>
+          <div
+            ref={(el: Element | null) => {
+              eyeHiddenEl = el;
+            }}
+            style={{ display: "none" } as any}
+          >
+            <icon name="eyeClosed" size={5} />
+          </div>
+        </div>
       ) : null}
 
       <div style={errorStyle as any}>{errorText}</div>

@@ -1,10 +1,12 @@
 import { state, watch } from "client";
+import type { ClientEvents } from "../../../core/client/runtime/tag/props";
+import { CLIENT_EVENT_NAMES } from "../../../core/client/runtime/tag/props";
 import {
   resolveFieldBinding,
   type FieldBinding,
   type FormStyle,
-} from "../../../../../../core/client/form/form";
-import type { FieldTypeDesc } from "../../../../../../core/client/validator/field-meta";
+} from "../../../core/client/form/form";
+import type { FieldTypeDesc } from "../../../core/client/validator/field-meta";
 import { inputMetrics } from "./sizes";
 import type { InputSize } from "./index";
 import {
@@ -36,9 +38,11 @@ export type CommonInputArgs<T> = {
   bg?: string;
   /** Override mode del preset (auto/dark/light). Se assente, eredita dal form. */
   mode?: InputMode;
-  /** Override colore accent. Se assente, eredita dal form o dal preset. */
+  /** Override colore accent (focus). Se assente, eredita dal form o dal preset. */
   accentColor?: string;
-  /** Override colore resting. Se assente, eredita dal form o dal preset. */
+  /** Override bordo a focus; su Form è `focusColor`. `accentColor` vince se entrambi. */
+  focusColor?: string;
+  /** Override colore resting (no focus). Se assente, eredita dal form o dal preset. */
   restingColor?: string;
   /** Override shadow di focus. Se assente, eredita dal form o dal preset. */
   showFocusShadow?: boolean;
@@ -146,6 +150,7 @@ export function useInputCommon<T>(args: CommonInputArgs<T>): CommonInput<T> {
     return resolvePalette({
       mode: args.mode ?? fs?.mode,
       accentColor: args.accentColor ?? fs?.accentColor,
+      focusColor: args.focusColor ?? fs?.focusColor,
       restingColor: args.restingColor ?? fs?.restingColor,
       showFocusShadow:
         args.showFocusShadow !== undefined
@@ -168,4 +173,50 @@ export function useInputCommon<T>(args: CommonInputArgs<T>): CommonInput<T> {
     palette,
     formStyle,
   };
+}
+
+/**
+ * Nomi evento DOM inoltrabili sull'`<input>` (stessi key degli elementi del framework, minuscolo).
+ * Esclude `input`/`change` (gestione valore) e `focus`/`blur`/`focusout` (merge con stato interno).
+ */
+export const INPUT_ELEMENT_DOM_KEYS = [
+	"click",
+	"dblclick",
+	"contextmenu",
+	"keydown",
+	"keyup",
+	"focusin",
+	"pointerdown",
+	"pointerup",
+	"pointerenter",
+	"pointerleave",
+	"pointermove",
+	"pointercancel",
+	"mousedown",
+	"mouseup",
+	"mouseenter",
+	"mouseleave",
+	"mousemove",
+	"touchstart",
+	"touchend",
+	"touchmove",
+	"scroll",
+	"wheel",
+] as const satisfies readonly (typeof CLIENT_EVENT_NAMES)[number][];
+
+export type InputElementDom = Pick<ClientEvents, (typeof INPUT_ELEMENT_DOM_KEYS)[number]>;
+
+type DomKey = (typeof INPUT_ELEMENT_DOM_KEYS)[number];
+
+/** Copia da `p` solo le callback DOM elencate in `INPUT_ELEMENT_DOM_KEYS` (e opz. esclusi i nomi in `skip`). */
+export function pickInputElementDom(
+	p: Record<string, unknown>,
+	skip?: ReadonlySet<DomKey>,
+): Record<string, unknown> {
+	const o: Record<string, unknown> = {};
+	for (const k of INPUT_ELEMENT_DOM_KEYS) {
+		if (skip?.has(k)) continue;
+		if (k in p && p[k] !== undefined) o[k] = p[k];
+	}
+	return o;
 }

@@ -1,5 +1,5 @@
 import { watch } from "../state/effect";
-import { createState } from "../state/index";
+import { createState, signal, type Signal } from "../state/index";
 import type { StateMap } from "../state/utils/store";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../state/utils/store";
 import { ValidationError, type InferSchema, type InputSchema } from "../validator/properties/defs";
@@ -15,8 +15,13 @@ export type FieldBinding = { readonly field: string };
  * Le singole prop dell'`<Input>` hanno sempre la precedenza su questi valori.
  */
 export type FormStyle = {
-	mode?: "normal" | "dark" | "light" | "auto";
+	/** Solo `"light"` o `"dark"`. Se omesso, gli input usano il preset scuro. */
+	mode?: "dark" | "light";
+	/** Bordo/ring a focus. Equivale a `focusColor` se non passi l'altro. */
 	accentColor?: string;
+	/** Bordo a focus; `accentColor` ha priorità se entrambi impostati. */
+	focusColor?: string;
+	/** Bordo (e label) a riposo, senza focus. */
 	restingColor?: string;
 	showFocusShadow?: boolean;
 	borderWidth?: number | string;
@@ -74,11 +79,12 @@ export type FormApi<Shape extends Record<string, InputSchema<unknown>>> = {
 	reset(): void;
 	errors: StateMap<{ [K in keyof Shape]: string | undefined }>;
 	/**
-	 * `true` se tutti i campi del form sono validi rispetto ai rispettivi schemi.
-	 * Reattiva: legge i signal dei valori e può essere usata direttamente in stili,
-	 * `disabled`, `class`, ecc. (es. `disabled={() => !form.valid()}`).
+	 * Validità come segnale derivato (`true` se tutti i campi passano lo schema).
+	 * - Condizioni stile: puoi passare direttamente `form.valid`.
+	 * - `show`: puoi passare direttamente `form.valid`.
+	 * - Controlli imperativi (`if`): leggi il valore con `form.valid()`.
 	 */
-	valid(): boolean;
+	valid: Signal<boolean>;
 	/**
 	 * Helper di submit: valida tutti i campi, se OK chiama `handler(values)` (può essere
 	 * async) e ritorna la Promise del risultato. Se non valido, aggiorna gli `errors`
@@ -245,6 +251,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	 */
 	mode?: FormStyle["mode"];
 	accentColor?: string;
+	focusColor?: string;
 	restingColor?: string;
 	showFocusShadow?: boolean;
 	borderWidth?: number | string;
@@ -255,6 +262,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	const formStyle: FormStyle = {
 		mode: options.mode,
 		accentColor: options.accentColor,
+		focusColor: options.focusColor,
 		restingColor: options.restingColor,
 		showFocusShadow: options.showFocusShadow,
 		borderWidth: options.borderWidth,
@@ -324,11 +332,10 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	}
 
 	/**
-	 * Reattiva: tenta di parsare tutti i campi col proprio schema senza scrivere
-	 * gli errors (così non causa render loop). Invocando i signal dei valori,
-	 * qualsiasi watcher/stile che chiami `valid()` si ri-esegue al cambio valori.
+	 * Segnale derivato: stessa logica di prima, ma i consumatori (stile, testo, …)
+	 * si sottoscrivono tramite `watch` ai signal dei valori.
 	 */
-	function valid(): boolean {
+	const valid = signal((): boolean => {
 		let ok = true;
 		for (const k of keys) {
 			const sub = shape[k as keyof Shape] as InputSchema<unknown>;
@@ -340,7 +347,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 			}
 		}
 		return ok;
-	}
+	});
 
 	async function submit<R>(
 		handler: (values: InferObject<Shape>) => R | Promise<R>,

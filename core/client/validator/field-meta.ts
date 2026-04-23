@@ -10,6 +10,7 @@ export const FIELD_TYPE = Symbol.for("framework.db.fieldType");
 /** Descrittore serializzabile del tipo di un campo. */
 export type FieldTypeDesc =
 	| { kind: "string"; min?: number; max?: number }
+	| { kind: "password"; min?: number; max?: number }
 	| {
 			kind: "number";
 			/** Catturato da `.min(n, ...)` e `.nonnegative()` (= 0). */

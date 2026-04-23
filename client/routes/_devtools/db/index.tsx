@@ -199,6 +199,8 @@ function typeColors(t: FieldTypeDesc): { fg: string; bg: string; border: string 
   switch (t.kind) {
     case "string":
       return { fg: "#7dd3fc", bg: "rgba(125, 211, 252, 0.1)", border: "rgba(125, 211, 252, 0.32)" };
+    case "password":
+      return { fg: "#fde68a", bg: "rgba(253, 230, 138, 0.1)", border: "rgba(253, 230, 138, 0.32)" };
     case "number":
       return { fg: "#f0abfc", bg: "rgba(240, 171, 252, 0.1)", border: "rgba(240, 171, 252, 0.32)" };
     case "boolean":

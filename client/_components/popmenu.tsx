@@ -55,8 +55,8 @@ interface PopmenuProps {
   hoverOut?: boolean;
   /** Al primo `open=true`, mette focus sul primo input/textarea dentro l'extended. */
   autofocus?: boolean;
-  /** Modalità cromatica base della shell. */
-  mode?: "normal" | "light" | "dark" | "auto";
+  /** Modalità cromatica base della shell. Default `dark` (come il vecchio `normal`). */
+  mode?: "light" | "dark";
   /** Raggio angoli shell. Default globale: `var(--round)`. */
   round?: number | string;
   /** Raggio shell quando il popmenu è chiuso (solo collapsed). */
@@ -293,14 +293,13 @@ export default function Popmenu(props: PopmenuProps) {
     hoverIn,
     hoverOut,
     autofocus,
-    mode = "normal",
+    mode = "dark",
     round,
     collapsedRound,
     extendedRound,
     shadow = true,
   } = props;
-  const resolvedMode =
-    mode === "auto" || mode === "normal" ? "dark" : mode;
+  const resolvedMode: "light" | "dark" = mode;
   const fallbackInputMode = resolvedMode === "light" ? "dark" : "light";
 
   ensureBounceKeyframe();
