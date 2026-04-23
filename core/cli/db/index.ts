@@ -2,8 +2,8 @@
  * CLI DB:
  *   bun db push                           → scrive catalog.json locale dal bundle di db/index.ts
  *   bun db push --to <alias>              → invia il catalog locale a un server remoto (hot reload)
- *   bun db pull --from <alias>            → scarica il catalog dal remoto e sovrascrive il locale
- *   bun db pull --from <alias> --data     → scarica anche wal.log (dati)
+ *   bun db pull --from <alias>            → scrive db/pulled.ts (reference TS, non tocca catalog.json)
+ *   bun db pull --from <alias> --data     → scrive anche wal.log in core/db/data
  *   bun db push-data --to <alias>         → invia wal.log locale al remoto (rischioso: sovrascrive dati)
  *
  * Gli alias sono definiti in `db/remotes.ts` (env var `FWDB_REMOTE_<ALIAS>_URL` / `_PASSWORD`).
@@ -22,6 +22,7 @@ import {
 } from "../../db/remote/protocol";
 import { loadRemoteRegistry, resolveRemoteTarget } from "../../db/remote/resolve";
 import type { RemoteTarget } from "../../db/remote/client";
+import { renderPulledTs } from "./pulled-writer";
 
 const root = process.env.FRAMEWORK_PROJECT_ROOT?.trim() || process.cwd();
 
@@ -176,22 +177,47 @@ async function pushToRemote(alias: string): Promise<void> {
 async function pullFromRemote(alias: string, includeData: boolean): Promise<void> {
 	const target = await resolveAlias(alias);
 
-	type GetResp = { ok: true; catalog: unknown } | { ok: false; error: { type: string; message: string } };
+	type CatalogShape = {
+		tables: Record<string, Record<string, unknown>>;
+	};
+	type GetResp =
+		| { ok: true; catalog: CatalogShape; tableOrder?: string[] }
+		| { ok: false; error: { type: string; message: string } };
 	const res = await rpcCall<GetResp>(target, { op: "catalog.get" });
 	if (!("ok" in res) || res.ok !== true) {
 		const err = (res as { error?: { type: string; message: string } }).error;
 		console.error(`[db pull --from ${alias}] catalog.get FAILED: ${err?.type ?? "?"} ${err?.message ?? ""}`);
 		process.exit(1);
 	}
-	const catalog = (res as { catalog: unknown }).catalog;
-	const dataDir = process.env.FWDB_DATA?.trim() || path.join(root, FWDB_DEFAULT_DATA_REL_PATH);
-	mkdirSync(dataDir, { recursive: true });
-	const catPath = path.join(dataDir, "catalog.json");
-	writeFileSync(catPath, `${JSON.stringify(catalog)}\n`);
-	console.log(`[db pull --from ${alias}] catalog → ${catPath}`);
+	const ok = res as { catalog: CatalogShape; tableOrder?: string[] };
+
+	// Non tocchiamo catalog.json locale: il pull è "read-only" sul source-of-truth
+	// locale. Generiamo solo un reference TS in `db/pulled.ts`, da cui l'utente
+	// copia a mano le parti che vuole in `db/index.ts`.
+	const pulledPath = path.join(root, "db", "pulled.ts");
+	mkdirSync(path.dirname(pulledPath), { recursive: true });
+	const ts = renderPulledTs(
+		ok.catalog as Parameters<typeof renderPulledTs>[0],
+		ok.tableOrder,
+		alias,
+		target.baseUrl,
+	);
+	writeFileSync(pulledPath, ts);
+	const nCols = Object.values(ok.catalog.tables).reduce((acc, t) => {
+		const cols = (t as { columns?: unknown[] }).columns;
+		return acc + (Array.isArray(cols) ? cols.length : 0);
+	}, 0);
+	console.log(
+		`[db pull --from ${alias}] ${Object.keys(ok.catalog.tables).length} tabelle, ${nCols} colonne → ${pulledPath}`,
+	);
+	console.log(
+		`[db pull --from ${alias}] (catalog.json locale NON modificato — copia le tabelle che vuoi in db/index.ts)`,
+	);
 
 	if (!includeData) return;
 
+	const dataDir = process.env.FWDB_DATA?.trim() || path.join(root, FWDB_DEFAULT_DATA_REL_PATH);
+	mkdirSync(dataDir, { recursive: true });
 	const walUrl = target.baseUrl.replace(/\/+$/, "") + REMOTE_ADMIN_WAL_PATH;
 	const walRes = await fetch(walUrl, {
 		method: "GET",
@@ -271,7 +297,7 @@ async function main(): Promise<void> {
 	console.error("Uso:");
 	console.error("  bun db push                         # scrive catalog.json locale");
 	console.error("  bun db push --to <alias>            # invia catalog al remoto (hot reload)");
-	console.error("  bun db pull --from <alias>          # scarica catalog dal remoto");
+	console.error("  bun db pull --from <alias>          # scrive db/pulled.ts dal remoto (NON tocca catalog.json)");
 	console.error("  bun db pull --from <alias> --data   # scarica anche i dati (wal.log)");
 	console.error("  bun db push-data --to <alias>       # upload wal.log al remoto (sovrascrive i dati)");
 	process.exit(1);

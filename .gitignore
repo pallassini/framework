@@ -8,3 +8,4 @@ core/db/zig/.zig-cache
 .env.local
 .env.*.local
 db/remotes.ts
+db/pulled.ts

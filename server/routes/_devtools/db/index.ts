@@ -1,4 +1,5 @@
 import {
+	getDbBackendInfo,
 	getLiveDbSchemaTree,
 	getLiveDbTableOrder,
 	getLiveFwTables,
@@ -90,6 +91,7 @@ export default s({
 			tables: Object.fromEntries(entries),
 			schemaTree: getLiveDbSchemaTree(),
 			tableOrder: getLiveDbTableOrder(),
+			backend: getDbBackendInfo(),
 		};
 	},
 });

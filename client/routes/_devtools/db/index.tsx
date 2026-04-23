@@ -476,13 +476,24 @@ export default function DB() {
     void tables(server._devtools.db());
   };
 
+  type BackendInfo =
+    | { mode: "zig"; dataDir?: string }
+    | { mode: "remote"; alias: string; baseUrl: string };
+
   type PayloadShape = {
     tables?: Record<string, Record<string, unknown>>;
     schemaTree?: readonly SchemaNode[];
     tableOrder?: readonly string[];
+    backend?: BackendInfo;
   };
   const readPayload = (root: unknown): PayloadShape =>
     (root && typeof root === "object" ? (root as PayloadShape) : {}) as PayloadShape;
+
+  /** Badge 1×1 mostrato in topbar: locale vs remoto. */
+  const pickBackendBadge = (root: unknown): readonly BackendInfo[] => {
+    const b = readPayload(root).backend;
+    return b ? [b] : [];
+  };
 
   /** Per ogni tabella → lo schema *più profondo* che la contiene direttamente. */
   const buildTableToSchemaMap = (
@@ -844,6 +855,46 @@ export default function DB() {
           boxSizing: "border-box",
         }}
       >
+        <For each={tables} pick={pickBackendBadge}>
+          {(item) => {
+            const b = item as unknown as BackendInfo;
+            const isRemote = b.mode === "remote";
+            const label = isRemote
+              ? `REMOTE · ${(b as { alias: string }).alias}`
+              : "LOCAL";
+            const title = isRemote
+              ? `Connesso al DB remoto: ${(b as { baseUrl: string }).baseUrl}`
+              : `DB locale (${(b as { dataDir?: string }).dataDir ?? "core/db/data"})`;
+            const fg = isRemote ? "#fdba74" : "#4ade80";
+            const bg = isRemote
+              ? "rgba(253, 186, 116, 0.12)"
+              : "rgba(74, 222, 128, 0.12)";
+            const border = isRemote
+              ? "rgba(253, 186, 116, 0.45)"
+              : "rgba(74, 222, 128, 0.45)";
+            return (
+              <t
+                s="text-2 font-7"
+                style={{
+                  color: fg,
+                  background: bg,
+                  border: `1px solid ${border}`,
+                  borderRadius: "9999px",
+                  padding: "0.3rem 0.75rem",
+                  userSelect: "none",
+                  flex: "0 0 auto",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                }}
+                title={title}
+              >
+                {label}
+              </t>
+            );
+          }}
+        </For>
+
         <For each={tables} pick={pickTableChips}>
           {(item) => {
             const it = item as unknown as { name: string };

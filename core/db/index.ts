@@ -90,6 +90,20 @@ if (FWDB_IS_REMOTE) {
 /** Backend attivo: `"zig"` (locale) o `"remote"` (client HTTP verso un server remoto). */
 export const dbCustomBackend = customCore.mode;
 
+/** Info descrittive sul backend attivo (utile per devtools / pagine admin). */
+export type DbBackendInfo =
+	| { mode: "zig"; dataDir: string }
+	| { mode: "remote"; alias: string; baseUrl: string };
+
+export function getDbBackendInfo(): DbBackendInfo {
+	if (customCore.mode === "remote") {
+		const rc = customCore as RemoteDb<ServerTables>;
+		const info = rc.backendInfo;
+		return { mode: "remote", alias: info.alias, baseUrl: info.baseUrl };
+	}
+	return { mode: "zig", dataDir: (customCore as CustomDb<ServerTables>).dataDir };
+}
+
 export type Db = ServerDbUtilities<ServerTables>;
 export type db = Db;
 export type DbTables = Db["tables"];

@@ -9,11 +9,12 @@
  * Il WAL binario (pull/push) non passa da qui: è gestito come route raw in `core/cli/dev` / `core/server/routes/serve.ts`.
  */
 import { s } from "server";
-import { db, applyCatalogJsonString, readCurrentCatalogJsonString, forceCheckpoint } from "db";
+import { db, applyCatalogJsonString, readCurrentCatalogJsonString, forceCheckpoint, getLiveFwTables } from "db";
 import { error } from "../../../core/server/error";
 import { ValidationError, type InputSchema } from "../../../core/client/validator/properties/defs";
 import type { TableOp } from "../../../core/db/remote/protocol";
 import { assertAdminAuth } from "../../../core/db/remote/server-auth";
+import { getFwTableColumns } from "../../../core/db/schema/table";
 
 const opSchema: InputSchema<TableOp> = {
 	parse(raw) {
@@ -113,7 +114,23 @@ export const rpc = s({
 			case "catalog.get": {
 				try {
 					const jsonStr = readCurrentCatalogJsonString();
-					return { ok: true as const, catalog: JSON.parse(jsonStr) };
+					const catalog = JSON.parse(jsonStr) as {
+						tables: Record<string, Record<string, unknown>>;
+					};
+					// Arricchiamo il catalog con i tipi delle colonne presi dal bundle live:
+					// il catalog.json "puro" contiene solo pk/indexes/foreignKeys, servono anche
+					// i tipi per poter rigenerare uno schema TS leggibile in `db/pulled.ts`.
+					const fwByName = new Map(
+						getLiveFwTables().map((t) => [t.name, t]),
+					);
+					const tableOrder: string[] = [];
+					for (const [name, meta] of Object.entries(catalog.tables)) {
+						tableOrder.push(name);
+						const fw = fwByName.get(name);
+						const cols = fw ? getFwTableColumns(fw) : undefined;
+						if (cols) (meta as Record<string, unknown>).columns = cols;
+					}
+					return { ok: true as const, catalog, tableOrder };
 				} catch (e) {
 					const msg = e instanceof Error ? e.message : String(e);
 					error("INTERNAL", `[admin/db] catalog.get: ${msg}`);
