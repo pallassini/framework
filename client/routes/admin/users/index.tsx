@@ -34,12 +34,27 @@ export default function Admin() {
                   <Input placeholder="Username" field={createUser.username} />
                   <Input placeholder="Domain" field={createUser.domain} />
                   <div
-                    s="bg-primary text-background round-round px-4 py-2"
+                    s={{base:"bg-#5959599d text-#727272 text-background round-10px px-6 py-2  centerx",
+                      "cursor-not-allowed bg-primary": createUser.valid,
+                      "bg-error text-background": res === "error",
+                      "text-background": res === "success",
+                    }}
                     click={async () => {
-                      await auth.register({ ...createUser.values(), role: "user" },{onSuccess:()=>});
+                      if (!createUser.valid()) return;
+                      await auth.register(
+                        { ...createUser.values(), role: "user" },
+                        {
+                          onSuccess: () => {
+                            res("success");
+                          },
+                          onError: () => {
+                            res("error");
+                          },
+                        },
+                      );
                     }}
                   >
-                    Create
+                    {() => (res() === "success" ? "Creato" : res() === "error" ? "Errore" : createUser.valid() ? "Create" : "Compila i campi")}
                   </div>
                 </div>
               )}

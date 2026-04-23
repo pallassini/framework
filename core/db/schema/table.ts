@@ -4,6 +4,8 @@ import { v } from "../../client/validator";
 import {
 	FIELD_OPTIONAL,
 	FIELD_UNIQUE,
+	isSchemaWithInputDefault,
+	type SchemaWithInputDefault,
 	readFieldType,
 	type FieldTypeDesc,
 } from "../../client/validator/field-meta";
@@ -34,13 +36,21 @@ export { REF, type RefMeta };
 type InferTableVal<V> = V extends InputSchema<infer U> ? U : V extends string ? string : never;
 
 /**
- * Se lo schema è `.optional()`, `U` include `undefined` → la chiave diventa opzionale
- * (`field?` invece di obbligare `field: T | undefined`).
+ * Chiave omissibile: `.optional()` (`U` include `undefined`) oppure `.default()` (stesso effetto
+ * sull’input, valore “pieno” prodotto dal `parse` — vedi `SchemaWithInputDefault` / `FIELD_DEFAULT`).
  */
+type OmissibleKey<S> = S extends SchemaWithInputDefault
+	? true
+	: S extends InputSchema<infer U>
+		? undefined extends U
+			? true
+			: false
+		: false;
+
 type InferTableRow<S extends Record<string, InputSchema<unknown> | string>> = {
-	[K in keyof S as undefined extends InferTableVal<S[K]> ? K : never]?: InferTableVal<S[K]>;
+	[K in keyof S as OmissibleKey<S[K]> extends true ? K : never]?: InferTableVal<S[K]>;
 } & {
-	[K in keyof S as undefined extends InferTableVal<S[K]> ? never : K]: InferTableVal<S[K]>;
+	[K in keyof S as OmissibleKey<S[K]> extends true ? never : K]: InferTableVal<S[K]>;
 };
 
 /**
@@ -206,7 +216,7 @@ function typeOfSchema(s: InputSchema<unknown>): FieldTypeDesc {
 function columnsFromShape(shape: Record<string, InputSchema<unknown>>): FwColumnMeta[] {
 	return Object.keys(shape).map((key) => ({
 		key,
-		optional: isOptionalSchema(shape[key]),
+		optional: isOptionalSchema(shape[key]) || isSchemaWithInputDefault(shape[key]),
 		type: typeOfSchema(shape[key]),
 	}));
 }

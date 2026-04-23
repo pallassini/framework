@@ -1,11 +1,11 @@
-import { tagFieldType } from "../field-meta";
+import { tagFieldType, type SchemaWithInputDefault, tagFieldDefault } from "../field-meta";
 import { optionalKeepingFieldMeta } from "../chain";
 import { ValidationError, type InputSchema } from "./defs";
 
 /** Stringa che deve essere una delle opzioni (controllo runtime + tipo `T[number]`). */
 export type LiteralsSchema<T extends readonly [string, ...string[]]> = InputSchema<T[number]> & {
 	optional(): InputSchema<T[number] | undefined>;
-	default<D extends T[number]>(value: D): LiteralsSchema<T>;
+	default<D extends T[number]>(value: D): LiteralsSchema<T> & SchemaWithInputDefault;
 };
 
 function makeLiteralsSchema<const T extends readonly [string, ...string[]]>(
@@ -22,10 +22,12 @@ function makeLiteralsSchema<const T extends readonly [string, ...string[]]>(
 			if (!set.has(def as string)) {
 				throw new ValidationError(`default must be one of: ${allowed.join(", ")}`);
 			}
-			return makeLiteralsSchema(allowed, set, (raw) => {
-				if (raw === undefined) return def;
-				return parseImpl(raw);
-			});
+			return tagFieldDefault(
+				makeLiteralsSchema(allowed, set, (raw) => {
+					if (raw === undefined) return def;
+					return parseImpl(raw);
+				}) as LiteralsSchema<T>,
+			);
 		},
 	}) as LiteralsSchema<T>;
 	tagFieldType(out, { kind: "enum", options: [...allowed] });

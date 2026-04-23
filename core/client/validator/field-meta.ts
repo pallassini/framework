@@ -4,6 +4,29 @@ export const FIELD_UNIQUE = Symbol.for("framework.db.fieldUnique");
 /** Tag su ogni schema passato per `optional()` — usato dai devtools per badge. */
 export const FIELD_OPTIONAL = Symbol.for("framework.db.fieldOptional");
 
+/**
+ * Tag su ogni schema passato per `.default()` — stesso effetto di opzionalità sull’**input**
+ * in `InferTableRow` (chiave omissibile; il `parse` applica il default). A runtime: `in schema`.
+ */
+export const FIELD_DEFAULT = Symbol.for("framework.validator.fieldDefault");
+
+/** Tipo: schema con catena `.default()`. */
+export type SchemaWithInputDefault = { [FIELD_DEFAULT]: true };
+
+export function tagFieldDefault<T extends object>(schema: T): T & SchemaWithInputDefault {
+	Object.defineProperty(schema, FIELD_DEFAULT, {
+		value: true,
+		enumerable: false,
+		configurable: true,
+		writable: false,
+	});
+	return schema as T & SchemaWithInputDefault;
+}
+
+export function isSchemaWithInputDefault(s: unknown): boolean {
+	return typeof s === "object" && s !== null && FIELD_DEFAULT in (s as object);
+}
+
 /** Descrittore del tipo del campo (usato dai devtools per mostrare string/number/enum/…). */
 export const FIELD_TYPE = Symbol.for("framework.db.fieldType");
 

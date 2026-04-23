@@ -1,9 +1,15 @@
-import { readFieldType, tagFieldType, type FieldTypeDesc } from "../field-meta";
+import {
+	readFieldType,
+	tagFieldType,
+	type FieldTypeDesc,
+	type SchemaWithInputDefault,
+	tagFieldDefault,
+} from "../field-meta";
 import { optional } from "./optional";
 import { ValidationError, type InputSchema } from "./defs";
 
 export type ArraySchema<I> = InputSchema<I[]> & {
-	default(value: I[]): ArraySchema<I>;
+	default(value: I[]): ArraySchema<I> & SchemaWithInputDefault;
 	optional(): InputSchema<I[] | undefined>;
 };
 
@@ -11,10 +17,12 @@ function makeArraySchema<I>(parseImpl: (raw: unknown) => I[], itemType: FieldTyp
 	const base: InputSchema<I[]> = { parse: parseImpl };
 	const out = Object.assign(base, {
 		default(def: I[]) {
-			return makeArraySchema((raw) => {
-				if (raw === undefined) return def.slice();
-				return parseImpl(raw);
-			}, itemType);
+			return tagFieldDefault(
+				makeArraySchema((raw) => {
+					if (raw === undefined) return def.slice();
+					return parseImpl(raw);
+				}, itemType) as ArraySchema<I>,
+			);
 		},
 		optional() {
 			return optional(base);
