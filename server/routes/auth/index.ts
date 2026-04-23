@@ -1,39 +1,75 @@
 import { db } from "db";
+import { FIELD_OPTIONAL } from "../../../core/client/validator/field-meta";
+import type { InputSchema } from "../../../core/client/validator/properties/defs";
+import type { CreateInput } from "../../../core/db/core/types";
+import type { ServerTables } from "../../../core/db";
+import { getFwTableShape } from "../../../core/db/schema/table";
 import { s, v, error } from "server";
 import { serverConfig } from "../../config";
 
-/** Tutti i campi della tabella `users` tranne `password` (mai esposto al client). */
-function publicUserFromRow(u: {
-	id: string;
-	email: unknown;
-	password?: unknown;
-	username?: unknown;
-	role: unknown;
-	createdAt?: unknown;
-	updatedAt?: unknown;
-	deletedAt?: unknown;
-}) {
-	const iso = (d: unknown): string | undefined => {
-		if (d == null) return undefined;
-		if (d instanceof Date) return d.toISOString();
-		if (typeof d === "string") return d;
-		return String(d);
-	};
-	const isoNull = (d: unknown): string | null => {
-		if (d == null) return null;
-		if (d instanceof Date) return d.toISOString();
-		if (typeof d === "string") return d;
-		return String(d);
-	};
-	return {
-		id: u.id,
-		email: u.email as string,
-		username: u.username as string | undefined,
-		role: u.role as "admin" | "user" | "customer",
-		createdAt: iso(u.createdAt),
-		updatedAt: iso(u.updatedAt),
-		deletedAt: isoNull(u.deletedAt),
-	};
+function toOptionalSchema(sch: InputSchema<unknown>): InputSchema<unknown> {
+	if (typeof sch === "object" && sch !== null && FIELD_OPTIONAL in (sch as object)) return sch;
+	const maybe = (sch as { optional?: () => InputSchema<unknown> }).optional;
+	return typeof maybe === "function" ? maybe.call(sch) : sch;
+}
+
+type UserCreate = CreateInput<ServerTables["users"]>;
+/** Stesso `CreateInput` tranne `password` in chiaro (tutto il resto, incluso `role`, come in tabella / enum). */
+type RegisterIn = Omit<UserCreate, "password"> & { password: string };
+
+/**
+ * Stesso criterio di `db.users` in create, ma `password` = testo in chiaro (`v.password()`).
+ * `role` e gli altri campi non opzionali a DB vanno passati: se mancano o non sono validi, `parse` fallisce.
+ * Aggiungendo colonne a `users` in `db/index.ts`, l’input RPC segue il DB.
+ */
+const userRegisterInput: InputSchema<RegisterIn> = (() => {
+	const fw = db.schema.fwTables.find((t) => t.name === "users");
+	if (!fw) throw new Error("[auth.register] tabella `users` non nello schema");
+	const shape = getFwTableShape(fw);
+	if (!shape) throw new Error("[auth.register] shape `users` assente");
+	const reg: Record<string, InputSchema<unknown>> = {};
+	for (const [k, s0] of Object.entries(shape)) {
+		if (k === "password") {
+			reg[k] = v.password();
+			continue;
+		}
+		if (k === "id" || k === "createdAt" || k === "updatedAt") {
+			reg[k] = toOptionalSchema(s0);
+			continue;
+		}
+		reg[k] = s0;
+	}
+	return v.object(reg) as InputSchema<RegisterIn>;
+})();
+
+/**
+ * Qualsiasi campo **diverso da `password`** presente nella tabella `users` viene esposto al client.
+ * Tipo derivato da `db.users.row` → aggiungendo colonne in `db/index.ts` il client le vede senza modificare altro.
+ * Le `Date` vengono serializzate in ISO string (coerenza JSON).
+ */
+type UserRow = Awaited<ReturnType<typeof db.users.find>>[number];
+export type PublicUser = {
+	[K in keyof UserRow as K extends "password" ? never : K]: UserRow[K] extends Date | undefined
+		? string | undefined
+		: UserRow[K] extends Date | null | undefined
+			? string | null
+			: UserRow[K];
+};
+
+const SENSITIVE_USER_FIELDS = new Set(["password"]);
+
+function toIsoIfDate(v: unknown): unknown {
+	if (v instanceof Date) return v.toISOString();
+	return v;
+}
+
+function publicUserFromRow(u: UserRow): PublicUser {
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(u as Record<string, unknown>)) {
+		if (SENSITIVE_USER_FIELDS.has(k)) continue;
+		out[k] = toIsoIfDate(v);
+	}
+	return out as PublicUser;
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -83,20 +119,14 @@ export const login = s({
 });
 
 export const register = s({
-	input: v.object({
-		email: v.email(),
-		password: v.password(),
-		username: v.string().optional(),
-		role: v.enum(["admin", "user"]).optional(),
-	}),
+	input: userRegisterInput,
 	rateLimit: serverConfig.auth.rateLimit,
 	run: async (input, _ctx) => {
-		const password = await hashPassword(input.password);
+		const { password: plain, ...row } = input;
+		const password = await hashPassword(plain);
 		const rows = await db.users.create({
-			email: input.email,
+			...row,
 			password,
-			username: input.username,
-			role: input.role ?? "user",
 		});
 		const user = rows[0]!;
 		const sess = await createSession(user.id);

@@ -10,13 +10,14 @@ export const users = table({
   email: v.string().unique(),
   password: v.string(),
   username: v.string().optional(),
-  //____________________________________________
   role: v.enum(["admin", "user", "customer"]),
 
-  // SETTINGS
-  domain: v.string(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
-  color: v.string(),
-  theme: v.enum(["light", "dark"]),
+  //________________ USER ________________________
+
+  // SETTINGS (impostati dopo la registrazione dal tenant, quindi optional)
+  domain: v.string().optional(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
+  color: v.string().optional(),
+  theme: v.enum(["light", "dark"]).default("dark"),
 
   // Fatturazione (IT): minimo per fattura elettronica
   companyName: v.string().optional(), // ragione sociale o "Nome Cognome"
