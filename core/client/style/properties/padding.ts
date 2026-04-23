@@ -9,8 +9,12 @@ function paddingSide(key: keyof Properties, suffix: string, kind: Parameters<typ
 	return v ? ({ [key]: v } as Properties) : undefined;
 }
 
+/** Come `margin`: quattro longhand, niente `padding: …` (stessi conflitti con `px-` / `pl-` / `pr-`). */
 export function padding(suffix: string, ctx?: Ctx): Properties | undefined {
-	return paddingSide("padding", suffix, "box", ctx);
+	if (ctx?.negative) return undefined;
+	const v = resolveSpacingToken(suffix, "box");
+	if (!v) return undefined;
+	return { paddingTop: v, paddingRight: v, paddingBottom: v, paddingLeft: v };
 }
 
 export function paddingTop(suffix: string, ctx?: Ctx): Properties | undefined {

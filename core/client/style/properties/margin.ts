@@ -8,8 +8,11 @@ function marginSide(key: keyof Properties, suffix: string, kind: Parameters<type
 	return v ? ({ [key]: v } as Properties) : undefined;
 }
 
+/** Tutti e quattro i lati; longhand invece di `margin` (la shorthand poteva sovrascrivere `right` / `centerx` nello stesso `s`). */
 export function margin(suffix: string, ctx?: Ctx): Properties | undefined {
-	return marginSide("margin", suffix, "box", ctx);
+	const v = resolveSpacingToken(suffix, "box", ctx?.negative);
+	if (!v) return undefined;
+	return { marginTop: v, marginRight: v, marginBottom: v, marginLeft: v };
 }
 
 export function marginTop(suffix: string, ctx?: Ctx): Properties | undefined {

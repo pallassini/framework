@@ -691,7 +691,11 @@ function parseKeyframeStepString(str: string): KeyframeStep {
 		if (marginAll) {
 			const suffix = marginAll[1];
 			if (suffix && isValidSpacingCssSuffix(suffix)) {
-				(step as Record<string, string>).margin = suffix;
+				const s = step as Record<string, string>;
+				s.marginTop = suffix;
+				s.marginRight = suffix;
+				s.marginBottom = suffix;
+				s.marginLeft = suffix;
 				continue;
 			}
 		}

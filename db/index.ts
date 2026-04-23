@@ -10,20 +10,10 @@ export const users = table({
   email: v.string().unique(),
   password: v.string(),
   username: v.string().optional(),
+  //____________________________________________
   role: v.enum(["admin", "user", "customer"]),
-});
 
-export const sessions = table({
-  userId: "users",
-  expiresAt: v.datetime(),
-  revokedAt: v.datetime().optional(),
-});
-
-// ───────────────────────────────────────────────────────────────────────────────
-// SETTINGS
-// ───────────────────────────────────────────────────────────────────────────────
-export const settings = table({
-  name: v.string(),
+  // SETTINGS
   domain: v.string(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
   color: v.string(),
   theme: v.enum(["light", "dark"]),
@@ -39,9 +29,14 @@ export const settings = table({
   subscriptionStatus: v
     .enum(["trialing", "active", "past_due", "canceled", "incomplete"])
     .optional(),
-
-  userId: "users",
 });
+
+export const sessions = table({
+  userId: "users",
+  expiresAt: v.datetime(),
+  revokedAt: v.datetime().optional(),
+});
+
 // ───────────────────────────────────────────────────────────────────────────────
 // OPENING HOURS
 // ───────────────────────────────────────────────────────────────────────────────
