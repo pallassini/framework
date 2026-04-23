@@ -36,33 +36,25 @@ export default function Login() {
               "row centerx mt-2 py-3 px-4 round-12px text-3 font-6 select-none bg-#2020209d text-#727272 cursor-not-allowed": true,
               "bg-primary text-background cursor-pointer hover:(opacity-90) scale-110 px-6":
                 form.valid,
+              "bg-error text-background cursor-pointer hover:(opacity-90) scale-110 px-6": error,
             },
           }}
-          click={() => {
-            if (!form.valid) return;
-            auth.login(
-              {
-                email: form.email.field,
-                password: form.password.field,
+          click={async () => {
+            if (!form.valid()) return;
+            error(false);
+            await auth.login(form.values(), {
+              onError: () => {
+                form.errors.email("");
+                form.errors.password("");
+                error(true);
               },
-              {
-                onError: (err) => {
-                  form.errors.email("");
-                  form.errors.password("");
-                  error(true);
-                },
-              },
-            );
+            });
           }}
         >
-          <t show={form.valid} fallback="Compila i campi">
-            Accedi
-          </t>
+          {() => (error() ? "Credenziali non valide" : form.valid() ? "Accedi" : "Compila i campi")}
         </div>
       </div>
-      <div
-        s="fixed no-events -z-1 overflow-visible lx-100% ly-100% translate-(-50%,-50%)"
-      >
+      <div s="fixed no-events -z-1 overflow-visible lx-100% ly-100% translate-(-50%,-50%)">
         <div
           s={{
             base:
@@ -94,8 +86,6 @@ export default function Login() {
           }}
         />
       </div>
-
-
     </>
   );
 }

@@ -9,6 +9,8 @@ export type RpcSettledResult<O> =
 export type RpcCallbacks<O = unknown> = {
 	onSuccess?: (data: O) => void;
 	onError?: (error: unknown) => void;
+	/** Solo per `error.type === "RATE_LIMIT"` (dopo l’errore RPC, prima di `onError`). */
+	onRateLimit?: (error: unknown) => void;
 	/** Dopo `onSuccess` / `onError` (sempre, successo o fallimento). */
 	onSettled?: (result: RpcSettledResult<O>) => void;
 };
@@ -26,7 +28,8 @@ function isRpcCallbacks(x: unknown): x is RpcCallbacks<unknown> {
 	return (
 		("onSuccess" in o && fnOrU(o.onSuccess)) ||
 		("onError" in o && fnOrU(o.onError)) ||
-		("onSettled" in o && fnOrU(o.onSettled))
+		("onSettled" in o && fnOrU(o.onSettled)) ||
+		("onRateLimit" in o && fnOrU(o.onRateLimit))
 	);
 }
 
@@ -81,6 +84,9 @@ async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallback
 			type: e.type,
 			status: res.status,
 		});
+		if (e.type === "RATE_LIMIT") {
+			opts?.onRateLimit?.(err);
+		}
 		opts?.onError?.(err);
 		opts?.onSettled?.({ ok: false, error: err });
 		throw err;

@@ -20,8 +20,8 @@ import type { ServerPath, ServerRouteOut } from "./client/server";
 export type server<P extends ServerPath> = ServerRouteOut<P>;
 
 // AUTH — `auth.me.*` reattivo (popolato da `auth.refresh` → `server.auth.me`)
-export { auth } from "./client/auth";
-export type { AuthPublicUser } from "./client/auth";
+export { auth, isAuthRateLimitError } from "./client/auth";
+export type { AuthPublicUser, AuthRpcResult } from "./client/auth";
 
 // DESKTOP
 export { desktop } from "./client/desktop";
