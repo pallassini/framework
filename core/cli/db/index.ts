@@ -130,6 +130,46 @@ async function loadLocalSchemaShape(): Promise<{
 	}
 }
 
+/** Rimuove `columns` dal catalog (solo meta serializzabile per confronto / diff). */
+function stripColumnsFromCatalog(c: { tables: Record<string, unknown> }): Record<string, unknown> {
+	return Object.fromEntries(
+		Object.entries(c.tables).map(([k, v]) => {
+			if (v && typeof v === "object") {
+				const { columns: _cols, ...rest } = v as Record<string, unknown>;
+				return [k, rest];
+			}
+			return [k, v];
+		}),
+	);
+}
+
+type CatalogTableDiff = { added: string[]; removed: string[]; modified: string[] };
+
+function diffCatalogTables(
+	remote: Record<string, unknown>,
+	local: Record<string, unknown>,
+): CatalogTableDiff {
+	const r = new Set(Object.keys(remote));
+	const l = new Set(Object.keys(local));
+	const added = [...l].filter((k) => !r.has(k));
+	const removed = [...r].filter((k) => !l.has(k));
+	const modified: string[] = [];
+	for (const k of l) {
+		if (!r.has(k)) continue;
+		if (JSON.stringify(remote[k]) !== JSON.stringify(local[k])) modified.push(k);
+	}
+	return { added, removed, modified };
+}
+
+/** Riassunto compatto per la prima riga del box (◆ delta …). */
+function formatCatalogDelta(d: CatalogTableDiff): string {
+	const parts: string[] = [];
+	if (d.added.length > 0) parts.push(`+ ${d.added.join(", ")}`);
+	if (d.removed.length > 0) parts.push(`− ${d.removed.join(", ")}`);
+	if (d.modified.length > 0) parts.push(`~ ${d.modified.join(", ")}`);
+	return parts.length > 0 ? parts.join(" · ") : "nessun delta a livello tabelle (controlla il JSON)";
+}
+
 async function rpcCall<T>(target: RemoteTarget, body: unknown): Promise<T> {
 	const url = target.baseUrl.replace(/\/+$/, "") + REMOTE_ADMIN_RPC_PATH;
 	const res = await fetch(url, {
@@ -197,6 +237,7 @@ async function pushLocal(): Promise<void> {
  *      raggruppato per `schema([...])` dichiarato in `db/index.ts`.
  */
 async function pushToRemote(alias: string): Promise<void> {
+	const wallStart = performance.now();
 	// Tutto il lavoro in silenzio (niente riquadro mentre pensiamo).
 	// Prima raccogliamo i dati, poi apriamo il box e stampiamo pulito.
 	let target: RemoteTarget;
@@ -207,8 +248,9 @@ async function pushToRemote(alias: string): Promise<void> {
 	try {
 		target = await resolveAlias(alias);
 	} catch (e) {
-		const ui = cli("DB PUSH");
-		ui.err(e instanceof Error ? e.message : String(e));
+		const ui = cli("DB PUSH", { frame: "error" });
+		ui.kv("error", e instanceof Error ? e.message : String(e), "info");
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
 		ui.end("error");
 		process.exit(1);
 	}
@@ -219,36 +261,31 @@ async function pushToRemote(alias: string): Promise<void> {
 		tableCount = loaded.tableCount;
 		localShape = await loadLocalSchemaShape();
 	} catch (e) {
-		const ui = cli("DB PUSH");
+		const ui = cli("DB PUSH", { frame: "error" });
+		ui.kv("error", e instanceof Error ? e.message : String(e), "info");
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
 		ui.kv("url", target.baseUrl, "muted");
-		ui.err(e instanceof Error ? e.message : String(e));
 		ui.end("error");
 		process.exit(1);
 	}
 
-	// Confronto con il remoto per evitare push inutili.
+	const localTables = stripColumnsFromCatalog(JSON.parse(localStr) as { tables: Record<string, unknown> });
+
+	// Confronto con il remoto per evitare push inutili (+ delta se serve push).
 	let inSync = false;
+	let tableDiff: CatalogTableDiff | null = null;
 	try {
 		type GetResp =
 			| { ok: true; catalog: { tables: Record<string, unknown> } | null }
 			| { ok: false; error: { type: string; message: string } };
 		const remote = await rpcCall<GetResp>(target, { op: "catalog.get" });
 		if ("ok" in remote && remote.ok === true && remote.catalog) {
-			// `catalog.get` può arricchire con `columns`: prima di confrontare ripuliamo.
-			const stripColumns = (c: { tables: Record<string, unknown> }): unknown => ({
-				tables: Object.fromEntries(
-					Object.entries(c.tables).map(([k, v]) => {
-						if (v && typeof v === "object") {
-							const { columns: _c, ...rest } = v as Record<string, unknown>;
-							return [k, rest];
-						}
-						return [k, v];
-					}),
-				),
-			});
-			const remoteNorm = JSON.stringify(stripColumns(remote.catalog));
-			const localNorm = JSON.stringify(stripColumns(JSON.parse(localStr) as { tables: Record<string, unknown> }));
-			inSync = remoteNorm === localNorm;
+			const remoteTables = stripColumnsFromCatalog(remote.catalog);
+			inSync =
+				JSON.stringify({ tables: remoteTables }) === JSON.stringify({ tables: localTables });
+			if (!inSync) {
+				tableDiff = diffCatalogTables(remoteTables, localTables);
+			}
 		}
 	} catch {
 		// se il confronto fallisce procediamo comunque col push
@@ -256,7 +293,8 @@ async function pushToRemote(alias: string): Promise<void> {
 
 	// Niente da fare: apri il box in modalità "already in sync" grigio.
 	if (inSync) {
-		const ui = cli("DB PUSH");
+		const ui = cli("DB PUSH", { frame: "noop" });
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
 		ui.kv("url", target.baseUrl, "muted");
 		ui.kv("tables", String(tableCount), "muted");
 		ui.kv("size", humanBytes(Buffer.byteLength(localStr, "utf8")), "muted");
@@ -268,7 +306,6 @@ async function pushToRemote(alias: string): Promise<void> {
 	}
 
 	// Push vero e proprio.
-	const t0 = performance.now();
 	let tableNames: string[] = [];
 	let ok = false;
 	let errLine: string | null = null;
@@ -287,19 +324,29 @@ async function pushToRemote(alias: string): Promise<void> {
 	} catch (e) {
 		errLine = e instanceof Error ? e.message : String(e);
 	}
-	const dt = performance.now() - t0;
+	const wallElapsed = performance.now() - wallStart;
 
-	const ui = cli("DB PUSH");
-	ui.kv("time", humanMs(dt), ok ? "ok" : "err");
-	ui.kv("url", target.baseUrl, "muted");
-	ui.kv("size", humanBytes(Buffer.byteLength(localStr, "utf8")), "muted");
-	ui.kv("tables", String(ok ? tableNames.length : tableCount), ok ? "ok" : "muted");
+	const ui = cli("DB PUSH", { frame: ok ? "success" : "error" });
 
 	if (!ok) {
-		ui.err(errLine ?? "push FAILED");
+		ui.kv("error", errLine ?? "push FAILED", "info");
+		ui.kv("time", humanMs(wallElapsed), "muted");
+		ui.kv("url", target.baseUrl, "muted");
+		ui.kv("tables", String(tableCount), "muted");
+		ui.kv("size", humanBytes(Buffer.byteLength(localStr, "utf8")), "muted");
 		ui.end("error");
 		process.exit(1);
 	}
+
+	const deltaLine =
+		tableDiff != null
+			? formatCatalogDelta(tableDiff)
+			: "nessun confronto col remoto — applicato catalog locale";
+	ui.kv("delta", deltaLine, "ok");
+	ui.kv("time", humanMs(wallElapsed), "ok");
+	ui.kv("url", target.baseUrl, "muted");
+	ui.kv("tables", String(tableNames.length > 0 ? tableNames.length : tableCount), "ok");
+	ui.kv("size", humanBytes(Buffer.byteLength(localStr, "utf8")), "muted");
 
 	const effectiveTables = tableNames.length > 0 ? tableNames : tableNamesFromJson(localStr);
 	if (localShape && localShape.schemaTree.length > 0) {
@@ -351,130 +398,169 @@ function buildSchemaGroupRows(
 
 // ─── pull ──────────────────────────────────────────────────────────────────────
 async function pullFromRemote(alias: string, includeData: boolean): Promise<void> {
-	const ui = cli("pull", { alias, subtitle: includeData ? "schema + data" : "schema" });
+	const wallStart = performance.now();
+	type CatalogShape = { tables: Record<string, Record<string, unknown>> };
+	type GetResp =
+		| {
+				ok: true;
+				catalog: CatalogShape;
+				tableOrder?: string[];
+				schemaTree?: PulledSchemaNode[];
+		  }
+		| { ok: false; error: { type: string; message: string } };
+
+	let target: RemoteTarget;
 	try {
-		ui.step("risolvo alias");
-		const target = await resolveAlias(alias);
-		ui.line("url", target.baseUrl, "muted");
+		target = await resolveAlias(alias);
+	} catch (e) {
+		const ui = cli("DB PULL", { frame: "error" });
+		ui.kv("error", e instanceof Error ? e.message : String(e), "info");
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
+		ui.end("error");
+		process.exit(1);
+	}
 
-		ui.step("scarico catalog + tipi colonne");
-		type CatalogShape = { tables: Record<string, Record<string, unknown>> };
-		type GetResp =
-			| {
-					ok: true;
-					catalog: CatalogShape;
-					tableOrder?: string[];
-					schemaTree?: PulledSchemaNode[];
-			  }
-			| { ok: false; error: { type: string; message: string } };
-		const t0 = performance.now();
-		const res = await rpcCall<GetResp>(target, { op: "catalog.get" });
-		const dt = performance.now() - t0;
+	let res: GetResp;
+	try {
+		res = await rpcCall<GetResp>(target, { op: "catalog.get" });
+	} catch (e) {
+		const ui = cli("DB PULL", { frame: "error" });
+		ui.kv("error", e instanceof Error ? e.message : String(e), "info");
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
+		ui.kv("url", target.baseUrl, "muted");
+		ui.end("error");
+		process.exit(1);
+	}
 
-		if (!("ok" in res) || res.ok !== true) {
-			const err = (res as { error?: { type: string; message: string } }).error;
-			ui.err(`catalog.get rifiutato: ${err?.type ?? "?"}`);
-			if (err?.message) ui.text(err.message);
-			ui.end("error");
-			process.exit(1);
+	if (!("ok" in res) || res.ok !== true) {
+		const err = (res as { error?: { type: string; message: string } }).error;
+		const msg = err?.message
+			? `${err?.type ?? "?"}: ${err.message}`
+			: `catalog.get rifiutato: ${err?.type ?? "?"}`;
+		const ui = cli("DB PULL", { frame: "error" });
+		ui.kv("error", msg, "info");
+		ui.kv("time", humanMs(performance.now() - wallStart), "muted");
+		ui.kv("url", target.baseUrl, "muted");
+		ui.end("error");
+		process.exit(1);
+	}
+
+	const payload = res as {
+		catalog: CatalogShape;
+		tableOrder?: string[];
+		schemaTree?: PulledSchemaNode[];
+	};
+	const tableNames = Object.keys(payload.catalog.tables);
+	const nCols = Object.values(payload.catalog.tables).reduce((acc, t) => {
+		const cols = (t as { columns?: unknown[] }).columns;
+		return acc + (Array.isArray(cols) ? cols.length : 0);
+	}, 0);
+
+	const localShape = await loadLocalSchemaShape();
+	const schemaTree =
+		payload.schemaTree && payload.schemaTree.length > 0
+			? payload.schemaTree
+			: (localShape?.schemaTree ?? []);
+	const tableOrder =
+		payload.tableOrder && payload.tableOrder.length > 0
+			? payload.tableOrder
+			: localShape?.tableOrder;
+
+	const countSchemas = (arr: readonly PulledSchemaNode[]): number => {
+		let c = 0;
+		for (const n of arr) {
+			c++;
+			c += countSchemas(n.children);
 		}
-		const ok = res as {
-			catalog: CatalogShape;
-			tableOrder?: string[];
-			schemaTree?: PulledSchemaNode[];
-		};
-		const tableNames = Object.keys(ok.catalog.tables);
-		const nCols = Object.values(ok.catalog.tables).reduce((acc, t) => {
-			const cols = (t as { columns?: unknown[] }).columns;
-			return acc + (Array.isArray(cols) ? cols.length : 0);
-		}, 0);
+		return c;
+	};
+	const nSchemas = countSchemas(schemaTree);
 
-		// `schema([...])` non vivono nel catalog remoto: li prendiamo dal
-		// `db/index.ts` locale (sorgente di verità per le dichiarazioni TS).
-		// Se il remoto ce li manda (server con codice aggiornato) li usiamo
-		// comunque come conferma, ma il fallback locale è sempre disponibile.
-		const localShape = await loadLocalSchemaShape();
-		const schemaTree =
-			ok.schemaTree && ok.schemaTree.length > 0
-				? ok.schemaTree
-				: (localShape?.schemaTree ?? []);
-		const tableOrder =
-			ok.tableOrder && ok.tableOrder.length > 0
-				? ok.tableOrder
-				: localShape?.tableOrder;
-		const countSchemas = (arr: readonly PulledSchemaNode[]): number => {
-			let c = 0;
-			for (const n of arr) {
-				c++;
-				c += countSchemas(n.children);
-			}
-			return c;
-		};
-		const nSchemas = countSchemas(schemaTree);
+	const pulledPath = path.join(root, "db", "pulled.ts");
+	mkdirSync(path.dirname(pulledPath), { recursive: true });
+	const previous = existsSync(pulledPath) ? readFileSync(pulledPath, "utf8") : null;
+	const ts = renderPulledTs(
+		payload.catalog as Parameters<typeof renderPulledTs>[0],
+		tableOrder,
+		alias,
+		target.baseUrl,
+		schemaTree,
+	);
+	const stripHeader = (s: string): string => s.replace(/^\/\*\*[\s\S]*?\*\/\s*/, "");
+	const pulledChanged = previous == null || stripHeader(previous) !== stripHeader(ts);
+	writeFileSync(pulledPath, ts);
 
-		ui.ok(`ricevuto in ${humanMs(dt)}`);
-		ui.line("tables", String(tableNames.length));
-		ui.line("columns", String(nCols), "muted");
-		if (nSchemas > 0) ui.line("schemas", String(nSchemas), "muted");
-		else ui.line("schemas", "0 (db/index.ts locale non dichiara schema)", "muted");
-
-		const pulledPath = path.join(root, "db", "pulled.ts");
-		mkdirSync(path.dirname(pulledPath), { recursive: true });
-		const previous = existsSync(pulledPath) ? readFileSync(pulledPath, "utf8") : null;
-		const ts = renderPulledTs(
-			ok.catalog as Parameters<typeof renderPulledTs>[0],
-			tableOrder,
-			alias,
-			target.baseUrl,
-			schemaTree,
-		);
-		// Confronto "senza header" (il commento di testa ha timestamp): taglio le prime righe "*/"
-		const stripHeader = (s: string): string => s.replace(/^\/\*\*[\s\S]*?\*\/\s*/, "");
-		const changed = previous == null || stripHeader(previous) !== stripHeader(ts);
-		writeFileSync(pulledPath, ts);
-		if (!changed) {
-			ui.muted(`db/pulled.ts invariato (solo header ricalcolato)`);
-		} else if (previous == null) {
-			ui.ok(`creato ${relPath(pulledPath)}`);
-		} else {
-			ui.ok(`aggiornato ${relPath(pulledPath)}`);
-		}
-		ui.muted("catalog.json locale NON modificato — copia quello che ti serve in db/index.ts");
-
-		if (!includeData) {
-			ui.end(changed ? "success" : "noop");
-			return;
-		}
-
-		ui.divider();
-		ui.step("scarico wal.log");
+	let walPath: string | null = null;
+	let walBytes = 0;
+	if (includeData) {
 		const dataDir = process.env.FWDB_DATA?.trim() || path.join(root, FWDB_DEFAULT_DATA_REL_PATH);
 		mkdirSync(dataDir, { recursive: true });
 		const walUrl = target.baseUrl.replace(/\/+$/, "") + REMOTE_ADMIN_WAL_PATH;
-		const tW = performance.now();
 		const walRes = await fetch(walUrl, {
 			method: "GET",
 			headers: { [REMOTE_AUTH_HEADER]: `Bearer ${target.password}` },
 		});
 		if (!walRes.ok) {
 			const body = await walRes.text();
-			ui.err(`wal FAILED (${String(walRes.status)})`);
-			ui.text(body.slice(0, 200));
+			const ui = cli("DB PULL", { frame: "error" });
+			ui.kv(
+				"error",
+				`wal HTTP ${String(walRes.status)}: ${body.slice(0, 200).trim()}`,
+				"info",
+			);
+			ui.kv("time", humanMs(performance.now() - wallStart), "muted");
+			ui.kv("url", target.baseUrl, "muted");
 			ui.end("error");
 			process.exit(1);
 		}
 		const buf = new Uint8Array(await walRes.arrayBuffer());
-		const walPath = path.join(dataDir, "wal.log");
+		walPath = path.join(dataDir, "wal.log");
 		writeFileSync(walPath, buf);
-		const dtW = performance.now() - tW;
-		ui.ok(`wal.log → ${relPath(walPath)}`);
-		ui.line("size", humanBytes(buf.byteLength));
-		ui.line("time", humanMs(dtW), "muted");
-		ui.end("success");
-	} catch (e) {
-		ui.err(e instanceof Error ? e.message : String(e));
-		ui.end("error");
-		process.exit(1);
+		walBytes = buf.byteLength;
+	}
+
+	const wallElapsed = performance.now() - wallStart;
+	const schemaChanged = pulledChanged;
+	const anyWork = schemaChanged || includeData;
+	const frame: "success" | "noop" = anyWork ? "success" : "noop";
+	const ui = cli("DB PULL", { frame });
+
+	const deltaFirst =
+		includeData && schemaChanged
+			? `${String(tableNames.length)} tabelle · pulled.ts aggiornato · wal.log scaricato`
+			: includeData
+				? `wal.log scaricato (${humanBytes(walBytes)})`
+				: schemaChanged
+					? previous == null
+						? `${String(tableNames.length)} tabelle · creato db/pulled.ts`
+						: `${String(tableNames.length)} tabelle · aggiornato db/pulled.ts`
+					: "nessun cambio al contenuto (solo header timestamp)";
+	ui.kv("delta", deltaFirst, anyWork ? "ok" : "muted");
+
+	ui.kv("time", humanMs(wallElapsed), anyWork ? "ok" : "muted");
+	ui.kv("url", target.baseUrl, "muted");
+	ui.kv("tables", String(tableNames.length), "muted");
+	ui.kv("columns", String(nCols), "muted");
+	ui.kv("size", humanBytes(Buffer.byteLength(ts, "utf8")), "muted");
+	if (nSchemas > 0) ui.kv("schemas", String(nSchemas), "muted");
+	else ui.kv("schemas", "0 (solo da db/index.ts locale)", "muted");
+
+	if (schemaTree.length > 0) {
+		ui.group("schemas", buildSchemaGroupRows(schemaTree, tableNames));
+	}
+
+	ui.kv("file", relPath(pulledPath), "muted");
+	if (walPath != null) {
+		ui.kv("wal", relPath(walPath), "muted");
+		ui.kv("wal size", humanBytes(walBytes), "muted");
+	}
+
+	ui.muted("catalog.json locale non modificato — integra a mano in db/index.ts se serve");
+
+	if (includeData || schemaChanged) {
+		ui.end("pulled");
+	} else {
+		ui.end("noop", "INVARIATO");
 	}
 }
 

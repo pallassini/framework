@@ -44,8 +44,22 @@ const C = {
 	blue: rgb(125, 211, 252),
 };
 
-// Frame color — coerente con `bun dev` (magenta) ma neutro per db (ciano scuro).
-const F = rgb(125, 211, 252);
+/** Bordo + accent (◆, titolo): default ciano, oppure verde / grigio / rosso per DB PUSH. */
+export type CliFrame = "default" | "success" | "noop" | "error";
+
+const FRAME_BORDER: Record<CliFrame, string> = {
+	default: rgb(125, 211, 252),
+	success: rgb(34, 197, 94),
+	noop: rgb(113, 113, 122),
+	error: rgb(239, 68, 68),
+};
+
+const FRAME_ACCENT: Record<CliFrame, string> = {
+	default: C.cyan,
+	success: C.green,
+	noop: rgb(161, 161, 170),
+	error: C.red,
+};
 
 const W = 72;
 const PAD = 2;
@@ -55,29 +69,30 @@ const strip = (s: string): string => s.replace(ANSI_RE, "");
 const visLen = (s: string): number => strip(s).length;
 const fill = (s: string, n: number): string => s + " ".repeat(Math.max(0, n - visLen(s)));
 
-const boxRow = (content: string): string =>
-	F + "│" + R + " ".repeat(PAD) + fill(content, W - PAD * 2) + " ".repeat(PAD) + F + "│" + R;
+const boxRow = (border: string, content: string): string =>
+	border + "│" + R + " ".repeat(PAD) + fill(content, W - PAD * 2) + " ".repeat(PAD) + border + "│" + R;
 
-const boxBlank = (): string => F + "│" + R + " ".repeat(W) + F + "│" + R;
+const boxBlank = (border: string): string =>
+	border + "│" + R + " ".repeat(W) + border + "│" + R;
 
-function drawTop(title: string): string {
-	const t = " " + BOLD + C.cyan + title + R + " ";
+function drawTop(border: string, titleAnsi: string): string {
+	const t = " " + titleAnsi + " ";
 	const tw = visLen(t);
 	const L = Math.floor((W - tw) / 2);
 	const Rn = W - L - tw;
-	return F + "╭" + "─".repeat(L) + R + t + F + "─".repeat(Rn) + "╮" + R;
+	return border + "╭" + "─".repeat(L) + R + t + border + "─".repeat(Rn) + "╮" + R;
 }
 
-function drawBottom(stateColor: string, stateLabel: string): string {
+function drawBottom(border: string, stateColor: string, stateLabel: string): string {
 	const label = " " + stateColor + BOLD + stateLabel + R + " ";
 	const lw = visLen(label);
 	const L = Math.floor((W - lw) / 2);
 	const Rn = W - L - lw;
-	return F + "╰" + "─".repeat(L) + R + label + F + "─".repeat(Rn) + "╯" + R;
+	return border + "╰" + "─".repeat(L) + R + label + border + "─".repeat(Rn) + "╯" + R;
 }
 
-function sep(): string {
-	return F + "├" + "─".repeat(W) + "┤" + R;
+function sep(border: string): string {
+	return border + "├" + "─".repeat(W) + "┤" + R;
 }
 
 export type StepTone = "info" | "ok" | "warn" | "err" | "muted";
@@ -184,19 +199,23 @@ function wrapValue(s: string, width: number): string[] {
 /**
  * Avvia un blocco UI.
  *
- * Due firme supportate:
- *   1. `cli("push", { alias: "prod", subtitle: "remote" })` → storica, costruisce
- *      un header tipo `db · push · prod · remote`.
- *   2. `cli("DB PUSH")` → moderna, usa `title` così com'è in cima al box.
- *
- * Internamente il titolo finale è sempre una stringa ANSI.
+ *   1. `cli("pull", { alias: "prod", subtitle: "schema" })` → header `db · pull · …`, bordo ciano.
+ *   2. `cli("DB PUSH", { frame: "noop" })` → titolo colorato come il tema (grigio / verde / rosso),
+ *      bordo e ◆ allineati allo stesso tema; testo chiave/valore resta leggibile (fg/dim).
  */
 export function cli(
 	action: string,
-	meta?: { alias?: string; subtitle?: string },
+	meta?: { alias?: string; subtitle?: string; frame?: CliFrame },
 ): DbCli {
-	let t: string;
-	if (meta !== undefined) {
+	const frame: CliFrame = meta?.frame ?? "default";
+	const border = FRAME_BORDER[frame];
+	const accent = FRAME_ACCENT[frame];
+
+	const legacyHeader =
+		meta != null && (meta.alias != null || meta.subtitle != null);
+
+	let titleAnsi: string;
+	if (legacyHeader) {
 		const parts: string[] = [
 			`${BOLD}${C.cyan}db${R}`,
 			`${C.dim}·${R} ${C.fg}${action}${R}`,
@@ -204,56 +223,72 @@ export function cli(
 		if (meta.alias) parts.push(`${C.dim}·${R} ${C.violet}${meta.alias}${R}`);
 		if (meta.subtitle)
 			parts.push(`${C.dim}·${R} ${C.dim}${meta.subtitle}${R}`);
-		t = parts.join(" ");
+		titleAnsi = parts.join(" ");
 	} else {
-		t = `${BOLD}${C.cyan}${action}${R}`;
+		titleAnsi = `${BOLD}${accent}${action}${R}`;
 	}
 
 	emit("");
-	emit(drawTop(t));
-	emit(boxBlank());
+	emit(drawTop(border, titleAnsi));
+	emit(boxBlank(border));
 
 	const bullet = (tone: StepTone, msg: string): void => {
 		const color = TONE_COLOR[tone];
 		const glyph = GLYPH[tone];
 		const msgColor = tone === "muted" ? C.dim : C.fg;
-		const avail = INNER_W - 2; // "<glyph> "
+		const avail = INNER_W - 2;
 		const lines = wrapValue(msg, avail);
 		for (let i = 0; i < lines.length; i++) {
 			const ln = lines[i]!;
 			if (i === 0) {
-				emit(boxRow(`${color}${glyph}${R} ${msgColor}${ln}${R}`));
+				emit(boxRow(border, `${color}${glyph}${R} ${msgColor}${ln}${R}`));
 			} else {
-				emit(boxRow(`  ${msgColor}${ln}${R}`));
+				emit(boxRow(border, `  ${msgColor}${ln}${R}`));
 			}
 		}
 	};
 
 	const KV_LABEL_W = 10;
 
+	/** Valore: mai rosso solo perché il frame è error — resta leggibile. */
+	const kvValColor = (tone: StepTone): string => {
+		if (tone === "muted") return C.dim;
+		if (tone === "ok") return C.green;
+		if (tone === "warn") return C.yellow;
+		if (tone === "err") return C.fg;
+		return C.fg;
+	};
+
 	const kvRow = (key: string, value: string, tone: StepTone): void => {
-		const valColor = tone === "muted" ? C.dim : tone === "err" ? C.red : tone === "warn" ? C.yellow : C.fg;
-		// "  <key padded>  <value>"
-		const leftIndent = 2;
-		const gutter = 2;
-		const avail = INNER_W - leftIndent - KV_LABEL_W - gutter;
-		const lines = wrapValue(value, Math.max(8, avail));
+		const valColor = kvValColor(tone);
 		const padKey = key + " ".repeat(Math.max(0, KV_LABEL_W - visLen(key)));
+		// `  ◆ ` + key(10) + `  ` → allineamento colonne valore
+		const kvContPad = 2 + 1 + 1 + KV_LABEL_W + 2;
+		const avail = INNER_W - kvContPad;
+		const lines = wrapValue(value, Math.max(8, avail));
+		const contPad = " ".repeat(kvContPad);
 		for (let i = 0; i < lines.length; i++) {
 			const ln = lines[i]!;
 			if (i === 0) {
-				emit(boxRow(`  ${C.dim}${padKey}${R}  ${valColor}${ln}${R}`));
+				emit(
+					boxRow(
+						border,
+						`  ${accent}◆${R} ${C.dim}${padKey}${R}  ${valColor}${ln}${R}`,
+					),
+				);
 			} else {
-				emit(boxRow(`  ${" ".repeat(KV_LABEL_W)}  ${valColor}${ln}${R}`));
+				emit(boxRow(border, `${contPad}${valColor}${ln}${R}`));
 			}
 		}
 	};
+
+	const GROUP_CHILD_INDENT = 6;
 
 	return {
 		text(s: string, tone: StepTone = "info"): void {
 			const color = tone === "muted" ? C.dim : tone === "err" ? C.red : tone === "warn" ? C.yellow : C.fg;
 			const lines = wrapValue(s, INNER_W - 2);
-			for (const ln of lines) emit(boxRow(`  ${color}${ln}${R}`));
+			for (const ln of lines) emit(boxRow(border, `  ${color}${ln}${R}`));
 		},
 		step(s: string): void {
 			bullet("info", s);
@@ -265,7 +300,16 @@ export function cli(
 			bullet("warn", s);
 		},
 		err(s: string): void {
-			bullet("err", s);
+			const avail = INNER_W - 4;
+			const lines = wrapValue(s, avail);
+			for (let i = 0; i < lines.length; i++) {
+				const ln = lines[i]!;
+				if (i === 0) {
+					emit(boxRow(border, `  ${C.red}✖${R} ${C.fg}${ln}${R}`));
+				} else {
+					emit(boxRow(border, `    ${C.fg}${ln}${R}`));
+				}
+			}
 		},
 		muted(s: string): void {
 			bullet("muted", s);
@@ -277,48 +321,52 @@ export function cli(
 			kvRow(key, value, tone);
 		},
 		group(title: string, rows: readonly (readonly [string, string])[]): void {
-			bullet("info", title);
+			emit(boxRow(border, `  ${accent}◆${R} ${accent}${title}${R}`));
 			if (rows.length === 0) return;
-			// Colonna label: max della label corrente (clampata) così le colonne si allineano.
 			const maxLabel = Math.min(
-				20,
+				18,
 				Math.max(4, ...rows.map(([k]) => visLen(k))),
 			);
+			const grpContPad = GROUP_CHILD_INDENT + 1 + 1 + maxLabel + 2;
 			for (const [k, v] of rows) {
 				const padK = k + " ".repeat(Math.max(0, maxLabel - visLen(k)));
-				const leftIndent = 4; // extra indent sotto il bullet
-				const gutter = 2;
-				const avail = INNER_W - leftIndent - maxLabel - gutter;
+				const avail = INNER_W - grpContPad;
 				const lines = wrapValue(v, Math.max(8, avail));
+				const contPad = " ".repeat(grpContPad);
 				for (let i = 0; i < lines.length; i++) {
 					const ln = lines[i]!;
 					if (i === 0) {
-						emit(boxRow(`    ${C.violet}${padK}${R}  ${C.fg}${ln}${R}`));
+						emit(
+							boxRow(
+								border,
+								`${" ".repeat(GROUP_CHILD_INDENT)}${accent}◆${R} ${C.dim}${padK}${R}  ${C.fg}${ln}${R}`,
+							),
+						);
 					} else {
-						emit(boxRow(`    ${" ".repeat(maxLabel)}  ${C.fg}${ln}${R}`));
+						emit(boxRow(border, `${contPad}${C.fg}${ln}${R}`));
 					}
 				}
 			}
 		},
 		blank(): void {
-			emit(boxBlank());
+			emit(boxBlank(border));
 		},
 		divider(): void {
-			emit(sep());
+			emit(sep(border));
 		},
 		end(tone: EndTone, label?: string): void {
-			emit(boxBlank());
+			emit(boxBlank(border));
 			const map = {
 				pushed: { color: C.green, text: "PUSHED" },
 				pulled: { color: C.green, text: "PULLED" },
 				ok: { color: C.green, text: "OK" },
 				success: { color: C.green, text: "OK" },
-				noop: { color: C.dim, text: "ALREADY IN SYNC" },
+				noop: { color: FRAME_ACCENT.noop, text: "ALREADY IN SYNC" },
 				warning: { color: C.yellow, text: "DONE WITH WARNINGS" },
 				error: { color: C.red, text: "FAILED" },
 			} as const;
 			const m = map[tone];
-			emit(drawBottom(m.color, label ?? m.text));
+			emit(drawBottom(border, m.color, label ?? m.text));
 			emit("");
 		},
 	};

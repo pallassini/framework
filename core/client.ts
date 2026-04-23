@@ -19,8 +19,9 @@ export { server } from "./client/server";
 import type { ServerPath, ServerRouteOut } from "./client/server";
 export type server<P extends ServerPath> = ServerRouteOut<P>;
 
-// AUTH (`auth.login`, `auth.register`, `auth.me`, `auth.logout`)
+// AUTH — `auth.me.*` reattivo (popolato da `auth.refresh` → `server.auth.me`)
 export { auth } from "./client/auth";
+export type { AuthPublicUser } from "./client/auth";
 
 // DESKTOP
 export { desktop } from "./client/desktop";
@@ -30,6 +31,9 @@ export type desktop<P extends DesktopPath> = DesktopRouteOut<P>;
 
 // STYLE (viewport) — stesso meccanismo di `state` (`createState` + `viewport.device()` …)
 export { viewport, device, mob, tab, des, onlyDes, setSmoothScrollInteractionLock } from "./client/style";
+
+// Mobile Safari: niente pinch / double-tap zoom sulla pagina
+export { installPreventMobileGestureZoom } from "./client/preventMobileGestureZoom";
 
 // JSX COMPONENTS
 export { For, icon } from "./client/runtime/tag";

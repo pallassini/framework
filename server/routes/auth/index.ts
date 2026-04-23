@@ -1,6 +1,40 @@
 import { db } from "db";
 import { s, v, error } from "server";
 
+/** Tutti i campi della tabella `users` tranne `password` (mai esposto al client). */
+function publicUserFromRow(u: {
+	id: string;
+	email: unknown;
+	password?: unknown;
+	username?: unknown;
+	role: unknown;
+	createdAt?: unknown;
+	updatedAt?: unknown;
+	deletedAt?: unknown;
+}) {
+	const iso = (d: unknown): string | undefined => {
+		if (d == null) return undefined;
+		if (d instanceof Date) return d.toISOString();
+		if (typeof d === "string") return d;
+		return String(d);
+	};
+	const isoNull = (d: unknown): string | null => {
+		if (d == null) return null;
+		if (d instanceof Date) return d.toISOString();
+		if (typeof d === "string") return d;
+		return String(d);
+	};
+	return {
+		id: u.id,
+		email: u.email as string,
+		username: u.username as string | undefined,
+		role: u.role as "admin" | "user" | "customer",
+		createdAt: iso(u.createdAt),
+		updatedAt: iso(u.updatedAt),
+		deletedAt: isoNull(u.deletedAt),
+	};
+}
+
 export async function hashPassword(plain: string): Promise<string> {
 	return Bun.password.hash(plain, { algorithm: "bcrypt", cost: 12 });
 }
@@ -38,12 +72,7 @@ export const login = s({
 		}
 		const sess = await createSession(user.id);
 		return {
-			user: {
-				id: user.id,
-				email: user.email as string,
-				username: user.username,
-				role: user.role,
-			},
+			user: publicUserFromRow(user),
 			sessionId: sess.id,
 		};
 	},
@@ -67,12 +96,7 @@ export const register = s({
 		const user = rows[0]!;
 		const sess = await createSession(user.id);
 		return {
-			user: {
-				id: user.id,
-				email: user.email as string,
-				username: user.username,
-				role: user.role,
-			},
+			user: publicUserFromRow(user),
 			sessionId: sess.id,
 		};
 	},
@@ -87,12 +111,7 @@ export const me = s({
 		const u = rows[0];
 		if (!u) error("NOT_FOUND", "User");
 		return {
-			user: {
-				id: u.id,
-				email: u.email as string,
-				username: u.username,
-				role: u.role,
-			},
+			user: publicUserFromRow(u),
 		};
 	},
 });

@@ -1,7 +1,6 @@
 import { v } from "../core/client/validator";
 import { schema } from "../core/db/schema/namespace";
 import { table } from "../core/db/schema/table";
-import { preset } from "../client/presets/type";
 // "ID" & "UPDATED AT" & "CREATED AT" & "DELETED AT" ARE AUTOMATICALLY ADDED
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -26,7 +25,6 @@ export const sessions = table({
 export const settings = table({
   name: v.string(),
   domain: v.string(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
-  type:  preset,
   color: v.string(),
   theme: v.enum(["light", "dark"]),
 
@@ -128,6 +126,7 @@ export const items = table({
 export const resources = table({
   name: v.string(), // "Luisa", "Sala coperta", "Tavolo 7", "Sala yoga"
   capacity: v.number(), // 1 per persona/tavolo, 80 per sala coperta, ecc.
+  type: v.enum(["space", "person"]),
   userId: "users",
 });
 
