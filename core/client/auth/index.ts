@@ -164,8 +164,17 @@ async function authRegister(
 	const merged: RpcCallbacks<RegisterOut> = {
 		...opts,
 		onSuccess: (data) => {
-			persistSessionId(data);
-			applyPublicUser(pickUser(data));
+			/** Solo con `login: true` nella richiesta il server manda `sessionId` → sessione come dopo il login. */
+			if (
+				data &&
+				typeof data === "object" &&
+				"sessionId" in data &&
+				typeof (data as { sessionId?: unknown }).sessionId === "string" &&
+				(data as { sessionId: string }).sessionId.length > 0
+			) {
+				persistSessionId(data);
+				applyPublicUser(pickUser(data));
+			}
 			opts?.onSuccess?.(data);
 		},
 	};
@@ -193,7 +202,11 @@ export const auth = {
 	 * L’RPC che va in eccezione: `server.auth.login`.
 	 */
 	login: authLogin,
-	/** Stesso modello del login. */
+	/**
+	 * Registrazione. Di default **non** imposta la sessione nel client (non è come il login);
+	 * passa nell’input `login: true` (insieme a email, password, …) se dopo la registrazione
+	 * l’utente deve restare autenticato.
+	 */
 	register: authRegister,
 	refresh: refreshAuthSession,
 	logout: (): void => {

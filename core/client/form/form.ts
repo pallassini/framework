@@ -40,12 +40,12 @@ export type FormFieldController = {
 	setRaw(v: unknown): void;
 	validate(): void;
 	/**
-	 * Messaggio d'errore reattivo per questo campo (o `undefined` se valido).
+	 * Messaggio d'errore reattivo per questo campo: stringa vuota `""` se valido.
 	 * Legge direttamente la state-map `errors` del form, quindi le UI che lo
 	 * richiamano si aggiornano automaticamente senza bisogno di passare `error`
 	 * esplicitamente all'`<Input>`.
 	 */
-	error(): string | undefined;
+	error(): string;
 	/**
 	 * `true` se lo schema del campo è marcato `.optional()`. Le UI lo usano per
 	 * mostrare automaticamente un'etichetta "opzionale" (niente da passare a mano).
@@ -77,7 +77,7 @@ type InferObject<S extends Record<string, InputSchema<unknown>>> = {
 export type FormApi<Shape extends Record<string, InputSchema<unknown>>> = {
 	values(): InferObject<Shape>;
 	reset(): void;
-	errors: StateMap<{ [K in keyof Shape]: string | undefined }>;
+	errors: StateMap<{ [K in keyof Shape]: string }>;
 	/**
 	 * Validità come segnale derivato (`true` se tutti i campi passano lo schema).
 	 * - Condizioni stile: puoi passare direttamente `form.valid`.
@@ -275,8 +275,8 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	for (const k of keys) defaults[k] = defaultForSchema(shape[k] as InputSchema<unknown>);
 
 	const values = createState(defaults as Record<string, unknown>);
-	const errShape: Record<string, string | undefined> = {};
-	for (const k of keys) errShape[k] = undefined;
+	const errShape: Record<string, string> = {};
+	for (const k of keys) errShape[k] = "";
 	const errors = createState(errShape);
 
 	const objectSchema = v.object(shape);
@@ -312,7 +312,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		const errSig = (errors as Record<string, ValueSig>)[key];
 		try {
 			sub.parse(raw);
-			errSig(undefined);
+			errSig("");
 		} catch (e) {
 			errSig(e instanceof ValidationError ? e.message : "invalid");
 		}
@@ -327,7 +327,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	function reset(): void {
 		for (const k of keys) {
 			(values as Record<string, ValueSig>)[k](defaults[k]);
-			(errors as Record<string, ValueSig>)[k](undefined);
+			(errors as Record<string, ValueSig>)[k]("");
 		}
 	}
 
@@ -384,7 +384,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 				validateField(k);
 			},
 			validate: () => validateField(k),
-			error: () => (errors as Record<string, ValueSig>)[k]() as string | undefined,
+			error: () => ((errors as Record<string, ValueSig>)[k]() as string | undefined) ?? "",
 			optional: () => isOptional,
 			bg: () => bg,
 			meta: () => readFieldType(subSchema),

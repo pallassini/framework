@@ -14,8 +14,11 @@ function toOptionalSchema(sch: InputSchema<unknown>): InputSchema<unknown> {
 }
 
 type UserCreate = CreateInput<ServerTables["users"]>;
-/** Stesso `CreateInput` tranne `password` in chiaro (tutto il resto, incluso `role`, come in tabella / enum). */
-type RegisterIn = Omit<UserCreate, "password"> & { password: string };
+/**
+ * Stesso `CreateInput` tranne `password` in chiaro (tutto il resto, incluso `role`, come in tabella / enum).
+ * `login` non è su DB: solo se `true` il server crea la sessione (comporta “resta loggato” come il login).
+ */
+type RegisterIn = Omit<UserCreate, "password"> & { password: string; login?: boolean };
 
 /**
  * Stesso criterio di `db.users` in create, ma `password` = testo in chiaro (`v.password()`).
@@ -39,6 +42,7 @@ const userRegisterInput: InputSchema<RegisterIn> = (() => {
 		}
 		reg[k] = s0;
 	}
+	reg["login"] = v.optional(v.boolean());
 	return v.object(reg) as InputSchema<RegisterIn>;
 })();
 
@@ -122,18 +126,19 @@ export const register = s({
 	input: userRegisterInput,
 	rateLimit: serverConfig.auth.rateLimit,
 	run: async (input, _ctx) => {
-		const { password: plain, ...row } = input;
+		const { password: plain, login, ...row } = input;
 		const password = await hashPassword(plain);
 		const rows = await db.users.create({
 			...row,
 			password,
 		});
 		const user = rows[0]!;
-		const sess = await createSession(user.id);
-		return {
-			user: publicUserFromRow(user),
-			sessionId: sess.id,
-		};
+		const u = publicUserFromRow(user);
+		if (login === true) {
+			const sess = await createSession(user.id);
+			return { user: u, sessionId: sess.id };
+		}
+		return { user: u };
 	},
 });
 

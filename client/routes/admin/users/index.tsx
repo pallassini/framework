@@ -34,10 +34,13 @@ export default function Admin() {
                   <Input placeholder="Username" field={createUser.username} />
                   <Input placeholder="Domain" field={createUser.domain} />
                   <div
-                    s={{base:"bg-#5959599d text-#727272 text-background round-10px px-6 py-2  centerx",
-                      "cursor-not-allowed bg-primary": createUser.valid,
-                      "bg-error text-background": res === "error",
-                      "text-background": res === "success",
+                    s={{
+                      base: {
+                        "bg-#5959599d text-#727272 text-background round-10px px-6 py-2  centerx": true,
+                        "cursor-not-allowed bg-primary": createUser.valid,
+                        "bg-error text-background": res === "error",
+                        "text-background": res === "success",
+                      },
                     }}
                     click={async () => {
                       if (!createUser.valid()) return;
@@ -54,7 +57,15 @@ export default function Admin() {
                       );
                     }}
                   >
-                    {() => (res() === "success" ? "Creato" : res() === "error" ? "Errore" : createUser.valid() ? "Create" : "Compila i campi")}
+                    {() =>
+                      res() === "success"
+                        ? "Creato"
+                        : res() === "error"
+                          ? "Errore"
+                          : createUser.valid()
+                            ? "Create"
+                            : "Compila i campi"
+                    }
                   </div>
                 </div>
               )}

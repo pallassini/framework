@@ -45,7 +45,7 @@ export default function Login() {
             await auth.login(form.values(), {
               onSuccess: (res) => {
                 if (res.user.role === "admin") {
-                  go("/adminnnnnn");
+                  go("/admin");
                 } else {
                   go("/");
                 }
