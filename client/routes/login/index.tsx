@@ -1,4 +1,4 @@
-import { auth, Form, state, v } from "client";
+import { auth, Form, go, state, v } from "client";
 import Input from "../../_components/input";
 
 export default function Login() {
@@ -43,6 +43,14 @@ export default function Login() {
             if (!form.valid()) return;
             error(false);
             await auth.login(form.values(), {
+              onSuccess: (res) => {
+                if (res.user.role === "admin") {
+                  go("/adminnnnnn");
+                } else {
+                  go("/");
+                }
+              },
+
               onError: () => {
                 form.errors.email("");
                 form.errors.password("");

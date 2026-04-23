@@ -1,5 +1,6 @@
 import { db } from "db";
 import { s, v, error } from "server";
+import { serverConfig } from "../../config";
 
 /** Tutti i campi della tabella `users` tranne `password` (mai esposto al client). */
 function publicUserFromRow(u: {
@@ -61,8 +62,8 @@ export const login = s({
 		/** Stesso criterio del client: `v.password("noError")` — niente min in validazione. */
 		password: v.password("noError"),
 	}),
-	/** Per IP (in-memory). Regola in `core/server/middlewares/limit.ts`. */
-	rateLimit: { window: 60_000, max: 20 },
+	/** Per IP (in-memory). Regola in `core/server/middlewares/limit.ts` + `server/config.ts` → `auth.rateLimit`. */
+	rateLimit: serverConfig.auth.rateLimit,
 	run: async (input, _ctx) => {
 		const rows = await db.users.find({ email: { $eq: input.email } }, { limit: 1 });
 		const user = rows[0];
@@ -88,7 +89,7 @@ export const register = s({
 		username: v.string().optional(),
 		role: v.enum(["admin", "user"]).optional(),
 	}),
-	rateLimit: { window: 60_000, max: 10 },
+	rateLimit: serverConfig.auth.rateLimit,
 	run: async (input, _ctx) => {
 		const password = await hashPassword(input.password);
 		const rows = await db.users.create({

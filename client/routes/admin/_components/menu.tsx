@@ -1,15 +1,13 @@
-import { device, For, persistState, state } from "client";
+import { device, For, go, persistState, state, url } from "client";
 import { Icon } from "../../../../core/client/runtime/tag/tags/icon";
 
-export const tab = persistState<"prenotations" | "services" | "resources" | "settings">(
-  "resources",
-);
+
 
 const MENU_ITEMS = [
-  { label: "Prenotazioni", icon: "calendar", id: "prenotations" as const },
-  { label: "Servizi", icon: "box", id: "services" as const },
-  { label: "Risorse", icon: "users", id: "resources" as const },
-  { label: "Impostazioni", icon: "bolt", id: "settings" as const },
+  { label: "Dashboard", icon: "monitor", go: ""  },
+  { label: "Users", icon: "users", go: "/users" as const },
+  { label: "Settings", icon: "bolt", go: "/settings" },
+
 ];
 
 export default function AdminMenu() {
@@ -27,12 +25,12 @@ export default function AdminMenu() {
                   base: {
                     "text-7 round-30px p-3 gapx-2 font-6": true,
                     "hover:(bg-#222222)": true,
-                    "text-background bg-primary hover:(bg-primary)": [tab, item.id],
+                    "text-background bg-primary hover:(bg-primary)": url.pathname() === "/admin" + item.go,
                   },
                 }}
                 stroke={2.5}
                 size={9}
-                click={() => tab(item.id as any)}
+                click={() => go("/admin" + item.go)}
               />
             )}
           </For>
@@ -48,15 +46,15 @@ export default function AdminMenu() {
                     base: {
                       "text-7 row round-30px bg-secondary w-auto p-3 gapx-2 font-6": true,
                       "hover:(bg-#222222)": true,
-                      "text-background bg-primary hover:(bg-primary)": [tab, item.id],
+                      "text-background bg-primary hover:(bg-primary)": url.pathname() === "/admin" + item.go,
                     },
                   }}
-                  click={() => tab(item.id as any)}
+                  click={() => go("/admin" + item.go)}
                 >
                   <icon
                     name={item.icon as Icon}
                     shadow={() =>
-                      tab() === item.id ? { color: "background", blur: 2, intensity: 1 } : false
+                      url.pathname() === "/admin" + item.go ? { color: "background", blur: 2, intensity: 1 } : false
                     }
                   />
                   <t show={open} s="text-4 centery">

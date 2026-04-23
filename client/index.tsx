@@ -7,6 +7,8 @@ App((Page) => {
 
   if (path.startsWith("/_devtools")) return <Page />;
 
+  if (!auth.ready()) return <Page />;
+
   if (role === "" && path !== "/login") go("/login");
   else if (role === "admin" && !path.startsWith("/admin")) go("/admin");
   else if (role === "user" && path.startsWith("/admin")) go("/");

@@ -1,7 +1,7 @@
-import Resource from "../../old/old/resorces/resources";
-import AdminMenu from "./_components/menu";
+import { auth } from "client";
+import AdminMenu from "../_components/menu";
 
-export default function Dashboard() {
+export default function Admin() {
   return (
     <>
       <div s="des:(row)">

@@ -1,7 +1,7 @@
 import type { RpcCallbacks } from "../server/server";
 import type { ServerRoutes } from "../server/routes-gen";
 import { server } from "../server/server";
-import { createState } from "../state";
+import { createState, signal } from "../state";
 import { clearSession, getSessionId, setSessionId } from "./session";
 
 const a = server.auth;
@@ -53,6 +53,9 @@ const session = createState({
 	},
 });
 
+/** Dopo la prima `auth.refresh()` in App: evita redirect con `role === ""` prima che `server.auth.me` abbia risposto. */
+const sessionResolved = signal(false);
+
 function persistSessionId(out: unknown): void {
 	if (out && typeof out === "object" && "sessionId" in out) {
 		const sid = (out as { sessionId?: unknown }).sessionId;
@@ -93,15 +96,19 @@ function applyPublicUser(u: AuthPublicUser | null): void {
  * RPC diretta: `await server.auth.me()`.
  */
 export async function refreshAuthSession(): Promise<void> {
-	if (!getSessionId()) {
-		applyPublicUser(null);
-		return;
-	}
 	try {
-		const out = await a.me();
-		applyPublicUser(pickUser(out));
-	} catch {
-		applyPublicUser(null);
+		if (!getSessionId()) {
+			applyPublicUser(null);
+			return;
+		}
+		try {
+			const out = await a.me();
+			applyPublicUser(pickUser(out));
+		} catch {
+			applyPublicUser(null);
+		}
+	} finally {
+		sessionResolved(true);
 	}
 }
 
@@ -150,6 +157,8 @@ async function authRegister(
 export const auth = {
 	/** Snapshot reattivo dell’utente (da `server.auth.me`), non la funzione RPC. */
 	me: session.me,
+	/** `true` dopo almeno un `auth.refresh` completato (ospite o utente). */
+	ready: sessionResolved,
 	/**
 	 * Sempre `AuthRpcResult` (`success` / `error` / `ratelimit` + `data` o `err`), senza throw.
 	 * L’RPC che va in eccezione: `server.auth.login`.
