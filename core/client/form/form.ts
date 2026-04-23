@@ -8,7 +8,12 @@ import { FIELD_OPTIONAL, readFieldType, type FieldTypeDesc } from "../validator/
 
 // ── types ─────────────────────────────────────────────────────────────────────
 export type FormStorage = "session" | "persist";
-export type FieldBinding = { readonly field: string };
+/**
+ * Riferimento a un campo di un `Form`: `formId` allinea a `Form({ id })` o al fingerprint
+ * (evita conflitti se due form con stessa `shape` → passa `id: "..."` distinti).
+ * Usato per `data-fw-form` / `data-fw-field` sull'`<input>` (navigazione Enter).
+ */
+export type FieldBinding = { readonly field: string; readonly formId: string };
 
 /**
  * Stile di default propagato dal `Form` a tutti gli `<Input field={...}>`.
@@ -228,6 +233,73 @@ function bindJsonStorage(store: Record<string, unknown>, key: string, storage: S
 
 type ValueSig = { (): unknown; (v: unknown): void };
 
+type FormEnterRegistry = {
+	keys: readonly string[];
+	onEnter?: () => void | Promise<void>;
+	/** Stesso criterio di `form.valid()`: se `true`, Enter invia da **qualsiasi** campo. */
+	isValid: () => boolean;
+};
+const formEnterRegistry = new Map<string, FormEnterRegistry>();
+let formEnterListenerAttached = false;
+
+function focusFieldInput(formId: string, fieldName: string): void {
+	if (typeof document === "undefined") return;
+	for (const el of document.querySelectorAll("[data-fw-form]")) {
+		if (!(el instanceof HTMLElement)) continue;
+		if (el.getAttribute("data-fw-form") !== formId) continue;
+		if (el.getAttribute("data-fw-field") !== fieldName) continue;
+		el.focus();
+		return;
+	}
+}
+
+function onGlobalFormKeydown(e: KeyboardEvent): void {
+	if (e.isComposing) return;
+	if (e.key !== "Enter" && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+	const t = e.target;
+	if (!t || !(t instanceof Element)) return;
+	if (t.tagName !== "INPUT" && t.tagName !== "TEXTAREA" && t.tagName !== "SELECT") return;
+	const formId = t.getAttribute("data-fw-form");
+	const field = t.getAttribute("data-fw-field");
+	if (formId == null || formId === "" || field == null || field === "") return;
+	const reg = formEnterRegistry.get(formId);
+	if (!reg) return;
+	const { keys, onEnter } = reg;
+	const i = keys.indexOf(field);
+	if (i < 0) return;
+	if (e.key === "Enter") {
+		const ok = reg.isValid();
+		e.preventDefault();
+		if (ok) {
+			if (onEnter) void Promise.resolve(onEnter());
+			return;
+		}
+		if (i < keys.length - 1) {
+			focusFieldInput(formId, keys[i + 1]!);
+			return;
+		}
+		if (onEnter) void Promise.resolve(onEnter());
+		return;
+	}
+	/** Frecce: solo su `<input>`, per non togliere ↑/↓ a `select` o `textarea` (righe / opzioni). */
+	if (t.tagName === "TEXTAREA" || t.tagName === "SELECT") return;
+	if (e.key === "ArrowDown" && i < keys.length - 1) {
+		e.preventDefault();
+		focusFieldInput(formId, keys[i + 1]!);
+		return;
+	}
+	if (e.key === "ArrowUp" && i > 0) {
+		e.preventDefault();
+		focusFieldInput(formId, keys[i - 1]!);
+	}
+}
+
+function ensureFormEnterListener(): void {
+	if (typeof document === "undefined" || formEnterListenerAttached) return;
+	formEnterListenerAttached = true;
+	document.addEventListener("keydown", onGlobalFormKeydown, true);
+}
+
 // ── Form ───────────────────────────────────────────────────────────────────────
 export function Form<Shape extends Record<string, InputSchema<unknown>>>(options: {
 	shape: Shape;
@@ -257,6 +329,20 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	borderWidth?: number | string;
 	size?: FormStyle["size"];
 	round?: FormStyle["round"];
+	/**
+	 * Se `true` (default), **Enter** e **ArrowDown** passano al campo successivo, **ArrowUp**
+	 * al precedente (su `<input>` vincolati al form). Con **Enter**: se `form.valid()` è già
+	 * `true`, `onEnter` parte da **qualsiasi** campo; se ci sono errori, si va al successivo
+	 * o, sull’ultimo, si lancia ugualmente `onEnter` (es. per mostrare errori). `textarea` /
+	 * `select` non usano le frecce per navigare. Due form stessa `shape` → `id` distinti.
+	 */
+	enterNavigate?: boolean;
+	/**
+	 * Invio via tastiera. Con **Enter**: se la shape è **già** valida, viene chiamata da
+	 * qualsiasi campo; altrimenti, invio solo sull’**ultimo** campo o dopo aver compilato tutto.
+	 * Esempio: `onEnter: () => { void form.submit(h) }`.
+	 */
+	onEnter?: () => void | Promise<void>;
 }): FormApi<Shape> {
 	const { shape, storage = null, bg } = options;
 	const formStyle: FormStyle = {
@@ -349,6 +435,17 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		return ok;
 	});
 
+	if (options.enterNavigate !== false) {
+		ensureFormEnterListener();
+		formEnterRegistry.set(id, {
+			keys,
+			onEnter: options.onEnter,
+			isValid: () => valid(),
+		});
+	} else {
+		formEnterRegistry.delete(id);
+	}
+
 	async function submit<R>(
 		handler: (values: InferObject<Shape>) => R | Promise<R>,
 	): Promise<R | undefined> {
@@ -365,7 +462,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	const out: Record<string, unknown> = { values: valuesAll, reset, errors, valid, submit };
 
 	for (const k of keys) {
-		const binding: FieldBinding = { field: k };
+		const binding: FieldBinding = { field: k, formId: id };
 		/** Verifica se lo schema del campo è marcato `.optional()` (tag Symbol). */
 		const sub = shape[k] as unknown as Record<PropertyKey, unknown>;
 		const isOptional = sub != null && (sub as Record<symbol, unknown>)[FIELD_OPTIONAL] === true;

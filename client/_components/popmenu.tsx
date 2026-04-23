@@ -247,41 +247,6 @@ function ensureBounceKeyframe() {
   document.head.appendChild(el);
 }
 
-/** Token iniettati sulla shell (fallback) quando il Field non ha `mode` / usa variabili `--fw-input-*`. */
-function inputShellTokensForFallback(fallbackInputMode: "light" | "dark"): {
-  accent: string;
-  restingBorder: string;
-  hoverBorder: string;
-  text: string;
-  labelResting: string;
-  optional: string;
-  stepperResting: string;
-  surface: string;
-} {
-  if (fallbackInputMode === "light") {
-    return {
-      accent: "rgba(0,0,0,0.85)",
-      restingBorder: "rgba(0,0,0,0.28)",
-      hoverBorder: "rgba(0,0,0,0.5)",
-      text: "#111",
-      labelResting: "rgba(0,0,0,0.85)",
-      optional: "var(--inputOptional, rgba(89,89,89,0.62))",
-      stepperResting: "rgba(0,0,0,0.75)",
-      surface: "var(--inputLight, #e6e6e6)",
-    };
-  }
-  return {
-    accent: "rgba(255,255,255,0.95)",
-    restingBorder: "rgba(255,255,255,0.22)",
-    hoverBorder: "rgba(255,255,255,0.38)",
-    text: "#fff",
-    labelResting: "rgba(255,255,255,0.55)",
-    optional: "var(--inputOptional, rgba(89,89,89,0.62))",
-    stepperResting: "rgba(255,255,255,0.95)",
-    surface: "var(--inputDark, #171717)",
-  };
-}
-
 export default function Popmenu(props: PopmenuProps) {
   const {
     collapsed,
@@ -300,7 +265,6 @@ export default function Popmenu(props: PopmenuProps) {
     shadow = true,
   } = props;
   const resolvedMode: "light" | "dark" = mode;
-  const fallbackInputMode = resolvedMode === "light" ? "dark" : "light";
 
   ensureBounceKeyframe();
   const open = state(false);
@@ -383,7 +347,6 @@ export default function Popmenu(props: PopmenuProps) {
   };
 
   watch(() => {
-    const inputOnThisPop = inputShellTokensForFallback(fallbackInputMode);
     const shellBg =
       resolvedMode === "light"
         ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
@@ -392,24 +355,13 @@ export default function Popmenu(props: PopmenuProps) {
       open: open(),
       modeProp: mode,
       resolvedMode,
-      fallbackInputMode,
       shellBackground: shellBg,
       colorSchemeOnShell: resolvedMode === "light" ? "light" : "dark",
-      inputOnThisPop,
       note:
-        "Se Form ha mode esplicito, resolvePalette usa la palette (dark/light) del form; " +
-        "questi --fw-input-* valgono come fallback (mode `auto`/undefined) o dentro resolvePalette per mode 'normal'.",
+        "Input: temi con Form/Input o formModeShellScopeVars; la shell popmenu non inietta --fw-input-*.",
       cssVarsInjectedOnShell: {
         "--fw-popmenu-bg": shellBg,
         "--fw-popmenu-mode": resolvedMode,
-        "--fw-input-accent": inputOnThisPop.accent,
-        "--fw-input-resting-border": inputOnThisPop.restingBorder,
-        "--fw-input-hover-border": inputOnThisPop.hoverBorder,
-        "--fw-input-text": inputOnThisPop.text,
-        "--fw-input-label-resting": inputOnThisPop.labelResting,
-        "--fw-input-optional": inputOnThisPop.optional,
-        "--fw-input-stepper-resting": inputOnThisPop.stepperResting,
-        "--fw-input-surface": inputOnThisPop.surface,
       },
     });
   });
@@ -527,7 +479,8 @@ export default function Popmenu(props: PopmenuProps) {
       shadow === false || !isOpen
         ? "none"
         : `${sx}px ${sy}px ${sblur}px ${sspread}px ${resolvedShadowColor}`;
-    const inputOnThisPop = inputShellTokensForFallback(fallbackInputMode);
+    const shellTextColor =
+      resolvedMode === "light" ? "#111" : "rgba(255,255,255,0.95)";
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
@@ -546,20 +499,12 @@ export default function Popmenu(props: PopmenuProps) {
        * controls” e gli input in popmenu **chiari** possono sembrare scuri.
        */
       colorScheme: resolvedMode === "light" ? "light" : "dark",
-      color: inputOnThisPop.text,
+      color: shellTextColor,
       background: shellBg,
       borderRadius: activeRound,
       boxShadow: shellShadow,
       "--fw-popmenu-bg": shellBg,
       "--fw-popmenu-mode": resolvedMode,
-      "--fw-input-accent": inputOnThisPop.accent,
-      "--fw-input-resting-border": inputOnThisPop.restingBorder,
-      "--fw-input-hover-border": inputOnThisPop.hoverBorder,
-      "--fw-input-text": inputOnThisPop.text,
-      "--fw-input-label-resting": inputOnThisPop.labelResting,
-      "--fw-input-optional": inputOnThisPop.optional,
-      "--fw-input-stepper-resting": inputOnThisPop.stepperResting,
-      "--fw-input-surface": inputOnThisPop.surface,
       animation: bounceName === "none" ? "none" : `${bounceName} 380ms cubic-bezier(0.25, 1.25, 0.5, 1) 1`,
       transition:
         `width ${d}ms ${e}, ` +

@@ -4,7 +4,7 @@ import type { InputMode } from "./presets";
 import type { InputElementDom } from "./common";
 import type { ClientEvents } from "../../../core/client/runtime/tag/props";
 import type { InputProps as FwInputProps } from "../../../core/client/runtime/tag/tags/input";
-import { resolveFieldBinding, type FieldBinding } from "../../../core/client/form/form";
+import { resolveFieldBinding, type FieldBinding, type FormStyle } from "../../../core/client/form/form";
 
 export type { InputMode } from "./presets";
 
@@ -117,7 +117,7 @@ function inferTypeFromField(field: FieldBinding | undefined): InputType | undefi
  * così il body giusto viene montato/smontato reattivamente al cambio del `value` dello switch.
  */
 export default function Input(props: InputProps) {
-  let fieldStyle: { size?: InputSize } | undefined;
+  let fieldStyle: FormStyle | undefined;
   const f = (props as { field?: FieldBinding }).field;
   if (f) {
     try {
@@ -128,8 +128,11 @@ export default function Input(props: InputProps) {
   }
   const inferred = inferTypeFromField((props as { field?: FieldBinding }).field);
   const type = props.type ?? inferred ?? "string";
-  const size = props.size ?? fieldStyle?.size ?? 3;
-  const merged = { ...props, size } as InputProps;
+  const p = props as InputPropsBase;
+  const size = p.size ?? fieldStyle?.size ?? 3;
+  /** Stesso criterio di `size`: il `mode` del `Form` finisce nelle prop così la palette non resta a default `dark`. */
+  const mode = p.mode ?? fieldStyle?.mode;
+  const merged = { ...props, size, mode } as InputProps;
   return (
     <switch value={type}>
       <case when="string">

@@ -11,7 +11,6 @@ import {
   resolvePalette,
   inputSurfaceBg,
   inputCutoutBackground,
-  inputRequiredRestingBorderColor,
   formModeShellScopeVars,
 } from "./presets";
 import { logInputDebug } from "./inputDebug";
@@ -226,11 +225,7 @@ export default function InputString(props: InputStringProps) {
         ? optionalFieldMutedColor()
         : foc
           ? pal.accent
-          : isOptional()
-            ? pal.restingBorder
-            : hasRestingOverride
-              ? pal.restingBorder
-              : inputRequiredRestingBorderColor();
+          : pal.restingBorder;
     const ring =
       pal.showFocusShadow && foc && !err
         ? `0 0 5px 0 ${pal.accent}`
@@ -458,22 +453,14 @@ export default function InputString(props: InputStringProps) {
         ? optionalFieldMutedColor()
         : foc
           ? pal.accent
-          : isOptional()
-            ? pal.restingBorder
-            : hasRestingOverride
-              ? pal.restingBorder
-              : inputRequiredRestingBorderColor();
+          : pal.restingBorder;
     const borderReason = err
       ? "error"
       : optAtRest
         ? "optionalAtRest→inputOptionalMuted (spesso bordo grigio chiaro)"
         : foc
           ? "focus→accent"
-          : isOptional()
-            ? "optional→restingBorder"
-            : hasRestingOverride
-              ? "requiredResting→palette.restingBorder (override)"
-              : "requiredResting→inputDark";
+          : "resting→pal.restingBorder";
     const st = inputStyle();
     const effectiveMode = mode ?? fs?.mode;
     queueMicrotask(() => {

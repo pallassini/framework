@@ -5,7 +5,6 @@ import { useInputCommon, pickInputElementDom } from "./common";
 import {
   inputSurfaceBg,
   inputCutoutBackground,
-  inputRequiredRestingBorderColor,
   formModeShellScopeVars,
   mapColorToken,
   optionalFieldMutedColor,
@@ -623,11 +622,7 @@ export default function InputNumber(props: InputNumberProps) {
     const hasRestingOverride =
       props.restingColor !== undefined || fs?.restingColor !== undefined;
     const idleBorderColor = props.idleBorder ?? "transparent";
-    const activeBorderColor =
-      props.activeBorder ??
-      (c.isOptional() || hasRestingOverride
-        ? pal.restingBorder
-        : inputRequiredRestingBorderColor());
+    const activeBorderColor = props.activeBorder ?? pal.restingBorder;
     const optAtRest =
       c.isOptional() &&
       !foc &&
@@ -831,6 +826,10 @@ export default function InputNumber(props: InputNumberProps) {
         defaultValue={initialNumber !== undefined ? String(initialNumber) : ""}
         ref={(el: HTMLElement | SVGElement | null) => {
           inputEl = el as HTMLInputElement | null;
+          if (el instanceof HTMLInputElement && props.field) {
+            el.setAttribute("data-fw-form", props.field.formId);
+            el.setAttribute("data-fw-field", props.field.field);
+          }
         }}
         input={onType}
         focusout={props.focusout}

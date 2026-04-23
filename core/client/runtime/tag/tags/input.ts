@@ -107,6 +107,8 @@ export function input(props: InputProps): UiNode {
 
 	if (bind) {
 		const ctl = resolveFieldBinding(bind);
+		el.setAttribute("data-fw-form", bind.formId);
+		el.setAttribute("data-fw-field", bind.field);
 		const userOnInput = onInput as
 			| ((value: string, ev: HTMLElementEventMap["input"]) => void)
 			| undefined;

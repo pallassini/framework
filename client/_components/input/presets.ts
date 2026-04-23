@@ -12,8 +12,9 @@
  */
 export type InputMode = "dark" | "light";
 
-export function normalizeInputMode(mode: InputMode | undefined): "dark" | "light" {
+export function normalizeInputMode(mode: InputMode | string | undefined): "dark" | "light" {
   if (mode === "light") return "light";
+  if (typeof mode === "string" && mode.toLowerCase().trim() === "light") return "light";
   return "dark";
 }
 
@@ -97,14 +98,6 @@ export function inputCutoutBackground(fallback: string): string {
 }
 
 /**
- * Bordo a riposo (senza focus) per campi **obbligatori** quando il box è
- * trasparente sopra al pop: contorno scuro coerente con `--inputDark`.
- */
-export function inputRequiredRestingBorderColor(): string {
-  return mapColorToken("inputDark") ?? "var(--inputDark)";
-}
-
-/**
  * Preset di colori risolti per una mode.
  * Ogni singola UI di `<Input>` legge queste chiavi e le usa come default —
  * le prop esplicite passate all'`<Input>` o al `Form` hanno sempre la precedenza.
@@ -135,10 +128,14 @@ export type InputPalette = {
   showFocusShadow: boolean;
 };
 
+/**
+ * Sfondo campo = `--inputLight` / `--inputDark` (`index.css`); bordi e testi devono
+ * **contrastare** (mai usare `inputLight` per un bordo su `inputLight`).
+ */
 const PALETTES: Record<"dark" | "light", InputPalette> = {
   dark: {
     accent: "var(--inputDark)",
-    restingBorder: "var(--inputDark)",
+    restingBorder: "#363636",
     hoverBorder: "var(--inputDark)",
     text: "var(--inputDark)",
     labelResting: "var(--inputDark)",
@@ -150,7 +147,7 @@ const PALETTES: Record<"dark" | "light", InputPalette> = {
   },
   light: {
     accent: "var(--inputLight)",
-    restingBorder: "var(--inputLight)",
+    restingBorder: "#363636",
     hoverBorder: "var(--inputLight)",
     text: "var(--inputLight)",
     labelResting: "var(--inputLight)",
@@ -163,10 +160,9 @@ const PALETTES: Record<"dark" | "light", InputPalette> = {
 };
 
 /**
- * Variabili su un wrapper attorno a ogni `<Input>`: annulla l'ereditarietà
- * `--fw-input-*` / `--inputDark|Light` iniettata dal **Popmenu** e riallinea
- * tutto al `mode` del **Form** (o `mode` sull'Input). Se `mode` è `undefined`,
- * non imposta nulla (vale il contesto, es. popmenu).
+ * Variabili su un wrapper attorno a ogni `<Input>`: imposta `--fw-input-*` in base al
+ * `mode` del **Form** (o sull'Input). Se `mode` è `undefined`, non imposta nulla
+ * (cascata da `:root` o da wrapper padre).
  */
 export function formModeShellScopeVars(
   mode: InputMode | undefined,

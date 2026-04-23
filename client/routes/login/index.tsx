@@ -11,8 +11,32 @@ export default function Login() {
       email: v.email(),
       password: v.password("noError"),
     },
+    onEnter: () => {
+      void doLogin();
+    },
   });
   const error = state(false);
+
+  async function doLogin() {
+    await form.submit(async (values) => {
+      error(false);
+      await auth.login(values, {
+        onSuccess: (res) => {
+          if (res.user.role === "admin") {
+            go("/admin");
+          } else {
+            go("/");
+          }
+        },
+        onError: () => {
+          form.errors.email("");
+          form.errors.password("");
+          error(true);
+        },
+      });
+    });
+  }
+
   return (
     <>
       <div
@@ -39,24 +63,8 @@ export default function Login() {
               "bg-error text-background cursor-pointer hover:(opacity-90) scale-110 px-6": error,
             },
           }}
-          click={async () => {
-            if (!form.valid()) return;
-            error(false);
-            await auth.login(form.values(), {
-              onSuccess: (res) => {
-                if (res.user.role === "admin") {
-                  go("/admin");
-                } else {
-                  go("/");
-                }
-              },
-
-              onError: () => {
-                form.errors.email("");
-                form.errors.password("");
-                error(true);
-              },
-            });
+          click={() => {
+            void doLogin();
           }}
         >
           {() => (error() ? "Credenziali non valide" : form.valid() ? "Accedi" : "Compila i campi")}

@@ -5,10 +5,12 @@ import Input from "../../../_components/input";
 
 export default function Admin() {
   const createUser = Form({
+    showFocusShadow: false,
+    mode: "light",
     size: 3,
     shape: {
       email: v.email("Email non valida"),
-      password: v.string(),
+      password: v.password(),
       username: v.string(),
       domain: v.string(),
     },
@@ -24,8 +26,9 @@ export default function Admin() {
         <div s="col centerx children-centerx w-100% des:(-ml-19)">
           <div s=" absolute right m-5">
             <Popmenu
-              mode="light"
+              mode="dark"
               direction="bottom-left"
+              
               collapsed={() => <icon name="plus" size={7} s="p-2 text-background" stroke={2.5} />}
               extended={() => (
                 <div s="col gapy-3 px-5 py-6 w-16">
