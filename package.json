@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun ./core/cli/dev/index.ts",
+    "dev:remote": "bun ./core/cli/dev-remote.ts",
     "build": "bun ./core/cli/build/index.ts",
     "db": "bun ./core/cli/db/index.ts"
   },

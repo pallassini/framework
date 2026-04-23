@@ -7,6 +7,7 @@ import { dispatchServerRequest } from "./dispatch";
 import { loadServerRoutes } from "./load";
 import { tryServeBuiltWeb } from "../../cli/build/static-web";
 import { watchServerRoutes } from "./watch";
+import { maybeHandleWalRaw } from "../../db/remote/wal-raw";
 
 const prod = process.env.NODE_ENV === "production";
 
@@ -22,6 +23,8 @@ async function main(): Promise<void> {
 		port: serverConfig.port,
 		hostname: serverConfig.host,
 		async fetch(req) {
+			const wal = await maybeHandleWalRaw(req);
+			if (wal != null) return wal;
 			const r = await dispatchServerRequest(req, root);
 			if (r != null) return r;
 			const web = await tryServeBuiltWeb(req, root);
