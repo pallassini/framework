@@ -9,6 +9,7 @@ import { table } from "../core/db/schema/table";
 export const users = table({
   email: v.string().unique(),
   password: v.string(),
+  passwordUpdatedAt: v.datetime(),
   username: v.string().optional(),
   role: v.enum(["admin", "user", "customer"]),
 

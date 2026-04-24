@@ -251,6 +251,21 @@ function ensureBounceKeyframe() {
   document.head.appendChild(el);
 }
 
+let fwPopmenuPortal: HTMLDivElement | null = null;
+
+/** Layer sotto `body` (dopo `#root`): evita stacking context di genitori (`transform`, `#root` isolation, …). */
+function ensureFwPopmenuPortal(): HTMLDivElement {
+  if (fwPopmenuPortal && document.body.contains(fwPopmenuPortal)) {
+    return fwPopmenuPortal;
+  }
+  const el = document.createElement("div");
+  el.id = "fw-popmenu-portal";
+  el.setAttribute("data-fw", "popmenu-portal");
+  document.body.appendChild(el);
+  fwPopmenuPortal = el;
+  return el;
+}
+
 export default function Popmenu(props: PopmenuProps) {
   const {
     collapsed,
@@ -309,6 +324,39 @@ export default function Popmenu(props: PopmenuProps) {
 
   /** Elemento della shell per autofocus + outside-click affidabile cross-browser. */
   let shellEl: HTMLElement | null = null;
+
+  /** Root del Popmenu: aperto → spostata in `#fw-popmenu-portal` + `position:fixed` ancorata al placeholder. */
+  let wrapEl: HTMLDivElement | null = null;
+  let layoutPlaceholder: HTMLDivElement | null = null;
+  /** Coordinate viewport del placeholder (non usare `state({...})`: `state` da `client` è lo store root → oggetto = StateMap, non Signal). */
+  const wrapPinLeft = state(0);
+  const wrapPinTop = state(0);
+
+  const syncWrapPin = () => {
+    if (!layoutPlaceholder || !open()) return;
+    const r = layoutPlaceholder.getBoundingClientRect();
+    wrapPinLeft(r.left);
+    wrapPinTop(r.top);
+  };
+
+  const onScrollOrResize = () => {
+    syncWrapPin();
+  };
+
+  const teardownPortal = () => {
+    window.removeEventListener("scroll", onScrollOrResize, true);
+    window.removeEventListener("resize", onScrollOrResize);
+    const wrap = wrapEl;
+    const ph = layoutPlaceholder;
+    if (!ph) return;
+    const parent = ph.parentElement;
+    if (wrap && fwPopmenuPortal && wrap.parentElement === fwPopmenuPortal && parent) {
+      fwPopmenuPortal.removeChild(wrap);
+      parent.insertBefore(wrap, ph);
+    }
+    ph.remove();
+    layoutPlaceholder = null;
+  };
 
   /** Focus del primo input dentro la shell. Su iOS DEVE essere sincrono nel gesto utente. */
   const tryAutofocus = () => {
@@ -402,12 +450,60 @@ export default function Popmenu(props: PopmenuProps) {
     watch.onCleanup(() => clearTimeout(id));
   });
 
-  const wrapStyle = () => ({
-    position: "relative",
-    display: "block",
-    width: `${cw()}px`,
-    height: `${ch()}px`,
-  });
+  /**
+   * Con `open`, il wrap è nel portal sotto `body`: coordinate viewport dal placeholder lasciato al posto del trigger.
+   * `watch` vincolato solo a `open` per non smontare il portal a ogni tick di `cw`/`ch`.
+   */
+  watch(
+    () => {
+      const wrap = wrapEl;
+      if (!wrap) return;
+
+      let disposerSize: (() => void) | null = null;
+      watch.onCleanup(() => {
+        disposerSize?.();
+        disposerSize = null;
+        teardownPortal();
+      });
+
+      if (!open()) return;
+
+      const portal = ensureFwPopmenuPortal();
+      if (wrap.parentElement !== portal) {
+        const parent = wrap.parentElement;
+        if (!parent) return;
+        const ph = document.createElement("div");
+        ph.style.display = "inline-block";
+        ph.style.verticalAlign = "middle";
+        ph.setAttribute("aria-hidden", "true");
+        parent.insertBefore(ph, wrap);
+        layoutPlaceholder = ph;
+        portal.appendChild(wrap);
+      }
+
+      disposerSize = watch(() => {
+        if (!layoutPlaceholder) return;
+        layoutPlaceholder.style.width = `${cw()}px`;
+        layoutPlaceholder.style.height = `${ch()}px`;
+        syncWrapPin();
+      });
+
+      window.addEventListener("scroll", onScrollOrResize, true);
+      window.addEventListener("resize", onScrollOrResize);
+    },
+    { watch: [() => open()] },
+  );
+
+  const wrapStyle = () => {
+    const o = open();
+    return {
+      position: o ? ("fixed" as const) : ("relative" as const),
+      ...(o ? { left: `${wrapPinLeft()}px`, top: `${wrapPinTop()}px` } : {}),
+      display: "block",
+      width: `${cw()}px`,
+      height: `${ch()}px`,
+    };
+  };
 
   const boxStyle = () => {
     const isOpen = open();
@@ -512,7 +608,7 @@ export default function Popmenu(props: PopmenuProps) {
       cursor: "pointer",
       overflow: "hidden",
       opacity: ready ? "1" : "0",
-      zIndex: isOpen ? "50" : "1",
+      zIndex: isOpen ? "var(--fw-z-popmenu-shell, 100002)" : "1",
       willChange: "width, height, transform, opacity",
       "--popmenu-base-transform": baseTransform || "none",
       transform: composed,
@@ -670,7 +766,7 @@ export default function Popmenu(props: PopmenuProps) {
     position: "fixed",
     inset: "0",
     background: "transparent",
-    zIndex: "40",
+    zIndex: "var(--fw-z-popmenu-backdrop, 100001)",
     pointerEvents: open() ? "auto" : "none",
     /** touch-action: manipulation evita che iOS ritardi il click di 300ms. */
     touchAction: "manipulation",
@@ -749,7 +845,12 @@ export default function Popmenu(props: PopmenuProps) {
   };
 
   return (
-    <div style={wrapStyle as any}>
+    <div
+      ref={(el) => {
+        wrapEl = el as HTMLDivElement | null;
+      }}
+      style={wrapStyle as any}
+    >
       <div ref={observeSize(cw, ch)} style={measureHostStyle as any}>
         {collapsed()}
       </div>

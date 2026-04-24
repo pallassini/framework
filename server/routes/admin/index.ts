@@ -17,10 +17,14 @@ export const userUpdate = s({
 	run: async (input) => {
 		const { id, ...patch } = input as { id: string } & Record<string, unknown>;
 		const set: Record<string, unknown> = { ...patch };
+		delete set["passwordUpdatedAt"];
 		if (Object.prototype.hasOwnProperty.call(set, "password")) {
 			const p = set["password"];
 			if (p === undefined) delete set["password"];
-			else set["password"] = await hashPassword(String(p));
+			else {
+				set["password"] = await hashPassword(String(p));
+				set["passwordUpdatedAt"] = new Date();
+			}
 		}
 		if (Object.prototype.hasOwnProperty.call(set, "email") && set["email"] !== undefined) {
 			set["email"] = v.email().parse(set["email"]);

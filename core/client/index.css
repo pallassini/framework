@@ -43,6 +43,33 @@ input[type="number"] {
 	appearance: textfield;
 }
 
+:root {
+	/**
+	 * Popmenu: portal sotto `body`, sopra `#root` (che ha `isolation: isolate`).
+	 * Override da tema: `--fw-z-popmenu-portal`, `--fw-z-popmenu-backdrop`, `--fw-z-popmenu-shell`.
+	 */
+	--fw-z-popmenu-portal: 2147483646;
+	--fw-z-popmenu-backdrop: 100001;
+	--fw-z-popmenu-shell: 100002;
+}
+
+/**
+ * Contenitore portale: i singoli `<Popmenu />` aperti spostano qui il propio wrap (watch su `open`).
+ * `pointer-events: none` sul layer; i figli ripristinano i click.
+ */
+#fw-popmenu-portal {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: var(--fw-z-popmenu-portal);
+}
+
+#fw-popmenu-portal > * {
+	pointer-events: auto;
+}
+
 /* Stacking: figli con z-index negativo (es. Meteors `fill`) restano sopra lo sfondo di #root. */
 #root {
 	isolation: isolate;

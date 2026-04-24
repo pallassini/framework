@@ -18,7 +18,10 @@ type UserCreate = CreateInput<ServerTables["users"]>;
  * Stesso `CreateInput` tranne `password` in chiaro (tutto il resto, incluso `role`, come in tabella / enum).
  * `login` non è su DB: solo se `true` il server crea la sessione (comporta “resta loggato” come il login).
  */
-type RegisterIn = Omit<UserCreate, "password"> & { password: string; login?: boolean };
+type RegisterIn = Omit<UserCreate, "password" | "passwordUpdatedAt"> & {
+	password: string;
+	login?: boolean;
+};
 
 /**
  * Stesso criterio di `db.users` in create, ma `password` = testo in chiaro (`v.password()`).
@@ -34,6 +37,9 @@ const userRegisterInput: InputSchema<RegisterIn> = (() => {
 	for (const [k, s0] of Object.entries(shape)) {
 		if (k === "password") {
 			reg[k] = v.password();
+			continue;
+		}
+		if (k === "passwordUpdatedAt") {
 			continue;
 		}
 		if (k === "id" || k === "createdAt" || k === "updatedAt") {
@@ -131,6 +137,7 @@ export const register = s({
 		const rows = await db.users.create({
 			...row,
 			password,
+			passwordUpdatedAt: new Date(),
 		});
 		const user = rows[0]!;
 		const u = publicUserFromRow(user);
