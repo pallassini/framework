@@ -389,11 +389,27 @@ function applyLayerMapKeys(layer: StyleLayerInput, target: Properties): void {
 // ─── Stringa token ───────────────────────────────────────────────────────────
 
 export function activeTokensFromString(str: string, vp: StyleViewport): string {
+	const tokens = tokenizeStyleString(str);
+	/** Allineato a `resolveStyleLayer`: su `tab`, se esiste `tab:(…)` vince su `des:(…)`; altrimenti `des` fa da fallback. */
+	let hasTabBlock = false;
+	if (vp === "tab") {
+		for (const t of tokens) {
+			const m = t.match(/^(mob|tab|des):\(([\s\S]*)\)$/);
+			if (m?.[1] === "tab") {
+				hasTabBlock = true;
+				break;
+			}
+		}
+	}
+
 	const parts: string[] = [];
-	for (const t of tokenizeStyleString(str)) {
+	for (const t of tokens) {
 		const m = t.match(/^(mob|tab|des):\(([\s\S]*)\)$/);
 		if (m) {
-			if (m[1] === vp) parts.push(m[2]!.trim());
+			const branch = m[1] as StyleViewport;
+			const inner = m[2]!.trim();
+			if (branch === vp) parts.push(inner);
+			else if (vp === "tab" && branch === "des" && !hasTabBlock) parts.push(inner);
 			continue;
 		}
 		parts.push(t);

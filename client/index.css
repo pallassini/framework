@@ -14,6 +14,17 @@
  --popmenuLigth: #e6e6e6;
  --popmenuDark: #171717;
  --popmenuRound: 20px;
+ /**
+  * Ombra Popmenu: un solo colore + numeri regolabili (px). `--popmenuShadow` li compone;
+  * alza `--popmenuShadowBlur` per più dispersione (es. 48px); spread negativo ammorbidisce il nero.
+  */
+ --popmenuShadowColor: rgba(0, 0, 0, 0.083);
+ --popmenuShadowX: 0px;
+ --popmenuShadowY: 10px;
+ --popmenuShadowBlur: 22px;
+ --popmenuShadowSpread: -6px;
+ --popmenuShadow: 0 var(--popmenuShadowY) var(--popmenuShadowBlur) var(--popmenuShadowSpread)
+   var(--popmenuShadowColor);
 
  --error: #ff2525;
  --round: 20px;

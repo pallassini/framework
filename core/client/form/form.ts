@@ -242,15 +242,36 @@ type FormEnterRegistry = {
 const formEnterRegistry = new Map<string, FormEnterRegistry>();
 let formEnterListenerAttached = false;
 
+/**
+ * Preferisce la copia “visiva” del campo: componenti come `Popmenu` montano lo stesso
+ * `extended()` anche in un host di misura nascosto (`visibility: hidden`) prima
+ * della shell; il **primo** match in ordine di documento è invisibile e sposta il
+ * focus in modo inutilizzabile. Scorriamo i candidati **dal fondo** e saltiamo
+ * elementi nascosti / `display: none`.
+ */
 function focusFieldInput(formId: string, fieldName: string): void {
 	if (typeof document === "undefined") return;
+	const candidates: HTMLElement[] = [];
 	for (const el of document.querySelectorAll("[data-fw-form]")) {
 		if (!(el instanceof HTMLElement)) continue;
 		if (el.getAttribute("data-fw-form") !== formId) continue;
 		if (el.getAttribute("data-fw-field") !== fieldName) continue;
+		candidates.push(el);
+	}
+	if (candidates.length === 0) return;
+	const visibleEnough = (el: HTMLElement) => {
+		const s = getComputedStyle(el);
+		if (s.visibility === "hidden" || s.display === "none") return false;
+		return true;
+	};
+	for (let i = candidates.length - 1; i >= 0; i--) {
+		const el = candidates[i]!;
+		if (!visibleEnough(el)) continue;
 		el.focus();
 		return;
 	}
+	/** Estremo: tutte le copie filtrate (non dovrebbe accadere) → focus sull’ultima nel DOM. */
+	candidates[candidates.length - 1]!.focus();
 }
 
 function onGlobalFormKeydown(e: KeyboardEvent): void {
@@ -300,8 +321,47 @@ function ensureFormEnterListener(): void {
 	document.addEventListener("keydown", onGlobalFormKeydown, true);
 }
 
+function isOptionalFieldSchema(s: unknown): boolean {
+	return (
+		typeof s === "object" && s != null && (s as Record<symbol, unknown>)[FIELD_OPTIONAL] === true
+	);
+}
+
+/**
+ * Dopo un `sub.parse` andato a buon fine: se il campo **non** è `.optional()` e lo schema
+ * è trattato come stringa o password, stringa vuota o solo spazi → errore `""` (obbligo senza
+ * testo sotto l’`Input`). In `shape` basta `v.string()`; non serve chain `.nonempty("")`.
+ * Se invece `parse` lancia (es. `.email()` / `v.password()` / `.nonempty("msg")`) vale quel messaggio.
+ */
+function parseFieldValueForForm(
+	sub: InputSchema<unknown>,
+	raw: unknown,
+	isOptional: boolean,
+):
+	| { ok: true; value: unknown }
+	| { ok: false; message: string } {
+	let parsed: unknown;
+	try {
+		parsed = sub.parse(raw);
+	} catch (e) {
+		return { ok: false, message: e instanceof ValidationError ? e.message : "invalid" };
+	}
+	if (isOptional) return { ok: true, value: parsed };
+	const ft = readFieldType(sub);
+	if (ft?.kind === "string" || ft?.kind === "password") {
+		if (String(parsed as string).trim() === "") return { ok: false, message: "" };
+	}
+	return { ok: true, value: parsed };
+}
+
 // ── Form ───────────────────────────────────────────────────────────────────────
 export function Form<Shape extends Record<string, InputSchema<unknown>>>(options: {
+	/**
+	 * I campi **non** `.optional()` con tipo `string` / `password` nello schema sono
+	 * trattati come obbligatori (vuoto o solo spazi → errore `""`) senza aggiungere
+	 * `.nonempty("")` a ogni `v.string()`. `valid()`, `values()` e `validateField` usano
+	 * la stessa regola.
+	 */
 	shape: Shape;
 	storage?: FormStorage | null;
 	/**
@@ -396,17 +456,22 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		const sub = shape[key as keyof Shape] as InputSchema<unknown>;
 		const raw = (values as Record<string, ValueSig>)[key]();
 		const errSig = (errors as Record<string, ValueSig>)[key];
-		try {
-			sub.parse(raw);
-			errSig("");
-		} catch (e) {
-			errSig(e instanceof ValidationError ? e.message : "invalid");
-		}
+		const isOpt = isOptionalFieldSchema(sub);
+		const r = parseFieldValueForForm(sub, raw, isOpt);
+		if (!r.ok) errSig(r.message);
+		else errSig("");
 	}
 
 	function valuesAll(): InferObject<Shape> {
 		const obj: Record<string, unknown> = {};
-		for (const k of keys) obj[k] = (values as Record<string, ValueSig>)[k]();
+		for (const k of keys) {
+			const sub = shape[k as keyof Shape] as InputSchema<unknown>;
+			const raw = (values as Record<string, ValueSig>)[k]();
+			const isOpt = isOptionalFieldSchema(sub);
+			const r = parseFieldValueForForm(sub, raw, isOpt);
+			if (!r.ok) throw new ValidationError(r.message);
+			obj[k] = r.value;
+		}
 		return objectSchema.parse(obj) as InferObject<Shape>;
 	}
 
@@ -422,17 +487,14 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	 * si sottoscrivono tramite `watch` ai signal dei valori.
 	 */
 	const valid = signal((): boolean => {
-		let ok = true;
 		for (const k of keys) {
 			const sub = shape[k as keyof Shape] as InputSchema<unknown>;
 			const raw = (values as Record<string, ValueSig>)[k]();
-			try {
-				sub.parse(raw);
-			} catch {
-				ok = false;
-			}
+			const isOpt = isOptionalFieldSchema(sub);
+			const r = parseFieldValueForForm(sub, raw, isOpt);
+			if (!r.ok) return false;
 		}
-		return ok;
+		return true;
 	});
 
 	if (options.enterNavigate !== false) {
@@ -464,9 +526,8 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	for (const k of keys) {
 		const binding: FieldBinding = { field: k, formId: id };
 		/** Verifica se lo schema del campo è marcato `.optional()` (tag Symbol). */
-		const sub = shape[k] as unknown as Record<PropertyKey, unknown>;
-		const isOptional = sub != null && (sub as Record<symbol, unknown>)[FIELD_OPTIONAL] === true;
 		const subSchema = shape[k] as InputSchema<unknown>;
+		const isOptional = isOptionalFieldSchema(subSchema);
 		ctlByBinding.set(binding, {
 			get: () => {
 				const v0 = (values as Record<string, ValueSig>)[k]();

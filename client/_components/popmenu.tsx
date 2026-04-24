@@ -64,9 +64,13 @@ interface PopmenuProps {
   /** Raggio shell quando il popmenu è aperto (solo extended). */
   extendedRound?: number | string;
   /**
-   * Ombra della shell quando è aperta.
-   * - `true`: usa i token CSS globali `--popmenuShadow*`
-   * - oggetto: override puntuale
+   * Ombra della shell quando è aperta. Default `true`.
+   * - `true`: se `:root` ha `--popmenuShadow` non vuota → `box-shadow: var(--popmenuShadow)`.
+   *   Consiglio in CSS: `--popmenuShadowColor` + `--popmenuShadowBlur` (e opz. X/Y/spread), poi
+   *   `--popmenuShadow: 0 var(--popmenuShadowY) var(--popmenuShadowBlur) var(--popmenuShadowSpread) var(--popmenuShadowColor)`.
+   *   Se `--popmenuShadow` è vuota, compone da `--popmenuShadowX|Y|Blur|Spread|Color` (numeri con o senza `px`) + intensità/opacità.
+   * - oggetto: override numerici/colore (come i token, senza usare la one-liner).
+   * - `false`: nessuna ombra.
    */
   shadow?: boolean | {
     x?: number;
@@ -451,7 +455,8 @@ export default function Popmenu(props: PopmenuProps) {
           : extendedRound
         : shellRound;
     const activeRound = isOpen ? openedRound : closedRound;
-    const shadowCfg = typeof shadow === "object" && shadow !== null ? shadow : {};
+    const shadowObj = typeof shadow === "object" && shadow !== null ? shadow : null;
+    const shadowCfg = shadowObj ?? {};
     const rootStyle =
       typeof document !== "undefined"
         ? getComputedStyle(document.documentElement)
@@ -461,24 +466,43 @@ export default function Popmenu(props: PopmenuProps) {
       const n = Number(raw);
       return Number.isFinite(n) ? n : fallback;
     };
-    const sx = shadowCfg.x ?? cssNum("--popmenuShadowX", 0);
-    const sy = shadowCfg.y ?? cssNum("--popmenuShadowY", 10);
-    const sblur = shadowCfg.blur ?? cssNum("--popmenuShadowBlur", 26);
-    const sspread = shadowCfg.spread ?? cssNum("--popmenuShadowSpread", 0);
-    const scolor =
-      shadowCfg.color ??
-      (rootStyle?.getPropertyValue("--popmenuShadowColor").trim() ||
-        "rgba(0, 0, 0, 0.35)");
-    const cssIntensity = cssNum("--popmenuShadowIntensity", 1);
-    const sintensity = shadowCfg.intensity ?? (Number.isFinite(cssIntensity) ? cssIntensity : 1);
-    const cssOpacity = cssNum("--popmenuShadowOpacity", 1);
-    const sopacity = shadowCfg.opacity ?? (Number.isFinite(cssOpacity) ? cssOpacity : 1);
-    const shadowStrength = Math.max(0, sintensity * sopacity);
-    const resolvedShadowColor = strengthenShadowColor(scolor, shadowStrength);
-    const shellShadow =
-      shadow === false || !isOpen
-        ? "none"
-        : `${sx}px ${sy}px ${sblur}px ${sspread}px ${resolvedShadowColor}`;
+    /** Lunghezze in px da token CSS (`42` o `42px`). */
+    const cssPx = (name: string, fallback: number): number => {
+      const raw = (rootStyle?.getPropertyValue(name) ?? "").trim();
+      if (!raw) return fallback;
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const popmenuShadowOneLine = (rootStyle?.getPropertyValue("--popmenuShadow") ?? "").trim();
+
+    const composedShadowFromTokens = (): string => {
+      const sx = shadowCfg.x ?? cssPx("--popmenuShadowX", 0);
+      const sy = shadowCfg.y ?? cssPx("--popmenuShadowY", 10);
+      const sblur = shadowCfg.blur ?? cssPx("--popmenuShadowBlur", 42);
+      const sspread = shadowCfg.spread ?? cssPx("--popmenuShadowSpread", -6);
+      const scolor =
+        shadowCfg.color ??
+        (rootStyle?.getPropertyValue("--popmenuShadowColor").trim() ||
+          "rgba(0, 0, 0, 0.35)");
+      const cssIntensity = cssNum("--popmenuShadowIntensity", 1);
+      const sintensity = shadowCfg.intensity ?? (Number.isFinite(cssIntensity) ? cssIntensity : 1);
+      const cssOpacity = cssNum("--popmenuShadowOpacity", 1);
+      const sopacity = shadowCfg.opacity ?? (Number.isFinite(cssOpacity) ? cssOpacity : 1);
+      const shadowStrength = Math.max(0, sintensity * sopacity);
+      const resolvedShadowColor = strengthenShadowColor(scolor, shadowStrength);
+      return `${sx}px ${sy}px ${sblur}px ${sspread}px ${resolvedShadowColor}`;
+    };
+
+    let shellShadow: string;
+    if (shadow === false || !isOpen) {
+      shellShadow = "none";
+    } else if (shadowObj) {
+      shellShadow = composedShadowFromTokens();
+    } else if (popmenuShadowOneLine !== "") {
+      shellShadow = "var(--popmenuShadow)";
+    } else {
+      shellShadow = composedShadowFromTokens();
+    }
     const shellTextColor =
       resolvedMode === "light" ? "#111" : "rgba(255,255,255,0.95)";
     const st: Record<string, string> = {

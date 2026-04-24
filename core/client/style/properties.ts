@@ -12,7 +12,17 @@ import { w } from "./properties/w";
 import * as m from "./properties/margin";
 import * as p from "./properties/padding";
 import { opacity as opacityFn } from "./properties/opacity";
-import { round } from "./properties/round";
+import {
+	round,
+	roundb,
+	roundbl,
+	roundbr,
+	roundl,
+	roundr,
+	roundt,
+	roundtl,
+	roundtr,
+} from "./properties/round";
 import { rotate as rotateFn } from "./properties/rotate";
 import { text } from "./properties/text";
 import { zIndex } from "./properties/zIndex";
@@ -173,6 +183,15 @@ export const map = styleMap({
   z: zIndex,
   opacity: opacityFn,
   round: round,
+  /** Angoli singoli / lati: stessi suffissi di `round-*` (`roundt-5`, `roundt-round`, `roundtl-10px`, …). */
+  roundt: roundt,
+  roundb: roundb,
+  roundl: roundl,
+  roundr: roundr,
+  roundtl: roundtl,
+  roundtr: roundtr,
+  roundbl: roundbl,
+  roundbr: roundbr,
   rotate: rotateFn,
   rotat: rotateFn,
   /** `scale-130` → `transform: scale(1.3)` (numeri > 10 → /100). */

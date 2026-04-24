@@ -5,6 +5,7 @@
 
 import { rpc as _admin_db_rpc } from "../../../server/routes/_admin/db";
 import { default as _devtools_db, rowCreate as _devtools_db_rowCreate, rowDelete as _devtools_db_rowDelete, rowUpdate as _devtools_db_rowUpdate } from "../../../server/routes/_devtools/db/index";
+import { getUsers as admin_getUsers, patchUser as admin_patchUser } from "../../../server/routes/admin/index";
 import { login as auth_login, me as auth_me, register as auth_register } from "../../../server/routes/auth/index";
 import { bookingCancel as booker_bookingCancel, bookingCreate as booker_bookingCreate, bookingDelete as booker_bookingDelete, bookingList as booker_bookingList, bookingUpdate as booker_bookingUpdate, closureCreate as booker_closureCreate, closureDelete as booker_closureDelete, closureList as booker_closureList, closureUpdate as booker_closureUpdate, getAllAdmin as booker_getAllAdmin, itemCategoryCreate as booker_itemCategoryCreate, itemCategoryDelete as booker_itemCategoryDelete, itemCategoryList as booker_itemCategoryList, itemCategoryUpdate as booker_itemCategoryUpdate, itemCreate as booker_itemCreate, itemDelete as booker_itemDelete, itemList as booker_itemList, itemUpdate as booker_itemUpdate, openingHourCreate as booker_openingHourCreate, openingHourDelete as booker_openingHourDelete, openingHourList as booker_openingHourList, openingHourUpdate as booker_openingHourUpdate, resourceCreate as booker_resourceCreate, resourceDelete as booker_resourceDelete, resourceList as booker_resourceList, resourceUpdate as booker_resourceUpdate } from "../../../server/routes/booker";
 import { default as db, rowDelete as db_rowDelete, rowUpdate as db_rowUpdate } from "../../../server/routes/db";
@@ -19,6 +20,8 @@ export type ServerRoutes = {
 	"_devtools.db.rowCreate": InferRoute<typeof _devtools_db_rowCreate>;
 	"_devtools.db.rowDelete": InferRoute<typeof _devtools_db_rowDelete>;
 	"_devtools.db.rowUpdate": InferRoute<typeof _devtools_db_rowUpdate>;
+	"admin.getUsers": InferRoute<typeof admin_getUsers>;
+	"admin.patchUser": InferRoute<typeof admin_patchUser>;
 	"auth.login": InferRoute<typeof auth_login>;
 	"auth.me": InferRoute<typeof auth_me>;
 	"auth.register": InferRoute<typeof auth_register>;

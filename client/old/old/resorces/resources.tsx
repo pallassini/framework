@@ -1,5 +1,5 @@
 import { For, Form, device, server, state, v } from "client";
-import Card from "../../../_components/card";
+import Card from "../../../_components/block";
 import { data } from "..";
 import Popmenu from "../../../_components/popmenu";
 import Input from "../../../_components/input";

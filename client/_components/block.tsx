@@ -1,4 +1,4 @@
-import { Icon } from "../../../../../core/client/runtime/tag/tags/icon";
+import { Icon } from "../../core/client/runtime/tag/tags/icon";
 
 type CardProps = {
   title?: string;
@@ -8,7 +8,7 @@ type CardProps = {
   actions?: unknown;
 };
 
-export default function Card({ title, icon: iconName, children, s, actions }: CardProps) {
+export default function Block({ title, icon: iconName, children, s, actions }: CardProps) {
   return (
     <div
       s={{
