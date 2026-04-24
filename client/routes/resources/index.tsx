@@ -70,15 +70,29 @@ export default function Resources() {
                 <For each={resources.space}>
                   {(r) => (
                     <Block s="bg-tertiary">
-                      <div s="row  children-centery gapx-1 ">
-                        <icon name="box" size={7} stroke={2} />
-                        <div s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)">
+                      <div s="col gap-2 ">
+                        <div s="row children-centery gapx-1 ">
+                          <icon name="box" size={7} stroke={2} />
                           <Input
+                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
                             defaultValue={r.name}
                             mode="none"
                             blur={(value: string) => {
                               if (!value) return;
                               server.user.resource.update({ id: r.id, name: value });
+                            }}
+                          />
+                        </div>
+                        <div s="row children-centery gapx-1 ">
+                          <icon name="armchair" size={7} stroke={2} />
+                          <Input
+                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
+                            defaultValue={r.capacity}
+                            mode="none"
+                            type="number"
+                            blur={(value: number | undefined) => {
+                              if (value == null || isNaN(value)) return;
+                              server.user.resource.update({ id: r.id, capacity: value });
                             }}
                           />
                         </div>
@@ -127,9 +141,41 @@ export default function Resources() {
                 />
               }
             >
-              <For each={() => resources()?.person ?? []}>
-                {(resource) => <div>{resource.name}</div>}
-              </For>
+              <div s="des:(col-2 gap-4 mt-4) mob:(col)">
+                <For each={resources.person}>
+                  {(r) => (
+                    <Block s="bg-tertiary">
+                      <div s="col gap-2 ">
+                        <div s="row children-centery gapx-1 ">
+                          <icon name="user" size={7} stroke={2} />
+                          <Input
+                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
+                            defaultValue={r.name}
+                            mode="none"
+                            blur={(value: string) => {
+                              if (!value) return;
+                              server.user.resource.update({ id: r.id, name: value });
+                            }}
+                          />
+                        </div>
+                        <div s="row children-centery gapx-1 ">
+                          <icon name="armchair" size={7} stroke={2} />
+                          <Input
+                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
+                            defaultValue={r.capacity}
+                            mode="none"
+                            type="number"
+                            blur={(value: number | undefined) => {
+                              if (value == null || isNaN(value)) return;
+                              server.user.resource.update({ id: r.id, capacity: value });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </Block>
+                  )}
+                </For>
+              </div>
             </Block>
           </div>
         </div>

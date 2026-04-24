@@ -92,6 +92,7 @@ export default function InputString(props: InputStringProps) {
     focus: userFocus,
     focusout: userFocusOut,
     s: sProp,
+    sInput: sInputProp,
     style: userStyleProp,
   } = props;
   const squeezeSpaces = squeezeSpacesProp ?? !passwordMode;
@@ -681,7 +682,7 @@ export default function InputString(props: InputStringProps) {
   };
 
   return (
-    <div style={wrapStyle as any}>
+    <div style={wrapStyle as any} s={sProp as any}>
       <input
         {...domPass}
         type={passwordMode ? "password" : "text"}
@@ -739,7 +740,7 @@ export default function InputString(props: InputStringProps) {
           }
         }}
         style={mergedInputStyle as any}
-        s={sProp as any}
+        s={sInputProp as any}
       />
 
       {!noneMode && placeholder ? (

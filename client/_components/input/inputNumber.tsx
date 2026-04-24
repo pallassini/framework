@@ -71,7 +71,7 @@ export type InputNumberProps = InputPropsBase & {
 };
 
 export default function InputNumber(props: InputNumberProps) {
-  const { size = 3, value: externalValue, s: sProp } = props;
+  const { size = 3, value: externalValue, s: sProp, sInput: sInputProp } = props;
 
   /**
    * Valore iniziale: preferisco `initialValue` (non in conflitto con l'attributo
@@ -455,7 +455,8 @@ export default function InputNumber(props: InputNumberProps) {
   /**
    * `<input>` centrale: occupa tutto lo spazio residuo (`flex: 1`), testo
    * centrato, nessun bordo/sfondo/padding nativo — il box visibile è il
-   * wrapper. `fontSize` e `padding` derivano dalle metriche di `size`.
+   * wrapper. In `mode=none` niente `padY` interno: come `<InputString none>`,
+   * il ritmo verticale resta a `s` sul guscio o al parent (evita doppio py).
    */
   const bareInputStyle = (): Record<string, string> => {
     const met = c.m();
@@ -470,7 +471,7 @@ export default function InputNumber(props: InputNumberProps) {
         border: "none",
         background: "transparent",
         outline: "none",
-        padding: `${met.padY} 0`,
+        padding: "0",
         margin: "0",
         color: err ? "var(--error)" : "inherit",
         font: "inherit",
@@ -853,6 +854,7 @@ export default function InputNumber(props: InputNumberProps) {
         numberWrapEl = el as HTMLDivElement | null;
       }}
       style={wrapInlineStyle as any}
+      s={sProp as any}
       pointerenter={() => hoverWrap(true)}
       pointerleave={() => hoverWrap(false)}
     >
@@ -876,7 +878,7 @@ export default function InputNumber(props: InputNumberProps) {
         autofocus={props.autofocus}
         placeholder={noneMode ? (props.placeholder ?? "") : undefined}
         style={bareInputStyle as any}
-        s={sProp as any}
+        s={sInputProp as any}
         defaultValue={initialNumber !== undefined ? String(initialNumber) : ""}
         ref={(el: HTMLElement | SVGElement | null) => {
           inputEl = el as HTMLInputElement | null;

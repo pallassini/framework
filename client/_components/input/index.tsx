@@ -86,10 +86,16 @@ export type InputPropsBase = {
    */
   mode?: InputMode;
   /**
-   * Token `s` del framework sull’`<input>` nativo: applicato **dopo** lo stile
-   * di default così puoi sovrascrivere qualsiasi cosa (tipografia, bordi, …).
+   * Token `s` sul **guscio** del campo (il `div` esterno: label, stepper, bordi
+   * nel layout). Bordi/hover/round/ padding vanno qui così non competono con lo
+   * `style` interno sull’`<input>` (che in `mode=none` azzera il bordo).
    */
   s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
+  /**
+   * Opzionale: token `s` sull’`<input>` nativo (tipografia, override mirati).
+   * La maggior parte dei casi usa solo `s` sul guscio.
+   */
+  sInput?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
   /** Stile inline sull’`<input>` nativo: unito allo stile interno (le chiavi qui vincono). */
   style?:
     | InlineStyleValue
