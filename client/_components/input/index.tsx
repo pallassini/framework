@@ -4,6 +4,9 @@ import type { InputMode } from "./presets";
 import type { InputElementDom } from "./common";
 import type { ClientEvents } from "../../../core/client/runtime/tag/props";
 import type { InputProps as FwInputProps } from "../../../core/client/runtime/tag/tags/input";
+import type { StyleInput } from "../../../core/client/style";
+import type { Signal } from "../../../core/client/state/state";
+import type { InlineStyleValue } from "../../../core/client/runtime/tag/props/style-inline";
 import { resolveFieldBinding, type FieldBinding, type FormStyle } from "../../../core/client/form/form";
 
 export type { InputMode } from "./presets";
@@ -82,6 +85,16 @@ export type InputPropsBase = {
    * Può essere impostata su `Form({ mode })` e si propaga a tutti i campi.
    */
   mode?: InputMode;
+  /**
+   * Token `s` del framework sull’`<input>` nativo: applicato **dopo** lo stile
+   * di default così puoi sovrascrivere qualsiasi cosa (tipografia, bordi, …).
+   */
+  s?: StyleInput | false | null | (() => unknown) | Signal<unknown>;
+  /** Stile inline sull’`<input>` nativo: unito allo stile interno (le chiavi qui vincono). */
+  style?:
+    | InlineStyleValue
+    | (() => InlineStyleValue)
+    | Signal<InlineStyleValue>;
 } & InputElementDom & {
   /** Come `<input>` del framework: si concatena con lo stato interno. */
   focus?: ClientEvents["focus"];

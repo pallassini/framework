@@ -20,8 +20,8 @@ export type FieldBinding = { readonly field: string; readonly formId: string };
  * Le singole prop dell'`<Input>` hanno sempre la precedenza su questi valori.
  */
 export type FormStyle = {
-	/** Solo `"light"` o `"dark"`. Se omesso, gli input usano il preset scuro. */
-	mode?: "dark" | "light";
+	/** `"dark"` | `"light"` | `"none"` (campi nudi, senza chrome del preset). Se omesso → preset scuro. */
+	mode?: "dark" | "light" | "none";
 	/** Bordo/ring a focus. Equivale a `focusColor` se non passi l'altro. */
 	accentColor?: string;
 	/** Bordo a focus; `accentColor` ha priorità se entrambi impostati. */
@@ -378,8 +378,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 	/**
 	 * Stile di default applicato a tutti gli `<Input field={...}>` del form.
 	 * Le singole prop dell'`<Input>` hanno sempre la precedenza.
-	 * Comodo per impostare `mode: "light"` una volta sola su un form dentro
-	 * un Popmenu bianco, invece di ripeterla su ogni campo.
+	 * Comodo per impostare `mode: "light"` (o `"none"` per campi minimal) una volta sola.
 	 */
 	mode?: FormStyle["mode"];
 	accentColor?: string;

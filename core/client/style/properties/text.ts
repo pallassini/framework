@@ -27,8 +27,21 @@ const TEXT_SIZE: Record<number, string> = {
 };
 
 /** `text-#fff` → `color`; token da config (`text-2`); poi `text-4`…`text-12`, `text-11px` → `fontSize`. Peso: `font-4`… */
+const TEXT_ALIGN: ReadonlySet<string> = new Set([
+	"left",
+	"right",
+	"center",
+	"justify",
+	"start",
+	"end",
+]);
+
 export function text(suffix: string): Properties | undefined {
 	if (!suffix) return undefined;
+
+	if (TEXT_ALIGN.has(suffix)) {
+		return { textAlign: suffix as NonNullable<Properties["textAlign"]> };
+	}
 
 	const color = resolveColorToken(suffix);
 	if (color) return { color: color };

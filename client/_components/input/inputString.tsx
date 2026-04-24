@@ -1,4 +1,5 @@
 import { icon, state, watch } from "client";
+import { isSignal } from "../../../core/client/state";
 import {
   resolveFieldBinding,
   type FieldBinding,
@@ -12,6 +13,7 @@ import {
   inputSurfaceBg,
   inputCutoutBackground,
   formModeShellScopeVars,
+  isNoneInputMode,
 } from "./presets";
 import { logInputDebug } from "./inputDebug";
 import { pickInputElementDom } from "./common";
@@ -24,6 +26,8 @@ import { pickInputElementDom } from "./common";
  */
 export type InputStringProps = InputPropsBase & {
   value?: string | (() => string);
+  /** Valore iniziale se non usi `field` né `value` (input non controllato). */
+  defaultValue?: string | number;
   input?: (value: string) => void;
   change?: (value: string) => void;
   /** Alla `blur` nativa: valore (string) e opzionalmente l’evento, come sull'`<input>` del framework. */
@@ -44,6 +48,11 @@ export type InputStringProps = InputPropsBase & {
    * `<Input type="password" />` o con `v.password()` nel form (inferito).
    */
   passwordMode?: boolean;
+  /**
+   * Se `true`, durante la digitazione ogni sequenza di spazi consecutivi diventa un solo spazio;
+   * in `blur` il valore viene anche `trimEnd()` (niente spazi/bianchi finali) e l’`input` viene allineato.
+   */
+  squeezeSpaces?: boolean;
 };
 
 /**
@@ -61,6 +70,7 @@ export default function InputString(props: InputStringProps) {
     disabled,
     autofocus,
     value,
+    defaultValue,
     input,
     change,
     blur,
@@ -69,6 +79,7 @@ export default function InputString(props: InputStringProps) {
     maxLength,
     autocomplete,
     passwordMode = false,
+    squeezeSpaces = false,
     bg: bgProp,
     accentColor,
     focusColor,
@@ -79,6 +90,8 @@ export default function InputString(props: InputStringProps) {
     mode,
     focus: userFocus,
     focusout: userFocusOut,
+    s: sProp,
+    style: userStyleProp,
   } = props;
   const focused = state(false);
   /** Stato locale per input non controllati (senza `field`). */
@@ -91,6 +104,7 @@ export default function InputString(props: InputStringProps) {
    *  3. undefined
    */
   const fieldCtl = field ? resolveFieldBinding(field) : null;
+  const noneMode = isNoneInputMode(mode ?? fieldCtl?.style()?.mode);
   let stringInputEl: HTMLInputElement | null = null;
   let eyeShownEl: Element | null = null;
   let eyeHiddenEl: Element | null = null;
@@ -166,8 +180,22 @@ export default function InputString(props: InputStringProps) {
   const isFloating = () => focused() || hasValue();
 
   const onInputChanged = (v: string) => {
-    localHasValue(v.length > 0);
-    input?.(v);
+    let next = v;
+    if (squeezeSpaces && stringInputEl) {
+      const el = stringInputEl;
+      const squeezed = v.replace(/ {2,}/g, " ");
+      if (squeezed !== v) {
+        const a = el.selectionStart ?? 0;
+        const b = el.selectionEnd ?? 0;
+        el.value = squeezed;
+        const start = v.slice(0, a).replace(/ {2,}/g, " ").length;
+        const end = v.slice(0, b).replace(/ {2,}/g, " ").length;
+        el.setSelectionRange(start, end);
+        next = squeezed;
+      }
+    }
+    localHasValue(next.length > 0);
+    input?.(next);
   };
 
   /**
@@ -241,14 +269,23 @@ export default function InputString(props: InputStringProps) {
    * solo dal `gap` del parent e risulta uniforme anche quando sotto c'è
    * un `<Input type="number">` (che non ha questo padding).
    */
-  const wrapStyle = (): Record<string, string> => ({
-    position: "relative",
-    display: "inline-block",
-    width: "100%",
-    opacity: disabled ? "0.5" : "1",
-    pointerEvents: disabled ? "none" : "auto",
-    ...formModeShellScopeVars(mode ?? fieldCtl?.style()?.mode),
-  });
+  const wrapStyle = (): Record<string, string> =>
+    noneMode
+      ? {
+          position: "relative",
+          display: "inline-block",
+          width: "100%",
+          opacity: disabled ? "0.5" : "1",
+          pointerEvents: disabled ? "none" : "auto",
+        }
+      : {
+          position: "relative",
+          display: "inline-block",
+          width: "100%",
+          opacity: disabled ? "0.5" : "1",
+          pointerEvents: disabled ? "none" : "auto",
+          ...formModeShellScopeVars(mode ?? fieldCtl?.style()?.mode),
+        };
 
   /**
    * Stile input: box pieno con **bordo sottile neutro sempre uguale**, e
@@ -264,8 +301,50 @@ export default function InputString(props: InputStringProps) {
    */
   const inputStyle = (): Record<string, string> => {
     void passwordStyleNonce();
-    const { err, met, pal, borderColor, ring } = fieldChrome();
     const masked = passwordMode && !passwordShown;
+    if (noneMode) {
+      /**
+       * Nessun `fieldChrome()` qui: altrimenti si legge `focused()` e il watch su `style`
+       * riesegue al focus, reimpostando `padding: "0"` e cancellando py/px da `s` (longhand).
+       */
+      const met = m();
+      const err = hasError();
+      const textMetrics =
+        passwordMode && masked
+          ? {
+              fontSize: `calc(${met.font} + 2px)`,
+              fontWeight: "600" as const,
+              letterSpacing: "0.22em",
+            }
+          : {
+              fontSize: met.font,
+              fontWeight: "500" as const,
+              ...(passwordMode && passwordShown ? { letterSpacing: "normal" as const } : {}),
+            };
+      const out: Record<string, string> = {
+        position: "relative",
+        width: "100%",
+        minWidth: "0",
+        boxSizing: "border-box",
+        margin: "0",
+        ...textMetrics,
+        lineHeight: "inherit",
+        background: "transparent",
+        color: err ? "var(--error)" : "inherit",
+        border: "none",
+        borderRadius: "0",
+        outline: "none",
+        WebkitAppearance: "none",
+        boxShadow: "none",
+        caretColor: err ? "var(--error)" : "currentColor",
+        fontFamily: "inherit",
+      };
+      if (passwordMode) {
+        out.padding = `0 calc(${met.padX} + 1.7rem) 0 ${met.padX}`;
+      }
+      return out;
+    }
+    const { err, met, pal, borderColor, ring } = fieldChrome();
     const textMetrics =
       passwordMode && masked
         ? {
@@ -550,6 +629,24 @@ export default function InputString(props: InputStringProps) {
   const domPass = pickInputElementDom(props as Record<string, unknown>, new Set(["pointerdown"]));
   const userPointerDown = (props as { pointerdown?: (e: PointerEvent) => void }).pointerdown;
 
+  const resolveUserInline = (): Record<string, string | number> | undefined => {
+    const u = userStyleProp;
+    if (u == null || u === false) return undefined;
+    let v: unknown;
+    if (typeof u === "function") v = (u as () => unknown)();
+    else if (isSignal(u)) v = u();
+    else v = u;
+    if (v == null || v === false) return undefined;
+    return v as Record<string, string | number>;
+  };
+
+  const mergedInputStyle = (): Record<string, string | number> => {
+    const base = inputStyle();
+    const extra = resolveUserInline();
+    if (!extra) return base;
+    return { ...base, ...extra };
+  };
+
   const togglePasswordVisibility = (e: Event): void => {
     const targetTag = (e.target as HTMLElement | null)?.tagName;
     const currentTag = (e.currentTarget as HTMLElement | null)?.tagName;
@@ -586,14 +683,29 @@ export default function InputString(props: InputStringProps) {
       <input
         {...domPass}
         type={passwordMode ? "password" : "text"}
-        placeholder=""
+        placeholder={noneMode ? (placeholder ?? "") : ""}
         disabled={disabled}
         autofocus={autofocus}
         maxLength={maxLength as any}
         autocomplete={resolvedAutocomplete as any}
         spellcheck={passwordMode ? false : undefined}
         bind={field}
-        value={value as any}
+        value={
+          field
+            ? (value as any)
+            : typeof value === "function"
+              ? undefined
+              : (value as any)
+        }
+        defaultValue={
+          field != null ||
+          value !== undefined ||
+          typeof value === "function"
+            ? undefined
+            : defaultValue !== undefined
+              ? defaultValue
+              : undefined
+        }
         input={onInputChanged}
         change={change}
         focusout={userFocusOut}
@@ -610,8 +722,13 @@ export default function InputString(props: InputStringProps) {
         }}
         blur={(v: string, ev?: Event) => {
           focused(false);
-          localHasValue(v.length > 0);
-          blur?.(v, ev);
+          let out = v;
+          if (squeezeSpaces) {
+            out = v.trimEnd();
+            if (out !== v && stringInputEl) stringInputEl.value = out;
+          }
+          localHasValue(out.length > 0);
+          blur?.(out, ev);
         }}
         ref={(el: HTMLInputElement | null) => {
           stringInputEl = el;
@@ -619,14 +736,15 @@ export default function InputString(props: InputStringProps) {
             el.type = passwordShown ? "text" : "password";
           }
         }}
-        style={inputStyle as any}
+        style={mergedInputStyle as any}
+        s={sProp as any}
       />
 
-      {placeholder ? (
+      {!noneMode && placeholder ? (
         <div style={labelStyle as any}>{placeholder}</div>
       ) : null}
 
-      {isOptional() ? (
+      {!noneMode && isOptional() ? (
         <div style={optionalStyle as any}>opzionale</div>
       ) : null}
 

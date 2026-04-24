@@ -8,6 +8,7 @@ import {
   formModeShellScopeVars,
   mapColorToken,
   optionalFieldMutedColor,
+  isNoneInputMode,
 } from "./presets";
 import { logInputDebug } from "./inputDebug";
 
@@ -70,7 +71,7 @@ export type InputNumberProps = InputPropsBase & {
 };
 
 export default function InputNumber(props: InputNumberProps) {
-  const { size = 3, value: externalValue } = props;
+  const { size = 3, value: externalValue, s: sProp } = props;
 
   /**
    * Valore iniziale: preferisco `initialValue` (non in conflitto con l'attributo
@@ -105,6 +106,8 @@ export default function InputNumber(props: InputNumberProps) {
       return Number.isFinite(n) ? n : undefined;
     },
   });
+
+  const noneMode = isNoneInputMode(props.mode ?? c.formStyle()?.mode);
 
   // Sync value ↔ field/value esterno
   // (leggi con `c.read()`, scrivi con `c.write()` se vuoi propagare al form)
@@ -458,6 +461,28 @@ export default function InputNumber(props: InputNumberProps) {
     const met = c.m();
     const err = c.hasError();
     const pal = c.palette();
+    if (noneMode) {
+      return {
+        flex: "1 1 auto",
+        width: "100%",
+        minWidth: "0",
+        height: "auto",
+        border: "none",
+        background: "transparent",
+        outline: "none",
+        padding: `${met.padY} 0`,
+        margin: "0",
+        color: err ? "var(--error)" : "inherit",
+        font: "inherit",
+        fontSize: met.font,
+        fontWeight: "600",
+        textAlign: "inherit",
+        WebkitAppearance: "none",
+        MozAppearance: "textfield",
+        caretColor: err ? "var(--error)" : "currentColor",
+        transition: "color 200ms ease",
+      };
+    }
     return {
       flex: "0 0 auto",
       // Larghezza misurata dal contenuto corrente (valore o placeholder).
@@ -494,6 +519,18 @@ export default function InputNumber(props: InputNumberProps) {
   const stepperStyle = (
     side: "minus" | "plus",
   ): Record<string, string> => {
+    if (noneMode) {
+      return {
+        display: "none",
+        width: "0",
+        minWidth: "0",
+        height: "0",
+        overflow: "hidden",
+        opacity: "0",
+        pointerEvents: "none",
+        flex: "0 0 0",
+      };
+    }
     const pressed = side === "minus" ? pressedMinus() : pressedPlus();
     const hovered = side === "minus" ? hoverMinus() : hoverPlus();
     const foc = c.focused();
@@ -612,6 +649,21 @@ export default function InputNumber(props: InputNumberProps) {
   };
 
   const wrapInlineStyle = (): Record<string, string> => {
+    if (noneMode) {
+      return {
+        position: "relative",
+        display: "inline-flex",
+        width: "100%",
+        maxWidth: "100%",
+        alignItems: "center",
+        alignSelf: "stretch",
+        flex: "1 1 auto",
+        border: "none",
+        borderRadius: "0",
+        background: "transparent",
+        boxShadow: "none",
+      };
+    }
     const err = c.hasError();
     const foc = c.focused();
     const idle = isIdle();
@@ -822,7 +874,9 @@ export default function InputNumber(props: InputNumberProps) {
         inputmode="decimal"
         disabled={props.disabled}
         autofocus={props.autofocus}
+        placeholder={noneMode ? (props.placeholder ?? "") : undefined}
         style={bareInputStyle as any}
+        s={sProp as any}
         defaultValue={initialNumber !== undefined ? String(initialNumber) : ""}
         ref={(el: HTMLElement | SVGElement | null) => {
           inputEl = el as HTMLInputElement | null;
@@ -855,10 +909,10 @@ export default function InputNumber(props: InputNumberProps) {
       >
         +
       </div>
-      {props.placeholder && !props.hidePlaceholder ? (
+      {props.placeholder && !props.hidePlaceholder && !noneMode ? (
         <div style={labelStyle as any}>{props.placeholder}</div>
       ) : null}
-      {c.isOptional() ? (
+      {c.isOptional() && !noneMode ? (
         <div style={optionalStyle as any}>opzionale</div>
       ) : null}
     </div>

@@ -5,10 +5,12 @@ type CardProps = {
   icon?: Icon;
   children?: unknown;
   s?: any;
+  /** Stile inline sul contenitore esterno (oltre a `s`). */
+  style?: unknown;
   actions?: unknown;
 };
 
-export default function Block({ title, icon: iconName, children, s, actions }: CardProps) {
+export default function Block({ title, icon: iconName, children, s, style, actions }: CardProps) {
   return (
     <div
       s={{
@@ -17,6 +19,7 @@ export default function Block({ title, icon: iconName, children, s, actions }: C
           ...s,
         },
       }}
+      style={style as any}
     >
       <div
         s={{

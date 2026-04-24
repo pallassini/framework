@@ -34,6 +34,7 @@ import { scaleTransform } from "./properties/transform-scale";
 import { transformOrigin } from "./properties/transform-origin";
 import { easeTiming, transitionDurationToken } from "./properties/transition-tokens";
 import { eventsPointer, noPrefix } from "./properties/pointer-events";
+import { resolveSpacingToken } from "./properties/utils/units";
 
 /**
  * `dshadow-*`: scala **blur** (1–5) e **intensity** (1–5) mappate a variabili CSS così più token
@@ -252,7 +253,10 @@ export const map = styleMap({
   sticky: { position: "sticky" },
   /** Box assoluto inset 0 (come layer meteors sotto `relative`). */
   fill: { position: "absolute", inset: "0" },
-  "overflow-hidden": { overflow: "hidden" },
+  block: { display: "block" },
+  /** `overflow-hidden` (parser: base `overflow`, suffisso `hidden`). */
+  overflow: (suffix: string) =>
+    suffix === "hidden" ? { overflow: "hidden" as const } : undefined,
   /** `scrollx` → scroll orizzontale (usa con `row` + `maxw-*`/`w-*`). */
   scrollx: { overflowX: "auto", overflowY: "hidden", flexWrap: "nowrap" },
   /** `scrolly` → scroll verticale (usa con `col` + `maxh-*`/`h-*`). */
@@ -338,6 +342,35 @@ export const map = styleMap({
   children: childrenAlign,
   /** Questo figlio nel flex genitore: `self-start`, `self-center`, … */
   self: selfAlign,
+
+  /** `tbl-fixed` → `table-layout: fixed`. */
+  tbl: (suffix: string) => (suffix === "fixed" ? { tableLayout: "fixed" as const } : undefined),
+  /** `bcollapse-separate` / `bcollapse-collapse` → `border-collapse`. */
+  bcollapse: (suffix: string) => {
+    if (suffix === "separate") return { borderCollapse: "separate" as const };
+    if (suffix === "collapse") return { borderCollapse: "collapse" as const };
+    return undefined;
+  },
+  /** `bspace-0` → `border-spacing: 0` (altri suffissi come spacing token). */
+  bspace: (suffix: string) => {
+    if (!suffix) return undefined;
+    if (suffix === "0") return { borderSpacing: "0" };
+    const t = resolveSpacingToken(suffix, "box");
+    return t ? { borderSpacing: t } : undefined;
+  },
+  /** `valign-middle` / `valign-top` / `valign-bottom` / `valign-baseline` → `vertical-align`. */
+  valign: (suffix: string) => {
+    if (suffix === "middle" || suffix === "top" || suffix === "bottom" || suffix === "baseline") {
+      return { verticalAlign: suffix };
+    }
+    return undefined;
+  },
+  /** `tover-ellipsis` → `text-overflow: ellipsis`. */
+  tover: (suffix: string) =>
+    suffix === "ellipsis" ? { textOverflow: "ellipsis" as const } : undefined,
+  /** `ws-nowrap` → `white-space: nowrap`. */
+  ws: (suffix: string) =>
+    suffix === "nowrap" ? { whiteSpace: "nowrap" as const } : undefined,
 });
 
 // TYPES

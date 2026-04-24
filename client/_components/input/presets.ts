@@ -9,16 +9,24 @@
  *
  * Se non passi `mode` sul `Form`/`Input`, il default effettivo è equivalente a
  * `"dark"`.
+ *
+ * - `"none"`: campo “nudo” (niente chrome da preset); usa `s` sull’`<Input>` per lo stile.
  */
-export type InputMode = "dark" | "light";
+export type InputMode = "dark" | "light" | "none";
+
+export function isNoneInputMode(mode: unknown): boolean {
+  return mode === "none" || (typeof mode === "string" && mode.toLowerCase().trim() === "none");
+}
 
 export function normalizeInputMode(mode: InputMode | string | undefined): "dark" | "light" {
+  if (isNoneInputMode(mode)) return "dark";
   if (mode === "light") return "light";
   if (typeof mode === "string" && mode.toLowerCase().trim() === "light") return "light";
   return "dark";
 }
 
 export function inputSurfaceBg(mode: InputMode | undefined): string {
+  if (isNoneInputMode(mode)) return "transparent";
   const m = normalizeInputMode(mode);
   if (m === "light") return "var(--inputLight)";
   return "var(--inputDark)";
@@ -167,7 +175,7 @@ const PALETTES: Record<"dark" | "light", InputPalette> = {
 export function formModeShellScopeVars(
   mode: InputMode | undefined,
 ): Record<string, string> {
-  if (mode === undefined) return {};
+  if (mode === undefined || isNoneInputMode(mode)) return {};
   const n = normalizeInputMode(mode);
   const p = PALETTES[n];
   const surface = n === "light" ? "var(--inputLight)" : "var(--inputDark)";
@@ -200,6 +208,19 @@ export function resolvePalette(args: {
   restingColor?: string;
   showFocusShadow?: boolean;
 }): InputPalette {
+  if (isNoneInputMode(args.mode)) {
+    const base = PALETTES.dark;
+    return {
+      ...base,
+      accent: "currentColor",
+      restingBorder: "transparent",
+      hoverBorder: "transparent",
+      text: "inherit",
+      labelResting: "inherit",
+      optionalColor: base.optionalColor,
+      showFocusShadow: false,
+    };
+  }
   const base = PALETTES[normalizeInputMode(args.mode)];
   const accent =
     mapColorToken(args.accentColor) ?? mapColorToken(args.focusColor) ?? base.accent;
