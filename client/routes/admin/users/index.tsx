@@ -144,22 +144,17 @@ function UserDeletePopmenu(props: { userId: string; onDeleted: () => void }) {
 
   return (
     <Popmenu
-      mode="light"
+      s="bg-error text-#fff"
       direction="bottom-left"
       feedback={() => delFeedback()}
       onFeedbackDismiss={() => delFeedback(null)}
       closePulse={() => delClosePulse()}
       collapsed={() => (
-        <icon
-          name="trash"
-          size={5}
-          stroke={2}
-          s="p-1 text-#fff cursor-pointer bg-error"
-        />
+        <icon name="trash" size={5} stroke={2} s="p-1 cursor-pointer" />
       )}
       extended={() => (
         <div
-          s="w-16 px-4 py-3 text-center font-6 cursor-pointer bg-error text-#fff"
+          s="px-4 py-3 text-center font-6 cursor-pointer"
           click={() => {
             void server.admin.userDelete(
               { id: userId },
