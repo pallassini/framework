@@ -1,4 +1,6 @@
 import { state, watch, icon } from "client";
+import { toNodes } from "../../core/client/runtime/logic/children";
+import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
 import { logInputDebug } from "./input/inputDebug";
 
@@ -239,6 +241,12 @@ const measureHostStyle: Record<string, string> = {
   boxSizing: "border-box",
 };
 
+/** Evita la striscia chiara sotto l’icona (line-height / baseline dell’inline SVG) nel menu chiuso. */
+const collapsedSlotAlignStyle: Record<string, string> = {
+  lineHeight: "0",
+  display: "block",
+};
+
 /** Rileva utenti con `prefers-reduced-motion`. Se true, le animazioni sono istantanee. */
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -383,12 +391,18 @@ export default function Popmenu(props: PopmenuProps) {
   /** Root del Popmenu: aperto → spostata in `#fw-popmenu-portal` + `position:fixed` ancorata al placeholder. */
   let wrapEl: HTMLDivElement | null = null;
   let layoutPlaceholder: HTMLDivElement | null = null;
+  /**
+   * `true` mentre il wrap è fisicamente nel portal (anche durante la transizione di chiusura).
+   * Serve per decidere `position: fixed` vs `relative` nel `wrapStyle`: commutare durante la chiusura
+   * interromperebbe la transizione CSS della shell → chiusura "netta".
+   */
+  const portalMounted = state(false);
   /** Coordinate viewport del placeholder (non usare `state({...})`: `state` da `client` è lo store root → oggetto = StateMap, non Signal). */
   const wrapPinLeft = state(0);
   const wrapPinTop = state(0);
 
   const syncWrapPin = () => {
-    if (!layoutPlaceholder || !open()) return;
+    if (!layoutPlaceholder) return;
     const r = layoutPlaceholder.getBoundingClientRect();
     wrapPinLeft(r.left);
     wrapPinTop(r.top);
@@ -403,7 +417,10 @@ export default function Popmenu(props: PopmenuProps) {
     window.removeEventListener("resize", onScrollOrResize);
     const wrap = wrapEl;
     const ph = layoutPlaceholder;
-    if (!ph) return;
+    if (!ph) {
+      portalMounted(false);
+      return;
+    }
     const parent = ph.parentElement;
     if (wrap && fwPopmenuPortal && wrap.parentElement === fwPopmenuPortal && parent) {
       fwPopmenuPortal.removeChild(wrap);
@@ -411,6 +428,7 @@ export default function Popmenu(props: PopmenuProps) {
     }
     ph.remove();
     layoutPlaceholder = null;
+    portalMounted(false);
   };
 
   /** Focus del primo input dentro la shell. Su iOS DEVE essere sincrono nel gesto utente. */
@@ -518,7 +536,22 @@ export default function Popmenu(props: PopmenuProps) {
   /**
    * Con `open`, il wrap è nel portal sotto `body`: coordinate viewport dal placeholder lasciato al posto del trigger.
    * `watch` vincolato solo a `open` per non smontare il portal a ogni tick di `cw`/`ch`.
+   *
+   * CRITICO per l’animazione di chiusura:
+   * Spostare `wrap` via `appendChild` / `insertBefore` **interrompe tutte le transizioni CSS in corso**
+   * (il browser tratta il nodo come appena ri-connesso e resetta gli stili transitioned → su mobile è ancora
+   * più aggressivo, niente fade/resize). Quindi a `open=false` NON smontiamo il portal subito: lasciamo
+   * che la transizione di `boxStyle` finisca (`D_CLOSE` + piccolo margine) e solo dopo rimettiamo il wrap
+   * inline. Se riapre nel frattempo, il timer viene annullato e il nodo resta nel portal.
    */
+  let pendingTeardownTimer: number | undefined;
+  const cancelPendingTeardown = () => {
+    if (pendingTeardownTimer !== undefined) {
+      clearTimeout(pendingTeardownTimer);
+      pendingTeardownTimer = undefined;
+    }
+  };
+
   watch(
     () => {
       const wrap = wrapEl;
@@ -528,10 +561,24 @@ export default function Popmenu(props: PopmenuProps) {
       watch.onCleanup(() => {
         disposerSize?.();
         disposerSize = null;
-        teardownPortal();
+        /**
+         * Ritardo = durata massima osservata in `boxStyle` + margine: `D_CLOSE` per width/height/top/left/…,
+         * e 180ms per opacity/transform. Prendiamo `D_CLOSE + 60ms`.
+         */
+        cancelPendingTeardown();
+        if (reduced) {
+          teardownPortal();
+        } else {
+          pendingTeardownTimer = window.setTimeout(() => {
+            pendingTeardownTimer = undefined;
+            teardownPortal();
+          }, D_CLOSE + 60);
+        }
       });
 
       if (!open()) return;
+
+      cancelPendingTeardown();
 
       const portal = ensureFwPopmenuPortal();
       if (wrap.parentElement !== portal) {
@@ -544,6 +591,9 @@ export default function Popmenu(props: PopmenuProps) {
         parent.insertBefore(ph, wrap);
         layoutPlaceholder = ph;
         portal.appendChild(wrap);
+        portalMounted(true);
+      } else {
+        portalMounted(true);
       }
 
       disposerSize = watch(() => {
@@ -560,10 +610,14 @@ export default function Popmenu(props: PopmenuProps) {
   );
 
   const wrapStyle = () => {
-    const o = open();
+    /**
+     * Il wrap è fissato (position:fixed, ancorato al placeholder) finché è nel portal — anche durante
+     * l’animazione di chiusura, altrimenti il cambio position interrompe la transizione CSS della shell.
+     */
+    const inPortal = portalMounted();
     return {
-      position: o ? ("fixed" as const) : ("relative" as const),
-      ...(o ? { left: `${wrapPinLeft()}px`, top: `${wrapPinTop()}px` } : {}),
+      position: inPortal ? ("fixed" as const) : ("relative" as const),
+      ...(inPortal ? { left: `${wrapPinLeft()}px`, top: `${wrapPinTop()}px` } : {}),
       display: "block",
       width: `${cw()}px`,
       height: `${ch()}px`,
@@ -667,6 +721,8 @@ export default function Popmenu(props: PopmenuProps) {
     }
     const shellTextColor =
       resolvedMode === "light" ? "#111" : "rgba(255,255,255,0.95)";
+    /** Se la shell passa `s=…`, lasciamo a `s` (applyStyle) background/colore: altrimenti `style` con `boxStyle` li riscrive dopo `s`. */
+    const shellThemeFromS = s != null && s !== false;
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
@@ -674,6 +730,8 @@ export default function Popmenu(props: PopmenuProps) {
       cursor: "pointer",
       overflow: "hidden",
       opacity: ready ? "1" : "0",
+      /* Opacità 0 ma rettangolo ancora “hit” → niente click-through: il tap passa al backdrop. */
+      pointerEvents: ready ? "auto" : "none",
       zIndex: isOpen ? "var(--fw-z-popmenu-shell, 100002)" : "1",
       willChange: "width, height, transform, opacity",
       "--popmenu-base-transform": baseTransform || "none",
@@ -685,11 +743,8 @@ export default function Popmenu(props: PopmenuProps) {
        * controls” e gli input in popmenu **chiari** possono sembrare scuri.
        */
       colorScheme: resolvedMode === "light" ? "light" : "dark",
-      color: shellTextColor,
-      background: shellBg,
       borderRadius: activeRound,
       boxShadow: shellShadow,
-      "--fw-popmenu-bg": shellBg,
       "--fw-popmenu-mode": resolvedMode,
       animation: bounceName === "none" ? "none" : `${bounceName} 380ms cubic-bezier(0.25, 1.25, 0.5, 1) 1`,
       transition:
@@ -701,8 +756,14 @@ export default function Popmenu(props: PopmenuProps) {
         `bottom ${d}ms ${e}, ` +
         `transform 180ms cubic-bezier(0.4, 0, 0.2, 1), ` +
         `opacity 180ms linear, ` +
-        `border-radius 0s, background-color 0s, color 0s`,
+        `border-radius 0s, background-color 0s, color 0s, ` +
+        `box-shadow ${d}ms ${e}`,
     };
+    if (!shellThemeFromS) {
+      st.color = shellTextColor;
+      st.background = shellBg;
+      st["--fw-popmenu-bg"] = shellBg;
+    }
     if (pos.styles.top != null) st.top = pos.styles.top;
     if (pos.styles.bottom != null) st.bottom = pos.styles.bottom;
     if (pos.styles.left != null) st.left = pos.styles.left;
@@ -714,7 +775,13 @@ export default function Popmenu(props: PopmenuProps) {
     const isOpen = open();
     const d = isOpen ? D_OPEN : D_CLOSE;
     const inDelay = Math.round(d * 0.3);
-    const outDur = Math.round(d * 0.22);
+    /**
+     * Chiusura menu (open = false, slot extended che scompare): stessa ordine di grandezza di D_CLOSE per
+     * opacity/transform dello slot, altrimenti ~0,22*D = ~62ms con D_CLOSE=280 e il body sparisce mentre la
+     * shell restringe ancora per 280ms — effetto "taglio" brusco, evidente su pannelli piccoli. Con feedback
+     * sopra l’extended (ancora open) resta lo scarto breve 0,22*D_OPEN.
+     */
+    const outDur = isOpen ? Math.round(d * 0.22) : d;
     const inDur = Math.round(d * 0.5);
     const vis = visible();
     const scaleVal = vis || reduced ? "1" : "0.96";
@@ -795,13 +862,13 @@ export default function Popmenu(props: PopmenuProps) {
       display: "flex",
       flexDirection: "column" as const,
       alignItems: "stretch",
-      justifyContent: "center",
+      justifyContent: "flex-start",
       paddingTop: "28px",
       paddingRight: "20px",
       paddingBottom: "24px",
       paddingLeft: "20px",
       boxSizing: "border-box" as const,
-      gap: "20px",
+      gap: "16px",
       background: bg,
       color: "#fff",
       opacity: active ? "1" : "0",
@@ -856,20 +923,6 @@ export default function Popmenu(props: PopmenuProps) {
     border: variant === "yes" ? "none" : "1px solid rgba(255,255,255,0.14)",
   });
 
-  const feedbackTitleStyle: Record<string, string> = {
-    flex: "0 0 auto",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    fontWeight: "700",
-    fontSize: "1.08em",
-    lineHeight: "1.35",
-    padding: "4px 6px",
-    letterSpacing: "-0.01em",
-    color: "#fff",
-  };
-
   const feedbackMsgStyle: Record<string, string> = {
     flex: "0 0 auto",
     display: "flex",
@@ -883,14 +936,24 @@ export default function Popmenu(props: PopmenuProps) {
     color: "#fff",
   };
 
+  /** Fila azioni in fondo al pannello feedback (altezza shell fissata da `inset: 0`). */
+  const feedbackFooterRowStyle: Record<string, string> = {
+    display: "flex",
+    width: "100%",
+    marginTop: "auto",
+    flexShrink: "0",
+    boxSizing: "border-box",
+  };
+
   const feedbackDismissBtnStyle: Record<string, string> = {
-    flex: "1",
-    padding: "14px 18px",
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "14px 20px",
     borderRadius: "14px",
     cursor: "pointer",
     fontWeight: "600",
     fontSize: "0.95em",
-    textAlign: "center",
+    textAlign: "left",
     userSelect: "none",
     letterSpacing: "-0.005em",
     color: "#fff",
@@ -904,7 +967,8 @@ export default function Popmenu(props: PopmenuProps) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "52px",
+    lineHeight: "0",
+    minHeight: "3.25rem",
   };
 
   /**
@@ -972,8 +1036,8 @@ export default function Popmenu(props: PopmenuProps) {
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
-    justifyContent: "center",
-    gap: "20px",
+    justifyContent: "flex-start",
+    gap: "16px",
     paddingTop: "28px",
     paddingRight: "20px",
     paddingBottom: "24px",
@@ -984,33 +1048,36 @@ export default function Popmenu(props: PopmenuProps) {
 
   const renderFeedbackMeasure = () => (
     <>
-      <div style={feedbackIconRowStyle as any} />
-      <div style={feedbackTitleStyle as any}>Success</div>
+      <div style={{ ...feedbackIconRowStyle, color: "#fff" } as any}>
+        <icon name="check" size={10} stroke={2} s="text-#fff" />
+      </div>
       <div style={feedbackMsgStyle as any}>User was created.</div>
-      <div style={confirmButtonsRowStyle as any}>
+      <div style={feedbackFooterRowStyle as any}>
         <div style={feedbackDismissBtnStyle as any}>OK</div>
       </div>
     </>
   );
 
-  const renderFeedbackOverlay = () => {
-    const f = readFeedback();
-    if (!f) return null;
+  /**
+   * Il `div` del framework appende `children` solo alla creazione: se il feedback è vuoto al primo
+   * paint, l’overlay resta senza nodi per sempre. Qui montiamo il contenuto dentro un `watch`.
+   */
+  let feedbackReactiveMount: HTMLElement | null = null;
+  const feedbackOverlayNodes = (f: PopmenuFeedback) => {
     const showBtn = f.showDismissButton !== false;
     const lbl = f.dismissLabel ?? (f.kind === "success" ? "OK" : "Back");
     return (
       <>
         <div style={{ ...feedbackIconRowStyle, color: "#fff" } as any}>
           {f.kind === "success" ? (
-            <icon name="check" size={11} stroke={2.5} s="text-#fff" />
+            <icon name="check" size={10} stroke={2} s="text-#fff" />
           ) : (
-            <icon name="alertCircle" size={11} stroke={2.5} s="text-#fff" />
+            <icon name="shieldAlert" size={10} stroke={2} s="text-#fff" />
           )}
         </div>
-        {f.title ? <div style={feedbackTitleStyle as any}>{f.title}</div> : null}
         {f.message ? <div style={feedbackMsgStyle as any}>{f.message}</div> : null}
         {showBtn ? (
-          <div style={confirmButtonsRowStyle as any}>
+          <div style={feedbackFooterRowStyle as any}>
             <div
               style={feedbackDismissBtnStyle as any}
               click={() => {
@@ -1023,6 +1090,24 @@ export default function Popmenu(props: PopmenuProps) {
         ) : null}
       </>
     );
+  };
+
+  const getFeedbackReactiveMount = (): HTMLElement | null => {
+    if (feedback === undefined) return null;
+    if (feedbackReactiveMount == null) {
+      const el = document.createElement("span");
+      el.style.display = "contents";
+      feedbackReactiveMount = el;
+      const stop = watch(() => {
+        const f = readFeedback();
+        replaceChildrenWithDispose(el);
+        if (!f) return;
+        const nodes = toNodes(feedbackOverlayNodes(f));
+        if (nodes.length) el.append(...nodes);
+      });
+      onNodeDispose(el, stop);
+    }
+    return feedbackReactiveMount;
   };
 
   /**
@@ -1051,7 +1136,7 @@ export default function Popmenu(props: PopmenuProps) {
       style={wrapStyle as any}
     >
       <div ref={observeSize(cw, ch)} style={measureHostStyle as any}>
-        {collapsed()}
+        <div style={collapsedSlotAlignStyle as any}>{collapsed()}</div>
       </div>
       <div ref={observeSize(ew, eh)} style={measureHostStyle as any}>
         {extended()}
@@ -1089,8 +1174,8 @@ export default function Popmenu(props: PopmenuProps) {
         ref={(el) => {
           shellEl = el as HTMLElement | null;
         }}
-        s={s as any}
         style={boxStyle as any}
+        s={s as any}
         click={() => {
           if (!open()) requestOpen();
         }}
@@ -1101,7 +1186,9 @@ export default function Popmenu(props: PopmenuProps) {
         touchstart={onPressDown}
         touchend={onPressUp}
       >
-        <div style={slotStyle(cw, ch, () => !open()) as any}>{collapsed()}</div>
+        <div style={slotStyle(cw, ch, () => !open()) as any}>
+          <div style={collapsedSlotAlignStyle as any}>{collapsed()}</div>
+        </div>
         <div style={slotStyle(ew, eh, () => open() && !feedbackActive()) as any}>{extended()}</div>
 
         {/* Overlay conferma: action-sheet iOS-like sopra il contenuto (blur + patina scura) */}
@@ -1121,10 +1208,11 @@ export default function Popmenu(props: PopmenuProps) {
         </div>
 
         <div
+          data-fw-popmenu-feedback=""
           style={feedbackBarStyle as any}
           click={(ev: Event) => ev.stopPropagation()}
         >
-          {renderFeedbackOverlay()}
+          {getFeedbackReactiveMount()}
         </div>
       </div>
     </div>

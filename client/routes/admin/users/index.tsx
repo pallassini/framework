@@ -15,6 +15,9 @@ const USER_COLUMNS = [
 const ADMIN_USER_PW_SHAPE = { password: v.password() };
 type AdminUserPwForm = FormApi<typeof ADMIN_USER_PW_SHAPE>;
 
+/** `popmenu` D_CLOSE = 280ms: refresh dopo la chiusura così la riga non sparisce durante l’animazione. */
+const POPMENU_CLOSE_MS = 300;
+
 /** Un `Form()` per riga: se ricreato a ogni passata del `<For />` resetta il campo e può far “saltare” tutta la tabella. */
 const pwFormByUserId = new Map<string, AdminUserPwForm>();
 
@@ -108,7 +111,6 @@ function UserPasswordPopmenu(props: { userId: string; onSaved: () => void }) {
                     onSaved();
                     pwFeedback({
                       kind: "success",
-                      title: "Success",
                       message: "Password was updated.",
                       showDismissButton: true,
                       dismissLabel: "OK",
@@ -118,7 +120,6 @@ function UserPasswordPopmenu(props: { userId: string; onSaved: () => void }) {
                   onError: (e) => {
                     pwFeedback({
                       kind: "error",
-                      title: "Error",
                       message: rpcErrorMessage(e),
                       showDismissButton: true,
                       dismissLabel: "Back",
@@ -140,29 +141,6 @@ function UserDeletePopmenu(props: { userId: string; onDeleted: () => void }) {
   const { userId, onDeleted } = props;
   const delFeedback = state<PopmenuFeedback | null>(null);
   const delClosePulse = state(0);
-  const delBtnHover = state(false);
-
-  const deleteBtnBase: Record<string, string> = {
-    width: "100%",
-    padding: "1.05rem 1.35rem",
-    borderRadius: "14px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "1.05em",
-    letterSpacing: "-0.01em",
-    textAlign: "center",
-    userSelect: "none",
-    color: "#fff",
-    background: "linear-gradient(180deg, rgba(255,92,92,1) 0%, rgba(235,66,66,1) 100%)",
-    boxShadow: "0 6px 16px rgba(235,66,66,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
-    border: "none",
-    transition: "filter 160ms ease, transform 140ms ease, box-shadow 160ms ease",
-  };
-  const deleteBtnHoverStyle: Record<string, string> = {
-    filter: "brightness(1.08)",
-    transform: "translateY(-1px)",
-    boxShadow: "0 8px 22px rgba(235,66,66,0.5), inset 0 1px 0 rgba(255,255,255,0.25)",
-  };
 
   return (
     <Popmenu
@@ -172,40 +150,37 @@ function UserDeletePopmenu(props: { userId: string; onDeleted: () => void }) {
       onFeedbackDismiss={() => delFeedback(null)}
       closePulse={() => delClosePulse()}
       collapsed={() => (
-        <icon name="trash" size={5} stroke={2} s="p-1 text-error cursor-pointer" />
+        <icon
+          name="trash"
+          size={5}
+          stroke={2}
+          s="p-1 text-#fff cursor-pointer bg-error"
+        />
       )}
       extended={() => (
-        <div s="px-4 py-4 w-16">
-          <div
-            style={{
-              ...deleteBtnBase,
-              ...(delBtnHover() ? deleteBtnHoverStyle : {}),
-            } as any}
-            mouseenter={() => delBtnHover(true)}
-            mouseleave={() => delBtnHover(false)}
-            click={() => {
-              void server.admin.userDelete(
-                { id: userId },
-                {
-                  onSuccess: () => {
-                    onDeleted();
-                    delClosePulse(delClosePulse() + 1);
-                  },
-                  onError: (e) => {
-                    delFeedback({
-                      kind: "error",
-                      title: "Error",
-                      message: rpcErrorMessage(e),
-                      showDismissButton: true,
-                      dismissLabel: "Back",
-                    });
-                  },
+        <div
+          s="w-16 px-4 py-3 text-center font-6 cursor-pointer bg-error text-#fff"
+          click={() => {
+            void server.admin.userDelete(
+              { id: userId },
+              {
+                onSuccess: () => {
+                  delClosePulse(delClosePulse() + 1);
+                  window.setTimeout(() => onDeleted(), POPMENU_CLOSE_MS);
                 },
-              );
-            }}
-          >
-            Confirm delete
-          </div>
+                onError: (e) => {
+                  delFeedback({
+                    kind: "error",
+                    message: rpcErrorMessage(e),
+                    showDismissButton: true,
+                    dismissLabel: "Back",
+                  });
+                },
+              },
+            );
+          }}
+        >
+          Confirm delete
         </div>
       )}
     />
@@ -286,7 +261,6 @@ export default function Admin() {
                               users(server.admin.getUsers());
                               createFeedback({
                                 kind: "success",
-                                title: "Success",
                                 message: "User was created.",
                                 showDismissButton: true,
                                 dismissLabel: "OK",
@@ -296,7 +270,6 @@ export default function Admin() {
                               res("error");
                               createFeedback({
                                 kind: "error",
-                                title: "Error",
                                 message: rpcErrorMessage(e),
                                 showDismissButton: true,
                                 dismissLabel: "Back",
