@@ -16,8 +16,28 @@ type UserColumnKey = (typeof USER_COLUMNS)[number]["key"];
 type EditTarget = { userId: string; key: UserColumnKey; baseline: string };
 
 const TABLE_HEAD_CELL_S = "des:(text-4 font-6 py-3 px-4) mob:(text-5 font-6 py-2 px-3)";
-const TABLE_BODY_ROW_S = "des:(text-4) mob:(text-5)";
-const TABLE_BODY_CELL_S = "des:(py-2 px-4) mob:(py-2 px-3)";
+const TABLE_BODY_ROW_S = "des:(text-4 ) mob:(text-5)";
+const TABLE_BODY_CELL_S = "des:(py-2 px-4) mob:(py-2 px-3) hover:(bg-#2f2f2f)";
+
+const CELL_INPUT_STYLE: Record<string, string | number> = {
+  minWidth: 0,
+  width: "100%",
+  boxSizing: "border-box",
+  margin: 0,
+  padding: 0,
+  border: "none",
+  outline: "none",
+  boxShadow: "none",
+  background: "transparent",
+  font: "inherit",
+  color: "inherit",
+  lineHeight: "inherit",
+  letterSpacing: "inherit",
+  borderRadius: 0,
+  appearance: "none",
+  WebkitAppearance: "none",
+  verticalAlign: "inherit",
+};
 
 export default function Admin() {
   const cellDraft = Form({
@@ -32,7 +52,6 @@ export default function Admin() {
 
   const editing = state<EditTarget | null>(null);
 
-  /** Salva la cella in modifica senza chiudere il flusso (lettura draft = cella ancora attiva). */
   function flushPendingEdit(cur: EditTarget) {
     const ctl = resolveFieldBinding(cellDraft.draft);
     const next = ctl.get().trim();
@@ -44,20 +63,31 @@ export default function Admin() {
   }
 
   /**
-   * `pointerdown` sulla label parte prima del `blur` dell’input precedente: così si può
-   * salvare la cella A e aprire B nello stesso gesto, con focus immediato su B.
+   * `pointerdown` parte prima del `blur` dell’input: passi a un’altra cella in un colpo solo.
+   * `click` resta per chi parte da cella chiusa. Il `blur` chiude in `setTimeout(0)` così non corre
+   * prima del `click` / dei microtask del framework.
    */
   function activateCell(user: { id: string } & Partial<Record<UserColumnKey, string | undefined>>, key: UserColumnKey) {
     const cur = editing();
-    if (cur && (cur.userId !== user.id || cur.key !== key)) {
-      flushPendingEdit(cur);
-    }
+    if (cur && (cur.userId !== user.id || cur.key !== key)) flushPendingEdit(cur);
     startEdit(user, key);
+  }
+
+  function pickCell(
+    ev: Event,
+    user: { id: string } & Partial<Record<UserColumnKey, string | undefined>>,
+    key: UserColumnKey,
+  ) {
+    const el = ev.target as HTMLElement | null;
+    if (el?.closest?.("input")) return;
+    const ed = editing();
+    if (ed?.userId === user.id && ed?.key === key) return;
+    activateCell(user, key);
   }
 
   const createUser = Form({
     showFocusShadow: false,
-    mode: "light",
+    mode: "dark",
     size: 3,
     shape: {
       email: v.email("Email non valida"),
@@ -106,7 +136,7 @@ export default function Admin() {
             icon="users"
             actions={
               <Popmenu
-                mode="dark"
+                mode="light"
                 direction="bottom-left"
                 offset={{ x: 4, y: 3 }}
                 collapsed={() => (
@@ -208,6 +238,7 @@ export default function Admin() {
                 <tbody>
                   <For each={users}>
                     {(user, rowIndex) => {
+                      void editing(); // outer For must re-run when edit target changes
                       const rows = users();
                       const n = Array.isArray(rows) ? rows.length : 0;
                       const isLastRow = n > 0 && rowIndex === n - 1;
@@ -231,53 +262,29 @@ export default function Admin() {
                                       ? { borderRight: "2px solid var(--tertiary)" }
                                       : {}),
                                   }}
-                                  /**
-                                   * Listener sempre presenti: se li monti solo quando `!isEditing`, in alcuni cicli
-                                   * di update reattivo il `td` resta senza handler e il mouse non fa nulla
-                                   * (ridimensionando con F12 si forza un re-mount che “sistema”).
-                                   */
-                                  pointerdown={(ev: Event) => {
-                                    const el = ev.target as HTMLElement | null;
-                                    if (el?.closest?.("input")) return;
-                                    const ed = editing();
-                                    if (ed?.userId === user.id && ed?.key === col.key) return;
-                                    activateCell(user, col.key);
-                                  }}
-                                  click={(ev: Event) => {
-                                    const el = ev.target as HTMLElement | null;
-                                    if (el?.closest?.("input")) return;
-                                    const ed = editing();
-                                    if (ed?.userId === user.id && ed?.key === col.key) return;
-                                    activateCell(user, col.key);
-                                  }}
+                                  pointerdown={(ev: Event) => pickCell(ev, user, col.key)}
+                                  click={(ev: Event) => pickCell(ev, user, col.key)}
                                 >
                                   {isEditing ? (
                                     <input
                                       bind={cellDraft.draft}
-                                      autofocus
                                       type={col.key === "email" ? "email" : "text"}
                                       s="w-100%"
-                                      style={{
-                                        minWidth: 0,
-                                        width: "100%",
-                                        boxSizing: "border-box",
-                                        margin: 0,
-                                        padding: 0,
-                                        border: "none",
-                                        outline: "none",
-                                        boxShadow: "none",
-                                        background: "transparent",
-                                        font: "inherit",
-                                        color: "inherit",
-                                        lineHeight: "inherit",
-                                        letterSpacing: "inherit",
-                                        borderRadius: 0,
-                                        appearance: "none",
-                                        WebkitAppearance: "none",
-                                        verticalAlign: "inherit",
+                                      style={CELL_INPUT_STYLE}
+                                      ref={(el: HTMLInputElement | null) => {
+                                        if (!el) return;
+                                        requestAnimationFrame(() => {
+                                          requestAnimationFrame(() => {
+                                            if (!el.isConnected) return;
+                                            el.focus({ preventScroll: true });
+                                          });
+                                        });
                                       }}
                                       blur={() => {
-                                        void finishEdit(user.id);
+                                        const id = user.id;
+                                        setTimeout(() => {
+                                          void finishEdit(id);
+                                        }, 0);
                                       }}
                                       keydown={(ev: KeyboardEvent) => {
                                         if (ev.key === "Escape") {

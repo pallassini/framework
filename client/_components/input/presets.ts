@@ -135,7 +135,7 @@ export type InputPalette = {
 const PALETTES: Record<"dark" | "light", InputPalette> = {
   dark: {
     accent: "var(--inputDark)",
-    restingBorder: "#363636",
+    restingBorder: "#9b9b9b",
     hoverBorder: "var(--inputDark)",
     text: "var(--inputDark)",
     labelResting: "var(--inputDark)",
