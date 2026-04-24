@@ -1,5 +1,6 @@
 import { auth, v, Form, state, For, server } from "client";
 import type { FormApi } from "../../../../core/client/form/form";
+import type { PopmenuFeedback } from "../../../_components/popmenu";
 import AdminMenu from "../_components/menu";
 import Popmenu from "../../../_components/popmenu";
 import Input from "../../../_components/input";
@@ -56,17 +57,30 @@ function formatPasswordUpdatedAt(raw: unknown): string {
   if (raw == null || raw === "") return "—";
   const d = raw instanceof Date ? raw : new Date(String(raw));
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
+  return d.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" });
+}
+
+function rpcErrorMessage(e: unknown): string {
+  if (e != null && typeof e === "object" && "message" in e) {
+    const m = (e as { message: unknown }).message;
+    if (typeof m === "string" && m.length > 0) return m;
+  }
+  return "Something went wrong. Please try again.";
 }
 
 function UserPasswordPopmenu(props: { userId: string; onSaved: () => void }) {
   const { userId, onSaved } = props;
   const pw = userPasswordForm(userId);
+  const pwFeedback = state<PopmenuFeedback | null>(null);
+  const pwClosePulse = state(0);
   return (
     <Popmenu
       mode="light"
       direction="bottom-left"
       autofocus
+      feedback={() => pwFeedback()}
+      onFeedbackDismiss={() => pwFeedback(null)}
+      closePulse={() => pwClosePulse()}
       collapsed={() => (
         <icon
           name="keyRound"
@@ -77,7 +91,7 @@ function UserPasswordPopmenu(props: { userId: string; onSaved: () => void }) {
       )}
       extended={() => (
         <div s="col gapy-3 px-4 py-4 w-16">
-          <Input placeholder="Nuova password" type="password" field={pw.password} />
+          <Input placeholder="New password" type="password" field={pw.password} />
           <div
             s={{
               base: {
@@ -90,13 +104,107 @@ function UserPasswordPopmenu(props: { userId: string; onSaved: () => void }) {
               void server.admin.userUpdate(
                 { id: userId, password: pw.values().password },
                 {
-                  onSuccess: () => onSaved(),
-                  onError: () => onSaved(),
+                  onSuccess: () => {
+                    onSaved();
+                    pwFeedback({
+                      kind: "success",
+                      title: "Success",
+                      message: "Password was updated.",
+                      showDismissButton: true,
+                      dismissLabel: "OK",
+                    });
+                    window.setTimeout(() => pwClosePulse(pwClosePulse() + 1), 650);
+                  },
+                  onError: (e) => {
+                    pwFeedback({
+                      kind: "error",
+                      title: "Error",
+                      message: rpcErrorMessage(e),
+                      showDismissButton: true,
+                      dismissLabel: "Back",
+                    });
+                  },
                 },
               );
             }}
           >
-            Salva
+            Save
+          </div>
+        </div>
+      )}
+    />
+  );
+}
+
+function UserDeletePopmenu(props: { userId: string; onDeleted: () => void }) {
+  const { userId, onDeleted } = props;
+  const delFeedback = state<PopmenuFeedback | null>(null);
+  const delClosePulse = state(0);
+  const delBtnHover = state(false);
+
+  const deleteBtnBase: Record<string, string> = {
+    width: "100%",
+    padding: "1.05rem 1.35rem",
+    borderRadius: "14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "1.05em",
+    letterSpacing: "-0.01em",
+    textAlign: "center",
+    userSelect: "none",
+    color: "#fff",
+    background: "linear-gradient(180deg, rgba(255,92,92,1) 0%, rgba(235,66,66,1) 100%)",
+    boxShadow: "0 6px 16px rgba(235,66,66,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+    border: "none",
+    transition: "filter 160ms ease, transform 140ms ease, box-shadow 160ms ease",
+  };
+  const deleteBtnHoverStyle: Record<string, string> = {
+    filter: "brightness(1.08)",
+    transform: "translateY(-1px)",
+    boxShadow: "0 8px 22px rgba(235,66,66,0.5), inset 0 1px 0 rgba(255,255,255,0.25)",
+  };
+
+  return (
+    <Popmenu
+      mode="light"
+      direction="bottom-left"
+      feedback={() => delFeedback()}
+      onFeedbackDismiss={() => delFeedback(null)}
+      closePulse={() => delClosePulse()}
+      collapsed={() => (
+        <icon name="trash" size={5} stroke={2} s="p-1 text-error cursor-pointer" />
+      )}
+      extended={() => (
+        <div s="px-4 py-4 w-16">
+          <div
+            style={{
+              ...deleteBtnBase,
+              ...(delBtnHover() ? deleteBtnHoverStyle : {}),
+            } as any}
+            mouseenter={() => delBtnHover(true)}
+            mouseleave={() => delBtnHover(false)}
+            click={() => {
+              void server.admin.userDelete(
+                { id: userId },
+                {
+                  onSuccess: () => {
+                    onDeleted();
+                    delClosePulse(delClosePulse() + 1);
+                  },
+                  onError: (e) => {
+                    delFeedback({
+                      kind: "error",
+                      title: "Error",
+                      message: rpcErrorMessage(e),
+                      showDismissButton: true,
+                      dismissLabel: "Back",
+                    });
+                  },
+                },
+              );
+            }}
+          >
+            Confirm delete
           </div>
         </div>
       )}
@@ -110,7 +218,7 @@ export default function Admin() {
     mode: "dark",
     size: 3,
     shape: {
-      email: v.email("Email non valida"),
+      email: v.email("Invalid email"),
       password: v.password(),
       username: v.string(),
       domain: v.string(),
@@ -118,6 +226,7 @@ export default function Admin() {
   });
   const res = state<"error" | "success" | "">("");
   const users = state(server.admin.getUsers);
+  const createFeedback = state<PopmenuFeedback | null>(null);
 
   return (
     <>
@@ -135,6 +244,8 @@ export default function Admin() {
               <Popmenu
                 mode="light"
                 direction="bottom-left"
+                feedback={() => createFeedback()}
+                onFeedbackDismiss={() => createFeedback(null)}
                 collapsed={() => (
                   <icon
                     name="plus"
@@ -172,9 +283,24 @@ export default function Admin() {
                           {
                             onSuccess: () => {
                               res("success");
+                              users(server.admin.getUsers());
+                              createFeedback({
+                                kind: "success",
+                                title: "Success",
+                                message: "User was created.",
+                                showDismissButton: true,
+                                dismissLabel: "OK",
+                              });
                             },
-                            onError: () => {
+                            onError: (e) => {
                               res("error");
+                              createFeedback({
+                                kind: "error",
+                                title: "Error",
+                                message: rpcErrorMessage(e),
+                                showDismissButton: true,
+                                dismissLabel: "Back",
+                              });
                             },
                           },
                         );
@@ -182,10 +308,10 @@ export default function Admin() {
                     >
                       {() =>
                         res() === "error"
-                          ? "Errore"
+                          ? "Error"
                           : createUser.valid()
                             ? "Create"
-                            : "Compila i campi"
+                            : "Fill in all fields"
                       }
                     </div>
                   </div>
@@ -323,27 +449,14 @@ export default function Admin() {
                             s={`hover:(bg-#2f2f2f) valign-middle overflow-hidden br-2 br-tertiary ${!isLastRow ? "bb-2 bb-tertiary" : ""}`}
                           >
                             <div s="row nowrap children-center centerx w-100% des:(py-2 px-4) mob:(py-2 px-3)">
-                              <icon
-                                name="trash"
-                                size={5}
-                                stroke={2}
-                                s="p-1 text-error cursor-pointer"
-                              click={() => {
-                                void server.admin.userDelete(
-                                  { id: user.id },
-                                  {
-                                    onSuccess: () => {
-                                      pwFormByUserId.delete(user.id);
-                                      domainLiveByUserId.delete(user.id);
-                                      users(server.admin.getUsers());
-                                    },
-                                    onError: () => {
-                                      users(server.admin.getUsers());
-                                    },
-                                  },
-                                );
-                              }}
-                            />
+                              <UserDeletePopmenu
+                                userId={user.id}
+                                onDeleted={() => {
+                                  pwFormByUserId.delete(user.id);
+                                  domainLiveByUserId.delete(user.id);
+                                  users(server.admin.getUsers());
+                                }}
+                              />
                             </div>
                           </td>
                         </tr>

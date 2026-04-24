@@ -1,4 +1,4 @@
-import { state, watch } from "client";
+import { state, watch, icon } from "client";
 import { clientConfig } from "../config";
 import { logInputDebug } from "./input/inputDebug";
 
@@ -30,7 +30,22 @@ export interface ConfirmOptions {
   confirm?: string;
   /** Testo del pulsante annulla. Default "No". */
   cancel?: string;
+  /** Dopo conferma (overlay Sì). */
+  onConfirm?: () => void;
+  /** Dopo annulla (overlay No), solo per `confirmCollapsed` / guardia chiusura. */
+  onCancel?: () => void;
 }
+
+/** Esito RPC / form: patina verde o rossa come l’overlay conferma. */
+export type PopmenuFeedback = {
+  kind: "error" | "success";
+  message: string;
+  title?: string;
+  /** Default `true`: pulsante per tornare al contenuto sotto. */
+  showDismissButton?: boolean;
+  /** Testo pulsante dismiss. Default "Back" (error) / "OK" (success). */
+  dismissLabel?: string;
+};
 
 interface PopmenuProps {
   /** Contenuto dello stato chiuso (factory). */
@@ -83,6 +98,12 @@ interface PopmenuProps {
     /** Moltiplicatore finale dell'ombra. 1 = normale, >1 più forte. */
     intensity?: number;
   };
+  /** Se valorizzato, overlay verde (`success`) o rosso (`error`) sopra il contenuto. */
+  feedback?: () => PopmenuFeedback | null | undefined;
+  /** Tap backdrop, ESC, pulsante dismiss: azzera il feedback lato parent. */
+  onFeedbackDismiss?: () => void;
+  /** Incrementa (es. `p(p()+1)`) per chiudere menu, conferma e feedback. */
+  closePulse?: () => number;
 }
 
 type Axis = "top" | "bottom" | "left" | "right";
@@ -274,6 +295,9 @@ export default function Popmenu(props: PopmenuProps) {
     offset,
     s,
     confirmCollapsed,
+    feedback,
+    onFeedbackDismiss,
+    closePulse,
     hoverIn,
     hoverOut,
     autofocus,
@@ -290,6 +314,8 @@ export default function Popmenu(props: PopmenuProps) {
   /** Dimensioni naturali della barra di conferma (misurate fuori dal flusso). */
   const confW = state(0);
   const confH = state(0);
+  const feedW = state(0);
+  const feedH = state(0);
   const pressed = state(false);
   const confirming = state(false);
   /** Contatore di bounce: ogni trigger incrementa e fa ri-partire l'animazione anche se già in corso. */
@@ -321,6 +347,35 @@ export default function Popmenu(props: PopmenuProps) {
   const confirmMessage = confirmOpts.message ?? "Conferma chiusura?";
   const confirmYes = confirmOpts.confirm ?? "Conferma";
   const confirmNo = confirmOpts.cancel ?? "Annulla";
+
+  const readFeedback = (): PopmenuFeedback | null => {
+    const f = feedback?.();
+    if (f == null) return null;
+    if (!f.message && !f.title) return null;
+    return f;
+  };
+
+  const feedbackActive = (): boolean => readFeedback() != null;
+
+  const confirmMeasureCopy = (): { msg: string; yes: string; no: string } => ({
+    msg: confirmMessage,
+    yes: confirmYes,
+    no: confirmNo,
+  });
+
+  let lastClosePulse = -1;
+  watch(
+    () => {
+      const v = closePulse?.();
+      if (v === undefined) return;
+      if (v === lastClosePulse) return;
+      lastClosePulse = v;
+      open(false);
+      confirming(false);
+      onFeedbackDismiss?.();
+    },
+    { watch: [() => closePulse?.() ?? -1] },
+  );
 
   /** Elemento della shell per autofocus + outside-click affidabile cross-browser. */
   let shellEl: HTMLElement | null = null;
@@ -373,6 +428,10 @@ export default function Popmenu(props: PopmenuProps) {
   /** Tentativo di chiusura: se confirmCollapsed attivo, mostra la conferma. Altrimenti chiude subito. */
   const requestClose = () => {
     if (!open()) return;
+    if (feedbackActive()) {
+      onFeedbackDismiss?.();
+      return;
+    }
     if (confirmCollapsed) {
       confirming(true);
     } else {
@@ -382,11 +441,13 @@ export default function Popmenu(props: PopmenuProps) {
 
   const confirmCloseYes = (ev?: Event) => {
     ev?.stopPropagation();
+    confirmOpts.onConfirm?.();
     confirming(false);
     open(false);
   };
   const confirmCloseNo = (ev?: Event) => {
     ev?.stopPropagation();
+    confirmOpts.onCancel?.();
     confirming(false);
   };
 
@@ -429,6 +490,10 @@ export default function Popmenu(props: PopmenuProps) {
     if (!open()) return;
     const handler = (ev: KeyboardEvent) => {
       if (ev.key !== "Escape") return;
+      if (feedbackActive()) {
+        onFeedbackDismiss?.();
+        return;
+      }
       if (confirming()) confirming(false);
       else requestClose();
     };
@@ -438,7 +503,7 @@ export default function Popmenu(props: PopmenuProps) {
 
   /** Autofocus ritardato (desktop/Android): secondo tentativo dopo il crossfade, per caret visibile. */
   watch(() => {
-    if (!autofocus || !open() || !shellEl) return;
+    if (!autofocus || !open() || !shellEl || confirming() || feedbackActive()) return;
     const delay = Math.round(D_OPEN * 0.35);
     const id = window.setTimeout(() => {
       const active = document.activeElement as HTMLElement | null;
@@ -508,15 +573,16 @@ export default function Popmenu(props: PopmenuProps) {
   const boxStyle = () => {
     const isOpen = open();
     const isConfirming = confirming();
+    const isFb = feedbackActive();
     /**
      * Se la conferma è aperta, la shell si espande al max fra extended e conferma:
      * evita che pulsanti/testo vengano tagliati quando l'extended è piccolo.
      */
     const w = isOpen
-      ? (isConfirming ? Math.max(ew(), confW()) : ew())
+      ? Math.max(ew(), isConfirming ? confW() : 0, isFb ? feedW() : 0)
       : cw();
     const h = isOpen
-      ? (isConfirming ? Math.max(eh(), confH()) : eh())
+      ? Math.max(eh(), isConfirming ? confH() : 0, isFb ? feedH() : 0)
       : ch();
     const ready = w > 0 && h > 0;
     const pos = isOpen ? openPos : closedPos;
@@ -654,6 +720,7 @@ export default function Popmenu(props: PopmenuProps) {
     const scaleVal = vis || reduced ? "1" : "0.96";
     const st: Record<string, string> = {
       position: "absolute",
+      zIndex: "0",
       width: `${w()}px`,
       height: `${h()}px`,
       opacity: vis ? "1" : "0",
@@ -706,14 +773,47 @@ export default function Popmenu(props: PopmenuProps) {
     backdropFilter: "blur(14px) saturate(160%)",
     WebkitBackdropFilter: "blur(14px) saturate(160%)",
     color: "#fff",
-    opacity: confirming() ? "1" : "0",
-    transform: confirming() ? "translateY(0) scale(1)" : "translateY(6%) scale(0.98)",
+    opacity: confirming() && !feedbackActive() ? "1" : "0",
+    transform:
+      confirming() && !feedbackActive() ? "translateY(0) scale(1)" : "translateY(6%) scale(0.98)",
     transition:
       "opacity 220ms cubic-bezier(0.2, 0.7, 0.2, 1), " +
       "transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1)",
-    pointerEvents: confirming() ? "auto" : "none",
-    zIndex: "3",
+    pointerEvents: confirming() && !feedbackActive() ? "auto" : "none",
+    zIndex: "4",
   });
+
+  /** Pannello feedback a tinta unita (verde / rosso): tutto il contenuto in bianco sopra. */
+  const feedbackBarStyle = () => {
+    const f = readFeedback();
+    const active = f != null;
+    const bg =
+      !active ? "#16a34a" : f.kind === "success" ? "#16a34a" : "#dc2626";
+    return {
+      position: "absolute" as const,
+      inset: "0",
+      display: "flex",
+      flexDirection: "column" as const,
+      alignItems: "stretch",
+      justifyContent: "center",
+      paddingTop: "28px",
+      paddingRight: "20px",
+      paddingBottom: "24px",
+      paddingLeft: "20px",
+      boxSizing: "border-box" as const,
+      gap: "20px",
+      background: bg,
+      color: "#fff",
+      opacity: active ? "1" : "0",
+      transform: active ? "translateY(0) scale(1)" : "translateY(6%) scale(0.98)",
+      transition:
+        "opacity 220ms cubic-bezier(0.2, 0.7, 0.2, 1), " +
+        "transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+      pointerEvents: active ? "auto" : "none",
+      zIndex: "5",
+      isolation: "isolate",
+    };
+  };
 
   const confirmMessageStyle: Record<string, string> = {
     flex: "1",
@@ -756,6 +856,57 @@ export default function Popmenu(props: PopmenuProps) {
     border: variant === "yes" ? "none" : "1px solid rgba(255,255,255,0.14)",
   });
 
+  const feedbackTitleStyle: Record<string, string> = {
+    flex: "0 0 auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    fontWeight: "700",
+    fontSize: "1.08em",
+    lineHeight: "1.35",
+    padding: "4px 6px",
+    letterSpacing: "-0.01em",
+    color: "#fff",
+  };
+
+  const feedbackMsgStyle: Record<string, string> = {
+    flex: "0 0 auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    fontWeight: "500",
+    fontSize: "0.95em",
+    lineHeight: "1.4",
+    padding: "4px 6px",
+    color: "#fff",
+  };
+
+  const feedbackDismissBtnStyle: Record<string, string> = {
+    flex: "1",
+    padding: "14px 18px",
+    borderRadius: "14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.95em",
+    textAlign: "center",
+    userSelect: "none",
+    letterSpacing: "-0.005em",
+    color: "#fff",
+    background: "rgba(255,255,255,0.22)",
+    border: "2px solid #fff",
+    boxShadow: "none",
+  };
+
+  const feedbackIconRowStyle: Record<string, string> = {
+    flex: "0 0 auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "52px",
+  };
+
   /**
    * Backdrop fullscreen: copre l'intera pagina quando il menu è aperto.
    * Cliccando sul backdrop → chiude (o mostra conferma se confirmCollapsed).
@@ -776,6 +927,10 @@ export default function Popmenu(props: PopmenuProps) {
 
   const onBackdropTap = (ev: Event) => {
     ev.stopPropagation();
+    if (feedbackActive()) {
+      onFeedbackDismiss?.();
+      return;
+    }
     if (confirming()) {
       /** Insistenza su tap-fuori con conferma attiva: feedback visivo sulla shell. */
       triggerBounce();
@@ -812,19 +967,63 @@ export default function Popmenu(props: PopmenuProps) {
     if (hoverOut && open()) open(false);
   };
 
-  /**
-   * Factory per il contenuto della conferma (messaggio + pulsanti) usato sia nel
-   * measure host (per misurare dimensione naturale) sia nell'overlay renderizzato.
-   */
-  const renderConfirmContent = () => (
+  const feedMeasureHostStyle: Record<string, string> = {
+    ...measureHostStyle,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: "20px",
+    paddingTop: "28px",
+    paddingRight: "20px",
+    paddingBottom: "24px",
+    paddingLeft: "20px",
+    boxSizing: "border-box",
+    minWidth: "240px",
+  };
+
+  const renderFeedbackMeasure = () => (
     <>
-      <div style={confirmMessageStyle as any}>{confirmMessage}</div>
+      <div style={feedbackIconRowStyle as any} />
+      <div style={feedbackTitleStyle as any}>Success</div>
+      <div style={feedbackMsgStyle as any}>User was created.</div>
       <div style={confirmButtonsRowStyle as any}>
-        <div style={btnStyle("no") as any}>{confirmNo}</div>
-        <div style={btnStyle("yes") as any}>{confirmYes}</div>
+        <div style={feedbackDismissBtnStyle as any}>OK</div>
       </div>
     </>
   );
+
+  const renderFeedbackOverlay = () => {
+    const f = readFeedback();
+    if (!f) return null;
+    const showBtn = f.showDismissButton !== false;
+    const lbl = f.dismissLabel ?? (f.kind === "success" ? "OK" : "Back");
+    return (
+      <>
+        <div style={{ ...feedbackIconRowStyle, color: "#fff" } as any}>
+          {f.kind === "success" ? (
+            <icon name="check" size={11} stroke={2.5} s="text-#fff" />
+          ) : (
+            <icon name="alertCircle" size={11} stroke={2.5} s="text-#fff" />
+          )}
+        </div>
+        {f.title ? <div style={feedbackTitleStyle as any}>{f.title}</div> : null}
+        {f.message ? <div style={feedbackMsgStyle as any}>{f.message}</div> : null}
+        {showBtn ? (
+          <div style={confirmButtonsRowStyle as any}>
+            <div
+              style={feedbackDismissBtnStyle as any}
+              click={() => {
+                onFeedbackDismiss?.();
+              }}
+            >
+              {lbl}
+            </div>
+          </div>
+        ) : null}
+      </>
+    );
+  };
 
   /**
    * Stile del measure host della conferma: replica il layout dell'overlay
@@ -860,7 +1059,23 @@ export default function Popmenu(props: PopmenuProps) {
       {/* Measure host per la conferma: calcola la size naturale richiesta dall'overlay. */}
       {confirmCollapsed ? (
         <div ref={observeSize(confW, confH)} style={confirmMeasureHostStyle as any}>
-          {renderConfirmContent()}
+          {(() => {
+            const c = confirmMeasureCopy();
+            return (
+              <>
+                <div style={confirmMessageStyle as any}>{c.msg}</div>
+                <div style={confirmButtonsRowStyle as any}>
+                  <div style={btnStyle("no") as any}>{c.no}</div>
+                  <div style={btnStyle("yes") as any}>{c.yes}</div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      ) : null}
+      {feedback !== undefined ? (
+        <div ref={observeSize(feedW, feedH)} style={feedMeasureHostStyle as any}>
+          {renderFeedbackMeasure()}
         </div>
       ) : null}
 
@@ -887,7 +1102,7 @@ export default function Popmenu(props: PopmenuProps) {
         touchend={onPressUp}
       >
         <div style={slotStyle(cw, ch, () => !open()) as any}>{collapsed()}</div>
-        <div style={slotStyle(ew, eh, () => open()) as any}>{extended()}</div>
+        <div style={slotStyle(ew, eh, () => open() && !feedbackActive()) as any}>{extended()}</div>
 
         {/* Overlay conferma: action-sheet iOS-like sopra il contenuto (blur + patina scura) */}
         <div
@@ -903,6 +1118,13 @@ export default function Popmenu(props: PopmenuProps) {
               {confirmYes}
             </div>
           </div>
+        </div>
+
+        <div
+          style={feedbackBarStyle as any}
+          click={(ev: Event) => ev.stopPropagation()}
+        >
+          {renderFeedbackOverlay()}
         </div>
       </div>
     </div>
