@@ -149,9 +149,7 @@ function UserDeletePopmenu(props: { userId: string; onDeleted: () => void }) {
       feedback={() => delFeedback()}
       onFeedbackDismiss={() => delFeedback(null)}
       closePulse={() => delClosePulse()}
-      collapsed={() => (
-        <icon name="trash" size={5} stroke={2} s="p-1 cursor-pointer" />
-      )}
+      collapsed={() => <icon name="trash" size={5} stroke={2} s="p-1 cursor-pointer" />}
       extended={() => (
         <div
           s="px-4 py-3 text-center font-6 cursor-pointer"
@@ -288,7 +286,7 @@ export default function Admin() {
             }
           >
             <div s="round-round b-2 b-tertiary mt-5 w-100%">
-                <table s="w-100% tbl-fixed bcollapse-separate bspace-0 text-left">
+              <table s="w-100% tbl-fixed bcollapse-separate bspace-0 text-left">
                 <thead>
                   <tr s="bg-primary text-background font-6">
                     <For each={USER_COLUMNS}>
@@ -371,10 +369,7 @@ export default function Admin() {
                                 );
                               }
                               return (
-                                <td
-                                  key={`${user.id}-${col.key}-${baseline}`}
-                                  s={cellS}
-                                >
+                                <td key={`${user.id}-${col.key}-${baseline}`} s={cellS}>
                                   <Input
                                     mode="none"
                                     defaultValue={baseline}
