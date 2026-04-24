@@ -1,4 +1,4 @@
-/** Token con spazi; `mob|tab|des:(…)`, `hover:(…)` e `bg-gradient(…)` con parentesi bilanciate. */
+/** Token con spazi; `mob|tab|des:(…)`, `hover:(…)`, `focus:(…)` e `bg-gradient(…)` con parentesi bilanciate. */
 export function tokenizeStyleString(input: string): string[] {
 	const s = input.trim();
 	const out: string[] = [];
@@ -28,6 +28,25 @@ export function tokenizeStyleString(input: string): string[] {
 			out.push(s.slice(i, j));
 			i = j;
 		} else if (/^hover:\(/i.test(slice)) {
+			const openIdx = i + 6;
+			if (s[openIdx] !== "(") {
+				let j = i;
+				while (j < s.length && !/\s/.test(s[j]!)) j++;
+				out.push(s.slice(i, j));
+				i = j;
+				continue;
+			}
+			let depth = 1;
+			let j = openIdx + 1;
+			while (j < s.length && depth > 0) {
+				const ch = s[j]!;
+				if (ch === "(") depth++;
+				else if (ch === ")") depth--;
+				j++;
+			}
+			out.push(s.slice(i, j));
+			i = j;
+		} else if (/^focus:\(/i.test(slice)) {
 			const openIdx = i + 6;
 			if (s[openIdx] !== "(") {
 				let j = i;

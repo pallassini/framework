@@ -344,6 +344,9 @@ export default function InputString(props: InputStringProps) {
       };
       if (passwordMode) {
         out.padding = `0 calc(${met.padX} + 1.7rem) 0 ${met.padX}`;
+      } else {
+        /** Inset orizzontale leggero (metà `padX` rispetto al chrome, evita testo “incollato” al bordo). */
+        out.padding = `0 calc(${met.padX} / 2)`;
       }
       return out;
     }

@@ -75,85 +75,139 @@ type El = HTMLElement | SVGElement;
 
 const managedStyleKeys = new WeakMap<El, Set<string>>();
 
-const hoverOverlayCleanup = new WeakMap<El, () => void>();
+const overlayInteractionCleanup = new WeakMap<El, () => void>();
 
 function mobViewport(): boolean {
 	return mob();
 }
 
-function teardownHoverOverlay(el: El): void {
-	const d = hoverOverlayCleanup.get(el);
+function teardownOverlays(el: El): void {
+	const d = overlayInteractionCleanup.get(el);
 	if (d) {
 		d();
-		hoverOverlayCleanup.delete(el);
+		overlayInteractionCleanup.delete(el);
 	}
 }
 
-/** Base + hover: unisce `transform` (es. `absolute center` + `scale` in hover). */
-function mergeHoverStyle(base: Record<string, string>, hover: Record<string, string>): Record<string, string> {
-	const out = { ...base, ...hover };
+/** Base + overlay: unisce `transform` (es. `absolute center` + `scale` in hover). */
+function mergeOverlayStyle(
+	base: Record<string, string>,
+	overlay: Record<string, string>,
+): Record<string, string> {
+	const out = { ...base, ...overlay };
 	const bt = base.transform;
-	const ht = hover.transform;
-	if (bt && ht) {
-		out.transform = `${bt} ${ht}`.trim();
+	const ot = overlay.transform;
+	if (bt && ot) {
+		out.transform = `${bt} ${ot}`.trim();
 	}
 	return out;
 }
 
-/** Merge `resolved.hover` al mouse; solo se `!mob()`. */
-function attachHoverOverlay(el: El, resolved: ResolvedStyle): void {
-	teardownHoverOverlay(el);
-	const ov = resolved.hover;
-	if (!ov) return;
-	const hasHover = Object.keys(ov.style).length > 0;
-	const hoverCls = ov.classes?.filter(Boolean).join(" ").trim() ?? "";
-	if (!hasHover && !hoverCls) return;
-	if (mobViewport()) return;
+/**
+ * `hover` (mouse) e `focus` (focusin/focusout, come `:focus-within`) sull’elemento
+ * o sui figli. Ordine merge: `base` → `hover?` → `focus?` (l’ultimo vince su stesse chiavi).
+ */
+function attachOverlays(el: El, resolved: ResolvedStyle): void {
+	teardownOverlays(el);
+	const hovR = resolved.hover;
+	const focR = resolved.focus;
+	if (!hovR && !focR) return;
+
+	const hovSt = hovR ? { ...hovR.style } : null;
+	const hovCls = hovR?.classes?.filter(Boolean).join(" ").trim() ?? "";
+	const hovUse =
+		!!(hovSt && Object.keys(hovSt).length > 0) || hovCls.length > 0;
+
+	const focSt = focR ? { ...focR.style } : null;
+	const focCls = focR?.classes?.filter(Boolean).join(" ").trim() ?? "";
+	const focUse = !!(focSt && Object.keys(focSt).length > 0) || focCls.length > 0;
+
+	if (!hovUse && !focUse) return;
 
 	const baseStyle = { ...resolved.style };
 	const baseClass = resolved.classes.filter(Boolean).join(" ").trim();
+	const layersOn =
+		resolved.layers ||
+		(focR && focR.layers) ||
+		(hovR && hovR.layers) ||
+		false;
 
-	const applyBase = (): void => {
-		applyMapStyles(el, baseStyle as Properties);
-		if (resolved.layers) el.setAttribute("data-fw-layers", "");
-		else el.removeAttribute("data-fw-layers");
-		if (baseClass) el.setAttribute("class", baseClass);
-		else el.removeAttribute("class");
-	};
-
-	const applyHover = (): void => {
-		const merged = mergeHoverStyle(baseStyle, ov.style);
-		applyMapStyles(el, merged as Properties);
-		if (resolved.layers || ov.layers) el.setAttribute("data-fw-layers", "");
-		const mergedCls = hoverCls ? (baseClass ? `${baseClass} ${hoverCls}` : hoverCls) : baseClass;
-		if (mergedCls?.trim()) el.setAttribute("class", mergedCls.trim());
-		else el.removeAttribute("class");
-	};
-
-	const onEnter = (): void => {
-		applyHover();
-	};
-	const onLeave = (): void => {
-		applyBase();
-		if (el instanceof HTMLElement) {
-			flushMediaBlendAfterStyle(el);
-			flushVideoEdgeFadeAfterStyle(el);
+	const applyComposed = (hovering: boolean, focusWithin: boolean): void => {
+		const useHover = hovering && hovR && hovUse && !mobViewport();
+		const useFocus = focusWithin && focUse;
+		let next = { ...baseStyle };
+		if (useHover && hovSt) {
+			next = mergeOverlayStyle(next, hovSt);
 		}
+		if (useFocus && focSt) {
+			next = mergeOverlayStyle(next, focSt);
+		}
+		applyMapStyles(el, next as Properties);
+		if (layersOn) el.setAttribute("data-fw-layers", "");
+		else el.removeAttribute("data-fw-layers");
+		const parts: string[] = [];
+		if (baseClass) parts.push(baseClass);
+		if (useHover && hovCls) parts.push(hovCls);
+		if (useFocus && focCls) parts.push(focCls);
+		const cls = parts.join(" ").trim();
+		if (cls) el.setAttribute("class", cls);
+		else el.removeAttribute("class");
 	};
 
-	el.addEventListener("mouseenter", onEnter);
-	el.addEventListener("mouseleave", onLeave);
-	hoverOverlayCleanup.set(el, () => {
-		el.removeEventListener("mouseenter", onEnter);
-		el.removeEventListener("mouseleave", onLeave);
-		/** Non chiamare `applyBase()` qui: `applyFromResolved` ha già applicato il resolve corrente;
-		 * la vecchia chiusura userebbe base/class obsoleti e ripristinerebbe tab/stili sbagliati al click sotto hover. */
-	});
+	const readPointerHover = (): boolean => {
+		if (!hovR || !hovUse) return false;
+		return typeof el.matches === "function" && el.matches(":hover");
+	};
 
-	/** Il puntatore può restare sopra senza un nuovo `mouseenter`: riallinea overlay al resolve appena fatto. */
-	if (typeof el.matches === "function" && el.matches(":hover")) {
-		applyHover();
+	const readFocusWithin = (): boolean => {
+		if (!focUse) return false;
+		return typeof el.matches === "function" && (el as Element).matches(":focus-within");
+	};
+
+	applyComposed(readPointerHover(), readFocusWithin());
+
+	const cleanups: Array<() => void> = [];
+
+	if (hovR && hovUse) {
+		const onEnter = (): void => {
+			applyComposed(true, readFocusWithin());
+		};
+		const onLeave = (): void => {
+			applyComposed(false, readFocusWithin());
+			if (el instanceof HTMLElement) {
+				flushMediaBlendAfterStyle(el);
+				flushVideoEdgeFadeAfterStyle(el);
+			}
+		};
+		el.addEventListener("mouseenter", onEnter);
+		el.addEventListener("mouseleave", onLeave);
+		cleanups.push(() => {
+			(el as Element).removeEventListener("mouseenter", onEnter);
+			(el as Element).removeEventListener("mouseleave", onLeave);
+		});
 	}
+
+	if (focR && focUse) {
+		const onFocusIn = (): void => {
+			applyComposed(readPointerHover(), true);
+		};
+		const onFocusOut = (e: Event): void => {
+			const rt = (e as FocusEvent).relatedTarget as Node | null;
+			if (rt == null || !(e.currentTarget as Element).contains(rt)) {
+				applyComposed(readPointerHover(), false);
+			}
+		};
+		el.addEventListener("focusin", onFocusIn);
+		el.addEventListener("focusout", onFocusOut);
+		cleanups.push(() => {
+			(el as Element).removeEventListener("focusin", onFocusIn);
+			(el as Element).removeEventListener("focusout", onFocusOut);
+		});
+	}
+
+	overlayInteractionCleanup.set(el, () => {
+		for (const c of cleanups) c();
+	});
 }
 
 function camelToKebab(prop: string): string {
@@ -245,7 +299,7 @@ const STYLE_ANIMATE_HOOK_KEYS = new Set(["onStart", "onEnd"]);
 
 function clearS(el: El): void {
 	clearAnimationLifecycle(el);
-	teardownHoverOverlay(el);
+	teardownOverlays(el);
 	if (el instanceof HTMLElement) {
 		clearMediaBlend(el);
 		clearVideoEdgeFade(el);
@@ -363,7 +417,7 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 		flushVideoEdgeFadeAfterStyle(el);
 	}
 
-	attachHoverOverlay(el, resolved);
+	attachOverlays(el, resolved);
 }
 
 /** Applica `s` (stringa, layer oggetto, numero) al viewport corrente. */

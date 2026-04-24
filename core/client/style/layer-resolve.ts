@@ -57,6 +57,8 @@ export interface StyleLayerInput {
 	des?: string | StyleLayerInput;
 	/** Overlay al passaggio del mouse (applicato solo se non viewport `mob`). */
 	hover?: string | StyleLayerInput;
+	/** Stile come `hover`, ma con focus reale sull’elemento o un discendente (`focusin` / `focusout` come `:focus-within`). */
+	focus?: string | StyleLayerInput;
 	class?: string;
 	animate?: Conditional<AnimateInput>;
 	transition?: Conditional<string | TransitionConfig>;
@@ -73,6 +75,8 @@ export type ResolvedStyle = {
 	animationLifecycle?: ReadonlyArray<AnimationLifecycleBinding>;
 	/** Stile overlay da `hover` nel layer (merge al mouse; solo se non mob). */
 	hover?: ResolvedStyle;
+	/** Stile overlay da `focus:(…)` o `focus` oggetto (merge a focus reale, come `:focus-within`). */
+	focus?: ResolvedStyle;
 };
 
 export const VIEWPORT_KEYS: StyleViewport[] = ["mob", "tab", "des"];
@@ -83,6 +87,7 @@ export const RESERVED_LAYER_KEYS = new Set([
 	"tab",
 	"des",
 	"hover",
+	"focus",
 	"class",
 	"animate",
 	"transition",
@@ -339,6 +344,9 @@ function mergeInto(target: ResolvedStyle, source: ResolvedStyle): void {
 	if (source.hover) {
 		target.hover = source.hover;
 	}
+	if (source.focus) {
+		target.focus = source.focus;
+	}
 }
 
 function propsToStrings(p: Properties): Record<string, string> {
@@ -422,6 +430,7 @@ function hasLayersInActive(active: string): boolean {
 }
 
 const HOVER_PREFIX = "hover:(";
+const FOCUS_PREFIX = "focus:(";
 
 export function resolveStyleString(
 	str: string,
@@ -436,9 +445,14 @@ export function resolveStyleString(
 	const known: string[] = [];
 	const passthrough: string[] = [];
 	const hoverInners: string[] = [];
+	const focusInners: string[] = [];
 	for (const t of tokens) {
 		if (/^hover:\(/i.test(t) && t.endsWith(")")) {
 			hoverInners.push(t.slice(HOVER_PREFIX.length, -1).trim());
+			continue;
+		}
+		if (/^focus:\(/i.test(t) && t.endsWith(")")) {
+			focusInners.push(t.slice(FOCUS_PREFIX.length, -1).trim());
 			continue;
 		}
 		if (parseStyleToken(t).base in map) known.push(t);
@@ -457,6 +471,11 @@ export function resolveStyleString(
 		const mergedHover = hoverInners.join(" ");
 		const hoverResolved = resolveStyleString(mergedHover, vp, extraBasesForVariants);
 		result.hover = hoverResolved;
+	}
+	if (focusInners.length) {
+		const mergedFocus = focusInners.join(" ");
+		const focusResolved = resolveStyleString(mergedFocus, vp, extraBasesForVariants);
+		result.focus = focusResolved;
 	}
 	return result;
 }
@@ -639,6 +658,16 @@ export function resolveStyleLayer(
 				? resolveStyleString(hIn, vp, contextForVp)
 				: resolveStyleLayer(hIn as StyleLayerInput, vp, contextForVp);
 		result.hover = hoverResolved;
+	}
+
+	const focusRaw = unwrapConditional(layer.focus);
+	if (focusRaw != null) {
+		const fIn = focusRaw as string | StyleLayerInput;
+		const focusResolved =
+			typeof fIn === "string"
+				? resolveStyleString(fIn, vp, contextForVp)
+				: resolveStyleLayer(fIn as StyleLayerInput, vp, contextForVp);
+		result.focus = focusResolved;
 	}
 
 	applyPositionedInsetDefaultsResolved(result.style);

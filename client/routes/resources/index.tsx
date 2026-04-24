@@ -25,8 +25,9 @@ export default function Resources() {
           <Menu />
         </div>
 
-        <div s="col centerx children-centerx w-100% des:(-ml-19)">
-          <div s="row des:(w-80% mt-20 gap-6)">
+        <div s="col centerx children-centerx w-100% des:(-ml-19) mob:(mb-30)">
+          <div s=" des:(w-80% mt-20 gap-6 row) mob:(col w-98% mt-20 gap-6) ">
+            {/* Spaces */}
             <Block
               s=""
               title="Spazi"
@@ -66,7 +67,7 @@ export default function Resources() {
                 />
               }
             >
-              <div s="des:(col-2 gap-4 mt-4) mob:(col)">
+              <div s="des:(col-2 gap-4 mt-4) mob:(col gap-4 mt-4)">
                 <For each={resources.space}>
                   {(r) => (
                     <Block s="bg-tertiary">
@@ -74,7 +75,8 @@ export default function Resources() {
                         <div s="row children-centery gapx-1 ">
                           <icon name="box" size={7} stroke={2} />
                           <Input
-                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
+                          size={7}
+                            s="hover:(b-#ffffff30 b-2 ) focus:(b-#fff b-2 )  duration-0 round-10px py-1"
                             defaultValue={r.name}
                             mode="none"
                             blur={(value: string) => {
@@ -86,7 +88,8 @@ export default function Resources() {
                         <div s="row children-centery gapx-1 ">
                           <icon name="armchair" size={7} stroke={2} />
                           <Input
-                            s="hover:(b-secondary b-2 )  duration-0 round-10px des:(py-1)"
+                               size={7}
+                            s="hover:(b-#ffffff30 b-2 ) focus:(b-#fff b-2 )  duration-0 round-10px py-1"
                             defaultValue={r.capacity}
                             mode="none"
                             type="number"
@@ -102,6 +105,7 @@ export default function Resources() {
                 </For>
               </div>
             </Block>
+            {/* People */}
             <Block
               s=""
               title="Personale"
@@ -131,7 +135,7 @@ export default function Resources() {
                             type: "person",
                           });
                           createPerson.reset();
-                          resources(server.user.resource.get({}));
+                          resources(server.user.resource.get());
                         }}
                       >
                         Crea

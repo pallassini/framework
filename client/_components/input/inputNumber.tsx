@@ -456,7 +456,7 @@ export default function InputNumber(props: InputNumberProps) {
    * `<input>` centrale: occupa tutto lo spazio residuo (`flex: 1`), testo
    * centrato, nessun bordo/sfondo/padding nativo — il box visibile è il
    * wrapper. In `mode=none` niente `padY` interno: come `<InputString none>`,
-   * il ritmo verticale resta a `s` sul guscio o al parent (evita doppio py).
+   * il ritmo verticale resta a `s` sul guscio o al parent; orizzontale: metà `padX` come `InputString` none.
    */
   const bareInputStyle = (): Record<string, string> => {
     const met = c.m();
@@ -468,10 +468,11 @@ export default function InputNumber(props: InputNumberProps) {
         width: "100%",
         minWidth: "0",
         height: "auto",
+        boxSizing: "border-box",
         border: "none",
         background: "transparent",
         outline: "none",
-        padding: "0",
+        padding: `0 calc(${met.padX} / 2)`,
         margin: "0",
         color: err ? "var(--error)" : "inherit",
         font: "inherit",
