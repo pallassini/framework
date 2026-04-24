@@ -40,10 +40,12 @@ export function requireAuth(): Middleware<unknown> {
 		const expMs = expiresAtMs(sess.expiresAt);
 		if (!Number.isFinite(expMs) || expMs < Date.now()) error("UNAUTHORIZED", "Session expired");
 
+		const userId = sess.userId as string;
 		ctx.auth = {
-			userId: sess.userId as string,
+			userId,
 			sessionId: sess.id,
 		};
+		ctx.user = { id: userId };
 		return next();
 	};
 }

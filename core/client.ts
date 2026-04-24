@@ -10,6 +10,7 @@ export const persistState = createPersistState(clientConfig.persistState);
 
 // ROUTER
 export * from "./client/router";
+export { routePhase } from "./client/router/App/signals";
 
 // VALIDATOR
 export * from "./client/validator";

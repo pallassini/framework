@@ -64,6 +64,15 @@ interface PopmenuProps {
   offset?: { x?: number; y?: number };
   /** Stile della shell (passato con token del framework, es. "bg-#545454 round-20px"). */
   s?: unknown;
+  /**
+   * Token `s` sul **solo** wrapper attorno a `collapsed` (non sull’intera shell).
+   * Default: `p-2 text-secondary scale-110`. Passa `false` per disattivare (resta l’allineamento interno).
+   * Il nome `hover` nel framework indica l’`HoverProp` (mouse enter/leave) sui tag DOM, non i token;
+   * qui si usa `collapsedS` per evitare ambiguità. `hover` resta alias deprecato.
+   */
+  collapsedS?: unknown | false;
+  /** @deprecated Usa `collapsedS` (i token stile sul wrapper del collapsed). */
+  hover?: unknown;
   /** Se `true` (o oggetto con opzioni), chiede conferma prima di chiudere (clickout / esc). */
   confirmCollapsed?: boolean | ConfirmOptions;
   /** Apre quando il mouse entra sulla shell. */
@@ -247,6 +256,9 @@ const collapsedSlotAlignStyle: Record<string, string> = {
   display: "block",
 };
 
+/** Default stile del wrapper `collapsed` (icona+padding; scalabile; colore testo/icone). */
+const DEFAULT_COLLAPSED_WRAPPER_S = "p-2 text-secondary scale-110";
+
 /** Rileva utenti con `prefers-reduced-motion`. Se true, le animazioni sono istantanee. */
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -302,6 +314,8 @@ export default function Popmenu(props: PopmenuProps) {
     direction = "bottom-right",
     offset,
     s,
+    collapsedS,
+    hover: legacyCollapsedWrapperHover,
     confirmCollapsed,
     feedback,
     onFeedbackDismiss,
@@ -315,6 +329,12 @@ export default function Popmenu(props: PopmenuProps) {
     extendedRound,
     shadow = true,
   } = props;
+
+  const wrapperCollapsedS: false | unknown =
+    collapsedS === false
+      ? false
+      : (collapsedS ?? legacyCollapsedWrapperHover ?? DEFAULT_COLLAPSED_WRAPPER_S);
+
   const resolvedMode: "light" | "dark" = mode;
 
   ensureBounceKeyframe();
@@ -1136,7 +1156,12 @@ export default function Popmenu(props: PopmenuProps) {
       style={wrapStyle as any}
     >
       <div ref={observeSize(cw, ch)} style={measureHostStyle as any}>
-        <div style={collapsedSlotAlignStyle as any}>{collapsed()}</div>
+        <div
+          s={wrapperCollapsedS as any}
+          style={collapsedSlotAlignStyle as any}
+        >
+          {collapsed()}
+        </div>
       </div>
       <div ref={observeSize(ew, eh)} style={measureHostStyle as any}>
         {extended()}
@@ -1187,7 +1212,12 @@ export default function Popmenu(props: PopmenuProps) {
         touchend={onPressUp}
       >
         <div style={slotStyle(cw, ch, () => !open()) as any}>
-          <div style={collapsedSlotAlignStyle as any}>{collapsed()}</div>
+          <div
+            s={wrapperCollapsedS as any}
+            style={collapsedSlotAlignStyle as any}
+          >
+            {collapsed()}
+          </div>
         </div>
         <div style={slotStyle(ew, eh, () => open() && !feedbackActive()) as any}>{extended()}</div>
 

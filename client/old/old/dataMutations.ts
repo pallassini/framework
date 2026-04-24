@@ -1,6 +1,23 @@
 import { server } from "client";
 
-export type AdminData = Awaited<ReturnType<typeof server.booker.getAllAdmin>>;
+export async function loadAdminData() {
+  const [ic, it, re, op, cl] = await Promise.all([
+    server.user.item.itemCategoryList(),
+    server.user.item.itemList({}),
+    server.user.resource.resourceList({}),
+    server.user.opening.openingHourList({}),
+    server.user.closures.closureList({}),
+  ]);
+  return {
+    itemCategories: ic.itemCategories,
+    items: it.items,
+    resources: re.resources,
+    openingHours: op.openingHours,
+    closures: cl.closures,
+  };
+}
+
+export type AdminData = Awaited<ReturnType<typeof loadAdminData>>;
 
 export type AdminDataSignal = {
   (): AdminData | undefined;

@@ -40,6 +40,8 @@ export interface ServerContext {
 		userId: string;
 		sessionId: string;
 	};
+	/** Shortcut: `id` = utente collegato alla sessione (stesso `auth.userId`). */
+	user?: { id: string };
 }
 
 export function createContext(req: Request, routeName: string): ServerContext {

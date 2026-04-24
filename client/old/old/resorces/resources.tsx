@@ -39,7 +39,7 @@ export default function Resource() {
     await dataCreate(
       "resources",
       payload,
-      () => server.booker.resourceCreate([payload]),
+      () => server.user.resource.resourceCreate([payload]),
     );
     space.reset();
   };
@@ -48,7 +48,7 @@ export default function Resource() {
     await dataCreate(
       "resources",
       payload,
-      () => server.booker.resourceCreate([payload]),
+      () => server.user.resource.resourceCreate([payload]),
     );
     person.reset();
   };
@@ -58,7 +58,7 @@ export default function Resource() {
       "resources",
       id,
       patch,
-      () => server.booker.resourceUpdate({ id, ...patch }),
+      () => server.user.resource.resourceUpdate({ id, ...patch }),
     );
 
   return (

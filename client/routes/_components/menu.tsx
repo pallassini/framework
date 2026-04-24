@@ -1,4 +1,4 @@
-import { device, For, go, persistState, state, url } from "client";
+import { device, For, go, routePhase, state, url } from "client";
 import { Icon } from "../../../core/client/runtime/tag/tags/icon";
 
 
@@ -6,9 +6,24 @@ import { Icon } from "../../../core/client/runtime/tag/tags/icon";
 const MENU_ITEMS = [
   { label: "Calendario", icon: "calendar", go: ""  },
   { label: "Servizi", icon: "layout", go: "services" },
-  { label: "Risorse", icon: "people", go: "resources" },
-  { label: "Impostazionooooi", icon: "bolt", go: "settings" },
+  { label: "Risorse", icon: "users", go: "resources" },
+  { label: "Impostazioni", icon: "bolt", go: "settings" },
 ];
+
+/** Path assoluto root: `""` → `"/"`, altrimenti `"/" + go`. */
+function menuHref(go: string): string {
+  return go ? `/${go}` : "/";
+}
+
+/** Stesso criterio del router, tollera slash finale. */
+function menuIsActive(go: string): boolean {
+  void routePhase();
+  const cur = url.route();
+  const target = menuHref(go);
+  const a = (cur.replace(/\/$/, "") || "/") as string;
+  const b = (target.replace(/\/$/, "") || "/") as string;
+  return a === b;
+}
 
 export default function Menu() {
   const open = state(false);
@@ -21,16 +36,16 @@ export default function Menu() {
             {(item) => (
               <icon
                 name={item.icon as Icon}
-                s={{
+                s={() => ({
                   base: {
                     "text-7 round-30px p-3 gapx-2 font-6": true,
                     "hover:(bg-#222222)": true,
-                    "text-background bg-primary hover:(bg-primary)": url.pathname() === "/admin" + item.go,
+                    "text-background bg-primary hover:(bg-primary)": menuIsActive(item.go),
                   },
-                }}
+                })}
                 stroke={2.5}
                 size={9}
-                click={() => go("/admin" + item.go)}
+                click={() => go(menuHref(item.go))}
               />
             )}
           </For>
@@ -42,19 +57,19 @@ export default function Menu() {
             <For each={MENU_ITEMS}>
               {(item) => (
                 <div
-                  s={{
+                  s={() => ({
                     base: {
                       "text-7 row round-30px bg-secondary w-auto p-3 gapx-2 font-6": true,
                       "hover:(bg-#222222)": true,
-                      "text-background bg-primary hover:(bg-primary)": url.pathname() === "/admin" + item.go,
+                      "text-background bg-primary hover:(bg-primary)": menuIsActive(item.go),
                     },
-                  }}
-                  click={() => go("/" + item.go)}
+                  })}
+                  click={() => go(menuHref(item.go))}
                 >
                   <icon
                     name={item.icon as Icon}
                     shadow={() =>
-                      url.pathname() === "/admin" + item.go ? { color: "background", blur: 2, intensity: 1 } : false
+                      menuIsActive(item.go) ? { color: "background", blur: 2, intensity: 1 } : false
                     }
                   />
                   <t show={open} s="text-4 centery">

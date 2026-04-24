@@ -1,9 +1,10 @@
-import { device, server, state } from "client";
+import { device, state } from "client";
+import { loadAdminData } from "./dataMutations";
 import AdminMenu, { tab } from "../../_components/menu";
 import Resources from "./resorces";
 import Prenotations from "./prenotaions";
 import Services from "./services";
-export const data = state(server.booker.getAllAdmin());
+export const data = state(loadAdminData());
 
 export default function BookerDemo() {
   const Content = () => (
