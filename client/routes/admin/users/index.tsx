@@ -41,7 +41,6 @@ export default function Admin() {
               <Popmenu
                 mode="light"
                 direction="bottom-left"
-                offset={{ x: 4, y: 3 }}
                 collapsed={() => (
                   <icon
                     name="plus"
@@ -107,12 +106,15 @@ export default function Admin() {
                     <For each={USER_COLUMNS}>
                       {(col, i) => (
                         <th
-                          s={`des:(text-4 font-6 py-3 px-4) mob:(text-5 font-6 py-2 px-3) valign-middle overflow-hidden tover-ellipsis ws-nowrap bb-2 bb-tertiary ${i !== USER_COLUMNS.length - 1 ? "br-2 br-tertiary" : ""} ${i === 0 ? "roundtl-round" : ""} ${i === USER_COLUMNS.length - 1 ? "roundtr-round" : ""}`}
+                          s={`des:(text-4 font-6 py-3 px-4) mob:(text-5 font-6 py-2 px-3) valign-middle overflow-hidden tover-ellipsis ws-nowrap bb-2 bb-tertiary br-2 br-tertiary ${i === 0 ? "roundtl-round" : ""}`}
                         >
                           {col.label}
                         </th>
                       )}
                     </For>
+                    <th
+                      s="des:(text-4 font-6 py-3 px-2) mob:(text-5 font-6 py-2 px-2) valign-middle text-center bb-2 bb-tertiary roundtr-round minw-14 w-auto"
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -124,25 +126,20 @@ export default function Admin() {
                       return (
                         <tr s="des:(text-4) mob:(text-5)">
                           <For each={USER_COLUMNS}>
-                            {(col, i) => {
+                            {(col) => {
                               const baseline = String(user[col.key] ?? "").trimEnd();
                               return (
                                 <td
                                   key={`${user.id}-${col.key}-${baseline}`}
-                                  s={`hover:(bg-#2f2f2f) valign-middle overflow-hidden tover-ellipsis ws-nowrap ${!isLastRow ? "bb-2 bb-tertiary" : ""} ${i !== USER_COLUMNS.length - 1 ? "br-2 br-tertiary" : ""}`}
+                                  s={`hover:(bg-#2f2f2f) valign-middle overflow-hidden tover-ellipsis ws-nowrap br-2 br-tertiary ${!isLastRow ? "bb-2 bb-tertiary" : ""}`}
                                 >
                                   <Input
                                     mode="none"
-                                    squeezeSpaces
                                     defaultValue={baseline}
                                     s="w-100% block minw-0 overflow-hidden tover-ellipsis ws-nowrap des:(py-2 px-4) mob:(py-2 px-3) "
                                     blur={(v) => {
-                                      void server.admin.patchUser(
-                                        {
-                                          id: user.id,
-                                          field: col.key,
-                                          value: v,
-                                        },
+                                      void server.admin.userUpdate(
+                                        { id: user.id, [col.key]: v },
                                         {
                                           onError: () => {
                                             users(server.admin.getUsers());
@@ -155,6 +152,29 @@ export default function Admin() {
                               );
                             }}
                           </For>
+                          <td
+                            s={`hover:(bg-#2f2f2f) valign-middle text-center minw-14 w-auto ${!isLastRow ? "bb-2 bb-tertiary" : ""}`}
+                          >
+                            <icon
+                              name="trash"
+                              size={6}
+                              stroke={2}
+                              s="p-2 text-primary cursor-pointer"
+                              click={() => {
+                                void server.admin.userDelete(
+                                  { id: user.id },
+                                  {
+                                    onSuccess: () => {
+                                      users(server.admin.getUsers());
+                                    },
+                                    onError: () => {
+                                      users(server.admin.getUsers());
+                                    },
+                                  },
+                                );
+                              }}
+                            />
+                          </td>
                         </tr>
                       );
                     }}

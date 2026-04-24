@@ -49,8 +49,9 @@ export type InputStringProps = InputPropsBase & {
    */
   passwordMode?: boolean;
   /**
-   * Se `true`, durante la digitazione ogni sequenza di spazi consecutivi diventa un solo spazio;
-   * in `blur` il valore viene anche `trimEnd()` (niente spazi/bianchi finali) e l’`input` viene allineato.
+   * Normalizzazione spazi: in digitazione niente doppi spazi; in `blur` anche `trimEnd()`.
+   * Default: **attivo** sugli input testo, **spento** su `passwordMode` (password libere).
+   * Passa `squeezeSpaces={false}` per disattivare su testo, o `true` per forzare su password.
    */
   squeezeSpaces?: boolean;
 };
@@ -79,7 +80,7 @@ export default function InputString(props: InputStringProps) {
     maxLength,
     autocomplete,
     passwordMode = false,
-    squeezeSpaces = false,
+    squeezeSpaces: squeezeSpacesProp,
     bg: bgProp,
     accentColor,
     focusColor,
@@ -93,6 +94,7 @@ export default function InputString(props: InputStringProps) {
     s: sProp,
     style: userStyleProp,
   } = props;
+  const squeezeSpaces = squeezeSpacesProp ?? !passwordMode;
   const focused = state(false);
   /** Stato locale per input non controllati (senza `field`). */
   const localHasValue = state(false);
