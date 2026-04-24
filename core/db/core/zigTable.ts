@@ -37,6 +37,11 @@ function explainDeleteRc(rc: number): string {
 	}
 }
 
+/** ISO UTC — coerente con `JSON.stringify` delle `Date` e con `v.datetime()`. */
+function nowIso(): string {
+	return new Date().toISOString();
+}
+
 /**
  * Tabella su motore Zig (PK stringa + payload JSON UTF-8).
  *
@@ -108,7 +113,8 @@ export class ZigTable<T extends DbRow> {
 		for (const row of rowsArr) {
 			const id = this.rowPk(row);
 			if (!id) throw new Error(`[fwdb] create: ${this.pkField} obbligatorio`);
-			const full = { ...row, [this.pkField]: id } as T;
+			const t = nowIso();
+			const full = { ...row, [this.pkField]: id, createdAt: t, updatedAt: t } as T;
 			const payload = u8(JSON.stringify(full));
 			const pk = u8(id);
 			const rc = this.lib.symbols.fwdb_row_put(
@@ -189,7 +195,15 @@ export class ZigTable<T extends DbRow> {
 				Omit<T, "id">
 			>;
 			const curPk = this.rowPk(row);
-			const merged = { ...row, ...nextPatch, [this.pkField]: curPk } as T;
+			const restPatch: Record<string, unknown> = { ...(nextPatch as Record<string, unknown>) };
+			delete restPatch["createdAt"];
+			const merged = {
+				...row,
+				...restPatch,
+				[this.pkField]: curPk,
+				createdAt: (row as Record<string, unknown>)["createdAt"],
+				updatedAt: nowIso(),
+			} as T;
 			const payload = u8(JSON.stringify(merged));
 			const pk = u8(curPk);
 			const rc = this.lib.symbols.fwdb_row_put(

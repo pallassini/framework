@@ -2,11 +2,11 @@ import { server } from "client";
 
 export async function loadAdminData() {
   const [ic, it, re, op, cl] = await Promise.all([
-    server.user.item.itemCategoryList(),
-    server.user.item.itemList({}),
-    server.user.resource.resourceList({}),
-    server.user.opening.openingHourList({}),
-    server.user.closures.closureList({}),
+    server.user.itemCategory.get(),
+    server.user.item.get({}),
+    server.user.resource.get(),
+    server.user.opening.get({}),
+    server.user.closures.get({}),
   ]);
   return {
     itemCategories: ic.itemCategories,

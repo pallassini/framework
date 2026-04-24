@@ -1,6 +1,6 @@
 import { db } from "db";
 import { error, s, v } from "server";
-import { assertItem, assertResources, stripUserId, uid } from "./guards";
+import { assertItem, assertResources, stripUserId } from "./guards";
 
 function validateRange(startAt: Date, endAt: Date) {
 	if (endAt.getTime() <= startAt.getTime()) {
@@ -8,75 +8,71 @@ function validateRange(startAt: Date, endAt: Date) {
 	}
 }
 
-export const bookingCreate = s({
+export const create = s({
 	auth: true,
 	input: v.array(db.bookings),
 	run: async (input, ctx) => {
-		const t = uid(ctx);
 		for (const r of input) {
 			validateRange(r.startAt, r.endAt);
 			for (const line of r.items) {
-				await assertItem(t, line.itemId);
+				await assertItem(ctx.user!.id, line.itemId);
 			}
-			if (r.assignments?.length) await assertResources(t, r.assignments);
+			if (r.assignments?.length) await assertResources(ctx.user!.id, r.assignments);
 		}
 		return {
 			bookings: await db.bookings.create(
 				input.map((r) => ({
 					...r,
-					userId: t,
+					userId: ctx.user!.id,
 				})),
 			),
 		};
 	},
 });
 
-export const bookingUpdate = s({
+export const update = s({
 	auth: true,
 	input: db.bookings.partial({ with: { id: v.string() }, min: 1 }),
 	run: async (input, ctx) => {
-		const t = uid(ctx);
 		const { id, ...patch } = stripUserId(input);
-		const existing = await db.bookings.find({ where: { id, userId: t } });
+		const existing = await db.bookings.find({ where: { id, userId: ctx.user!.id } });
 		if (existing.length === 0) error("NOT_FOUND", `booking ${id}`);
 		const prev = existing[0]!;
 		const next = { ...prev, ...patch };
 		validateRange(next.startAt, next.endAt);
 		if (patch.items) {
 			for (const line of patch.items) {
-				await assertItem(t, line.itemId);
+				await assertItem(ctx.user!.id, line.itemId);
 			}
 		}
-		if (patch.assignments) await assertResources(t, patch.assignments);
-		const res = await db.bookings.update({ where: { id, userId: t }, set: patch });
+		if (patch.assignments) await assertResources(ctx.user!.id, patch.assignments);
+		const res = await db.bookings.update({ where: { id, userId: ctx.user!.id }, set: patch });
 		if (res.count === 0) error("NOT_FOUND", `booking ${id}`);
 		return { booking: res.rows[0]! };
 	},
 });
 
-export const bookingCancel = s({
+export const cancel = s({
 	auth: true,
 	input: v.object({ id: v.string() }),
 	run: async ({ id }, ctx) => {
-		const t = uid(ctx);
-		const res = await db.bookings.update({ where: { id, userId: t }, set: { status: "cancelled" } });
+		const res = await db.bookings.update({ where: { id, userId: ctx.user!.id }, set: { status: "cancelled" } });
 		if (res.count === 0) error("NOT_FOUND", `booking ${id}`);
 		return { booking: res.rows[0]! };
 	},
 });
 
-export const bookingDelete = s({
+export const remove = s({
 	auth: true,
 	input: v.object({ id: v.string() }),
 	run: async ({ id }, ctx) => {
-		const t = uid(ctx);
-		const res = await db.bookings.delete({ where: { id, userId: t } });
+		const res = await db.bookings.delete({ where: { id, userId: ctx.user!.id } });
 		if (res.count === 0) error("NOT_FOUND", `booking ${id}`);
 		return { ok: true };
 	},
 });
 
-export const bookingList = s({
+export const get = s({
 	auth: true,
 	input: v.object({
 		from: v.datetime().optional(),
@@ -86,8 +82,7 @@ export const bookingList = s({
 		customerId: v.string().optional(),
 	}),
 	run: async ({ from, to, status, resourceId, customerId }, ctx) => {
-		const t = uid(ctx);
-		const where: Record<string, unknown> = { userId: t };
+		const where: Record<string, unknown> = { userId: ctx.user!.id };
 		if (status) where.status = status;
 		if (customerId) where.customerId = customerId;
 		if (from) where.startAt = { ...(where.startAt as object | undefined), $gte: from };

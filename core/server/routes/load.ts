@@ -5,7 +5,7 @@ import type { SizeLimitOpts } from "../middlewares/logic/opts";
 import { resetRateLimitBuckets } from "../middlewares/limit";
 import { getServerFn } from "./rpc/registry";
 import { isServerRoute, type ServerFn, type ServerRouteDesc } from "./rpc/types";
-import { uncacheModulesUnderDir } from "./module-cache";
+import { uncacheModulesUnderDir, uncacheUserModules } from "./module-cache";
 import { excludeDevtoolsFromRouteWalk, pathFromExport, walkRouteFiles } from "./route-fs";
 import { routeCors, routeMeta, routeRegistry, routesState } from "./state";
 import { writeServerRoutesGen } from "./generate";
@@ -43,6 +43,7 @@ export async function loadServerRoutes(root: string): Promise<void> {
 	}
 
 	uncacheModulesUnderDir(ROUTES_DIR);
+	uncacheUserModules(root);
 
 	const nextRegistry = new Map<string, ServerFn>();
 	const nextCors = new Map<string, CorsRule>();

@@ -1,7 +1,6 @@
 import { db } from "db";
 import { error, s, v } from "server";
 import { hashPassword } from "../auth/index";
-import { uid } from "./guards";
 
 /**
  * Aggiorna la riga `users` dell'utente autenticato (no `id` in input: si usa sempre la sessione).
@@ -11,7 +10,7 @@ export const update = s({
 	auth: true,
 	input: db.users.partial({ min: 1 }),
 	run: async (input, ctx) => {
-		const id = uid(ctx);
+		const id = ctx.user!.id;
 		const set: Record<string, unknown> = { ...(input as Record<string, unknown>) };
 		delete set["id"];
 		delete set["role"];
