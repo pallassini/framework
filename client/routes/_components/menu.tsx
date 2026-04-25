@@ -38,7 +38,7 @@ export default function Menu() {
                 name={item.icon as Icon}
                 s={() => ({
                   base: {
-                    "text-7 round-30px p-3 gapx-2 font-6": true,
+                    "text-7 round-15px p-2 gapx-2 font-6": true,
                     "hover:(bg-#222222)": true,
                     "text-background bg-primary hover:(bg-primary)": menuIsActive(item.go),
                   },
