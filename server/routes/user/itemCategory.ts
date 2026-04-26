@@ -1,10 +1,10 @@
 import { db } from "db";
 import { error, s, v } from "server";
-import { stripUserId } from "./guards";
+import { OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
 export const create = s({
 	auth: true,
-	input: v.array(db.itemCategories),
+	input: v.array(db.itemCategories.omit(...OMIT_CREATE_ROW_KEYS)),
 	run: async (input, ctx) => {
 		const rows = input.map((r) => ({ ...r, userId: ctx.user!.id }));
 		return { itemCategories: await db.itemCategories.create(rows) };

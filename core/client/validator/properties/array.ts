@@ -6,7 +6,7 @@ import {
 	tagFieldDefault,
 } from "../field-meta";
 import { optional } from "./optional";
-import { ValidationError, type InputSchema } from "./defs";
+import { ValidationError, validationErrorWithPrefix, type InputSchema } from "./defs";
 
 export type ArraySchema<I> = InputSchema<I[]> & {
 	default(value: I[]): ArraySchema<I> & SchemaWithInputDefault;
@@ -40,10 +40,7 @@ export function array<I>(item: InputSchema<I>): ArraySchema<I> {
 			try {
 				return item.parse(el);
 			} catch (e) {
-				if (e instanceof ValidationError) {
-					throw new ValidationError(`at index ${i}: ${e.message}`);
-				}
-				throw e;
+				validationErrorWithPrefix(`at index ${i}`, e);
 			}
 		});
 	}, itemType);

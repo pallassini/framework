@@ -7,6 +7,14 @@ export class ValidationError extends Error {
 	}
 }
 
+/** Prefisso per messaggi annidati (`campo: …`, `at index 0: …`). */
+export function validationErrorWithPrefix(prefix: string, cause: unknown): never {
+	if (cause instanceof ValidationError) {
+		throw new ValidationError(`${prefix}: ${cause.message}`);
+	}
+	throw cause;
+}
+
 export type InputSchema<I> = { parse: (raw: unknown) => I };
 
 export type InferSchema<S> = S extends InputSchema<infer I> ? I : never;

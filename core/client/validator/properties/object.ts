@@ -1,5 +1,5 @@
 import { readFieldType, tagFieldType, type FieldTypeDesc } from "../field-meta";
-import { ValidationError, type InputSchema } from "./defs";
+import { ValidationError, validationErrorWithPrefix, type InputSchema } from "./defs";
 
 type InferShape<S extends Record<string, InputSchema<unknown>>> = {
 	-readonly [K in keyof S]: S[K] extends InputSchema<infer U> ? U : never;
@@ -35,7 +35,11 @@ export function object<S extends Record<string, InputSchema<unknown>>>(
 			const obj = raw as Record<string, unknown>;
 			const res = {} as InferShape<S>;
 			for (const key of keys) {
-				(res as Record<string, unknown>)[key as string] = shape[key].parse(obj[key as string]);
+				try {
+					(res as Record<string, unknown>)[key as string] = shape[key].parse(obj[key as string]);
+				} catch (e) {
+					validationErrorWithPrefix(String(key), e);
+				}
 			}
 			return res;
 		},

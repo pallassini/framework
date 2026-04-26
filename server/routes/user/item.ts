@@ -1,10 +1,10 @@
 import { db } from "db";
 import { error, s, v } from "server";
-import { assertItem, assertItemCategory, assertResources, stripUserId } from "./guards";
+import { assertItem, assertItemCategory, assertResources, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
 export const create = s({
 	auth: true,
-	input: v.array(db.items),
+	input: v.array(db.items.omit(...OMIT_CREATE_ROW_KEYS)),
 	run: async (input, ctx) => {
 		for (const r of input) {
 			await assertItemCategory(ctx.user!.id, r.categoryId);

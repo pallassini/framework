@@ -1,6 +1,6 @@
 import { db } from "db";
 import { error, s, v } from "server";
-import { assertItem, assertResources, stripUserId } from "./guards";
+import { assertItem, assertResources, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
 function validateRange(startAt: Date, endAt: Date) {
 	if (endAt.getTime() <= startAt.getTime()) {
@@ -10,7 +10,7 @@ function validateRange(startAt: Date, endAt: Date) {
 
 export const create = s({
 	auth: true,
-	input: v.array(db.bookings),
+	input: v.array(db.bookings.omit(...OMIT_CREATE_ROW_KEYS)),
 	run: async (input, ctx) => {
 		for (const r of input) {
 			validateRange(r.startAt, r.endAt);

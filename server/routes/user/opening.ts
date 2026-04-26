@@ -1,10 +1,10 @@
 import { db } from "db";
 import { error, s, v } from "server";
-import { assertResource, stripUserId } from "./guards";
+import { assertResource, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
 export const create = s({
 	auth: true,
-	input: v.array(db.openingHours),
+	input: v.array(db.openingHours.omit(...OMIT_CREATE_ROW_KEYS)),
 	run: async (input, ctx) => {
 		for (const r of input) {
 			if (r.startTime >= r.endTime) error("INPUT", "startTime deve precedere endTime");

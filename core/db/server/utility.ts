@@ -1,4 +1,4 @@
-import { ValidationError, type InputSchema } from "../../client/validator/properties/defs";
+import { ValidationError, validationErrorWithPrefix, type InputSchema } from "../../client/validator/properties/defs";
 import { object as vObject } from "../../client/validator/properties/object";
 import { FIELD_OPTIONAL } from "../../client/validator/field-meta";
 import { CustomDb, type TablesMap } from "../core/customDb";
@@ -160,12 +160,19 @@ function attachShapeHelpers(
 				const rawObj = raw as Record<string, unknown>;
 				const res: Record<string, unknown> = {};
 				for (const [k, sch] of Object.entries(merged)) {
+					const parseField = (key: string, rawVal: unknown) => {
+						try {
+							return sch.parse(rawVal);
+						} catch (e) {
+							validationErrorWithPrefix(key, e);
+						}
+					};
 					if (extraKeys.has(k)) {
-						res[k] = sch.parse(rawObj[k]);
+						res[k] = parseField(k, rawObj[k]);
 						continue;
 					}
 					if (!Object.prototype.hasOwnProperty.call(rawObj, k)) continue;
-					res[k] = sch.parse(rawObj[k]);
+					res[k] = parseField(k, rawObj[k]);
 				}
 				return res;
 			};

@@ -36,3 +36,6 @@ export function stripUserId<T extends { userId?: string }>(patch: T): Omit<T, "u
 	const { userId: _r, ...rest } = patch;
 	return rest;
 }
+
+/** Colonne impostate dal server / DB sulle create: non vanno mandate nel body RPC. */
+export const OMIT_CREATE_ROW_KEYS = ["userId", "id", "createdAt", "updatedAt", "deletedAt"] as const;

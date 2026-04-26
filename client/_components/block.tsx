@@ -15,7 +15,7 @@ export default function Block({ title, icon: iconName, children, s, style, actio
     <div
       s={{
         base: {
-          "col w-100% round-round p-5 centerx bg-secondary": true,
+          "col w-100% round-round des:(p-4) mob:(p-3) centerx bg-secondary": true,
           ...s,
         },
       }}
@@ -23,10 +23,10 @@ export default function Block({ title, icon: iconName, children, s, style, actio
     >
       <div
         s={{
-          base: "font-6 text-6 row round-5px gapx-2 children-center ",
+          base: "font-6 text-7 row round-5px gapx-1.5 children-center ",
         }}
       >
-        <icon name={iconName as Icon} size="7" stroke={2.5} s="text-primary" />
+        {iconName ? <icon name={iconName} size="6" stroke={2} s="text-primary" /> : null}
         <t>{title}</t>
         <div s="right">{actions}</div>
       </div>

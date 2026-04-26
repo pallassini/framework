@@ -12,6 +12,8 @@ export function TimePicker(props: {
   onChange: (value: string) => Promise<unknown> | unknown;
   /** Id stabile opzionale (non più necessario ma mantenuto per compat). */
   panelId?: string;
+  /** Trigger più compatto (es. riga orari su mobile). */
+  compact?: boolean;
 }) {
   void props.panelId;
 
@@ -141,8 +143,10 @@ export function TimePicker(props: {
       }}
       s={{
         base: {
-          "bg-transparent text-1 round-10px b-1px px-10px py-5px cursor-pointer row children-centery gapx-1px": true,
-          "b-#2a2a2a": () => !open(),
+          [props.compact
+            ? "bg-transparent text-3 round-6px b-1px px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0"
+            : "bg-transparent text-2 round-8px b-1px px-8px py-4px cursor-pointer row children-centery gapx-1px"]: true,
+          "b-#3f3f46": () => !open(),
           "b-primary": open,
         },
       }}
