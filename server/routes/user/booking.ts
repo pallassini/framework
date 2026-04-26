@@ -8,11 +8,14 @@ function validateRange(startAt: Date, endAt: Date) {
 	}
 }
 
+const bookingCreate = db.bookings.omit(...OMIT_CREATE_ROW_KEYS);
+
 export const create = s({
 	auth: true,
-	input: v.array(db.bookings.omit(...OMIT_CREATE_ROW_KEYS)),
+	input: v.oneOrArray(bookingCreate),
 	run: async (input, ctx) => {
-		for (const r of input) {
+		const list = Array.isArray(input) ? input : [input];
+		for (const r of list) {
 			validateRange(r.startAt, r.endAt);
 			for (const line of r.items) {
 				await assertItem(ctx.user!.id, line.itemId);
@@ -21,7 +24,7 @@ export const create = s({
 		}
 		return {
 			bookings: await db.bookings.create(
-				input.map((r) => ({
+				list.map((r) => ({
 					...r,
 					userId: ctx.user!.id,
 				})),

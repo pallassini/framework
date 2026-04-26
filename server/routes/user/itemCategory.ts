@@ -2,11 +2,14 @@ import { db } from "db";
 import { error, s, v } from "server";
 import { OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
+const itemCategoryCreate = db.itemCategories.omit(...OMIT_CREATE_ROW_KEYS);
+
 export const create = s({
 	auth: true,
-	input: v.array(db.itemCategories.omit(...OMIT_CREATE_ROW_KEYS)),
+	input: v.oneOrArray(itemCategoryCreate),
 	run: async (input, ctx) => {
-		const rows = input.map((r) => ({ ...r, userId: ctx.user!.id }));
+		const list = Array.isArray(input) ? input : [input];
+		const rows = list.map((r) => ({ ...r, userId: ctx.user!.id }));
 		return { itemCategories: await db.itemCategories.create(rows) };
 	},
 });
@@ -35,6 +38,6 @@ export const remove = s({
 export const get = s({
 	auth: true,
 	run: async (ctx) => {
-		return { itemCategories: await db.itemCategories.find({ where: { userId: ctx.user!.id } }) };
+		return await db.itemCategories.find({ where: { userId: ctx.user!.id } });
 	},
 });

@@ -23,10 +23,10 @@ export default function Block({ title, icon: iconName, children, s, style, actio
     >
       <div
         s={{
-          base: "font-6 text-7 row round-5px gapx-1.5 children-center ",
+          base: "font-6 text-6 row round-5px gapx-1.5 children-center ",
         }}
       >
-        {iconName ? <icon name={iconName} size="6" stroke={2} s="text-primary" /> : null}
+        {iconName ? <icon name={iconName} size="7" stroke={2} s="text-primary" /> : null}
         <t>{title}</t>
         <div s="right">{actions}</div>
       </div>

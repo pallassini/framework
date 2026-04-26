@@ -1,8 +1,3 @@
-import {
-	ValidationError,
-	type InferSchema,
-	type InputSchema,
-} from "../../../core/client/validator/properties/defs";
 import { db } from "db";
 import { error, s, v } from "server";
 import { stripUserId } from "./guards";
@@ -13,18 +8,9 @@ const resourceInput = v.object({
 	type: v.enum(["space", "person"]),
 });
 
-type ResourceCreateOne = InferSchema<typeof resourceInput>;
-const resourceOrArray: InputSchema<ResourceCreateOne | ResourceCreateOne[]> = {
-	parse: (raw) => {
-		if (raw == null) throw new ValidationError("expected object or array");
-		if (Array.isArray(raw)) return v.array(resourceInput).parse(raw);
-		return resourceInput.parse(raw);
-	},
-};
-
 export const create = s({
 	auth: true,
-	input: resourceOrArray,
+	input: v.oneOrArray(resourceInput),
 	run: async (input, ctx) => {
 		const list = Array.isArray(input) ? input : [input];
 		return {

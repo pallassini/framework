@@ -2,17 +2,20 @@ import { db } from "db";
 import { error, s, v } from "server";
 import { assertResource, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
+const closureCreate = db.closures.omit(...OMIT_CREATE_ROW_KEYS);
+
 export const create = s({
 	auth: true,
-	input: v.array(db.closures.omit(...OMIT_CREATE_ROW_KEYS)),
+	input: v.oneOrArray(closureCreate),
 	run: async (input, ctx) => {
-		for (const r of input) {
+		const list = Array.isArray(input) ? input : [input];
+		for (const r of list) {
 			if (r.endAt.getTime() <= r.startAt.getTime()) {
 				error("INPUT", "endAt deve essere dopo startAt");
 			}
 			await assertResource(ctx.user!.id, r.resourceId);
 		}
-		return { closures: await db.closures.create(input.map((r) => ({ ...r, userId: ctx.user!.id }))) };
+		return { closures: await db.closures.create(list.map((r) => ({ ...r, userId: ctx.user!.id }))) };
 	},
 });
 

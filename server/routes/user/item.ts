@@ -2,16 +2,19 @@ import { db } from "db";
 import { error, s, v } from "server";
 import { assertItem, assertItemCategory, assertResources, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
+const itemCreate = db.items.omit(...OMIT_CREATE_ROW_KEYS);
+
 export const create = s({
 	auth: true,
-	input: v.array(db.items.omit(...OMIT_CREATE_ROW_KEYS)),
+	input: v.oneOrArray(itemCreate),
 	run: async (input, ctx) => {
-		for (const r of input) {
+		const list = Array.isArray(input) ? input : [input];
+		for (const r of list) {
 			await assertItemCategory(ctx.user!.id, r.categoryId);
 			await assertResources(ctx.user!.id, r.resources);
 			if (r.relations) for (const rel of r.relations) await assertItem(ctx.user!.id, rel.itemId);
 		}
-		const rows = input.map((r) => ({ ...r, userId: ctx.user!.id }));
+		const rows = list.map((r) => ({ ...r, userId: ctx.user!.id }));
 		return { items: await db.items.create(rows) };
 	},
 });

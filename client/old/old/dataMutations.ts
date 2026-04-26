@@ -9,7 +9,7 @@ export async function loadAdminData() {
     server.user.closures.get({}),
   ]);
   return {
-    itemCategories: ic.itemCategories,
+    itemCategories: ic,
     items: it.items,
     resources: re.resources,
     openingHours: op.openingHours,

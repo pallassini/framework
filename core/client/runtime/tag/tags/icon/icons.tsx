@@ -667,3 +667,44 @@ export const shieldUser = (
     <circle cx="12" cy="11" r="4" />
   </svg>
 );
+
+export const exagon = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-hexagon-icon lucide-hexagon"
+  >
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+  </svg>
+);
+
+export const exangon7 = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-hexagons7-icon lucide-hexagons-7"
+  >
+    <path d="M5.3 4.3v3.9L2 10.1v3.8l3.3 1.9v3.9l3.4 1.9 3.3-1.9 3.3 1.9 3.4-1.9v-3.9l3.3-1.9v-3.8l-3.3-1.9V4.3l-3.4-1.9L12 4.3 8.7 2.4Z" />
+    <path d="M12 8.2V4.3" />
+    <path d="m18.7 8.2-3.4 1.9" />
+    <path d="m15.3 13.9 3.4 1.9" />
+    <path d="M12 19.7v-3.9" />
+    <path d="m8.7 13.9-3.4 1.9" />
+    <path d="m5.3 8.2 3.4 1.9" />
+    <path d="m8.7 13.9 3.3 1.9 3.3-1.9v-3.8L12 8.2l-3.3 1.9Z" />
+  </svg>
+);

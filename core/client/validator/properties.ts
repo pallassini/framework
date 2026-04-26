@@ -1,4 +1,5 @@
 import { array } from "./properties/array";
+import { oneOrArray } from "./properties/oneOrArray";
 import { date, datetime } from "./properties/date";
 import { time } from "./properties/time";
 import { nullable } from "./properties/nullable";
@@ -41,6 +42,8 @@ export const v = {
 	optional,
 	nullable,
 	array,
+	/** Stesso schema per un solo elemento o per un array (create batch o singola). */
+	oneOrArray,
 	object,
 	/** FK verso `tableName.id` (stesso comportamento di `fk()` da `core/db/schema/table`). */
 	fk,

@@ -2,15 +2,18 @@ import { db } from "db";
 import { error, s, v } from "server";
 import { assertResource, OMIT_CREATE_ROW_KEYS, stripUserId } from "./guards";
 
+const openingCreate = db.openingHours.omit(...OMIT_CREATE_ROW_KEYS);
+
 export const create = s({
 	auth: true,
-	input: v.array(db.openingHours.omit(...OMIT_CREATE_ROW_KEYS)),
+	input: v.oneOrArray(openingCreate),
 	run: async (input, ctx) => {
-		for (const r of input) {
+		const list = Array.isArray(input) ? input : [input];
+		for (const r of list) {
 			if (r.startTime >= r.endTime) error("INPUT", "startTime deve precedere endTime");
 			await assertResource(ctx.user!.id, r.resourceId);
 		}
-		return { openingHours: await db.openingHours.create(input.map((r) => ({ ...r, userId: ctx.user!.id }))) };
+		return { openingHours: await db.openingHours.create(list.map((r) => ({ ...r, userId: ctx.user!.id }))) };
 	},
 });
 
