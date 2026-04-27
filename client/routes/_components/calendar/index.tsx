@@ -1,108 +1,91 @@
-/**
- * **Solo iframe** Google Calendar (nessun OAuth / `go()` qui).
- *
- * ### Vedere *il tuo* calendario (stessa UI che su calendar.google.com)
- * 1. Vai su [Google Calendar](https://calendar.google.com) con **il tuo** account.
- * 2. Impostazioni del calendario → **Impostazioni e condivisione** → **Integra calendario**.
- * 3. Copia l’URL dentro `src="https://calendar.google.com/calendar/embed?..."` e incollalo qui sotto → **Applica**.
- *
- * In alternativa puoi incollare solo l’**email** del calendario primario (es. `tu@gmail.com`): costruiamo l’URL embed.
- * Il calendario deve essere **visibile** per l’embed (es. “Chiunque abbia il link” per quel calendario), altrimenti l’iframe può restare vuoto — è così che funziona Google.
- *
- * Oppure: `VITE_GOOGLE_CALENDAR_EMBED_SRC` nel `.env` (stesso URL embed).
- */
-import { state } from "client";
+import { For, state } from "client";
+import Popmenu from "../../../_components/popmenu";
 
-const KEY_USER = "fw:gcal:embed_user";
+/** Mese 0 = gennaio. */
+export const MONTHS_IT = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
+] as const;
 
-const DEFAULT_EMBED_SRC =
-  "https://calendar.google.com/calendar/embed?height=600&wkst=2&bgcolor=%23ffffff&ctz=Europe%2FRome&src=it.italian%23holiday%40group.v.calendar.google.com&color=%230D9488";
+/** Griglia tipo calendario: settimana da lunedì. */
+export const WEEKDAYS_IT = [
+  "Lunedì",
+  "Martedì",
+  "Mercoledì",
+  "Giovedì",
+  "Venerdì",
+  "Sabato",
+  "Domenica",
+] as const;
 
-function embedFromEnv(): string {
-  const fromEnv = (import.meta.env.VITE_GOOGLE_CALENDAR_EMBED_SRC as string | undefined)?.trim();
-  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_EMBED_SRC;
-}
-
-function readUserOverride(): string | null {
-  try {
-    const v = localStorage.getItem(KEY_USER)?.trim();
-    return v || null;
-  } catch {
-    return null;
-  }
-}
-
-function buildEmbedFromEmail(email: string): string {
-  const ctz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const src = encodeURIComponent(email.trim());
-  return `https://calendar.google.com/calendar/embed?wkst=2&bgcolor=%23ffffff&ctz=${ctz}&src=${src}`;
-}
-
-function computeIframeSrc(): string {
-  const u = readUserOverride();
-  if (!u) return embedFromEnv();
-  if (u.startsWith("https://calendar.google.com/calendar/embed")) return u;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u)) return buildEmbedFromEmail(u);
-  return embedFromEnv();
-}
-
+const year = state(new Date().getFullYear());
 export default function Calendar() {
-  const srcSig = state(computeIframeSrc());
-  const draft = state(readUserOverride() ?? "");
-  const hasSaved = state(!!readUserOverride());
-
-  const apply = () => {
-    const v = draft().trim();
-    try {
-      if (!v) localStorage.removeItem(KEY_USER);
-      else localStorage.setItem(KEY_USER, v);
-    } catch {
-      /* */
-    }
-    hasSaved(Boolean(readUserOverride()));
-    srcSig(computeIframeSrc());
-  };
-
-  const clearUser = () => {
-    draft("");
-    try {
-      localStorage.removeItem(KEY_USER);
-    } catch {
-      /* */
-    }
-    hasSaved(false);
-    srcSig(computeIframeSrc());
-  };
-
   return (
     <div s="des:(w-80% h-85) mob:(w-100% h-74) bg-secondary round-round mt-5 col minh-0 overflow-hidden">
-      <div s="shrink-0 row wrap gap-2 children-centery px-2 py-1.5 bg-#1a1a1e bt-#2a2a30 bt-1">
-        <input
-          type="text"
-          key={readUserOverride() ?? "empty"}
-          placeholder="URL embed oppure tua email @gmail.com"
-          defaultValue={readUserOverride() ?? ""}
-          s="text-2 flex-1 minw-0 maxw-40rem p-1.5 round-6px bg-#0d0d10 b-1px b-#2a2a30"
-          autocomplete="off"
-          input={(v) => draft(v)}
-        />
-        <div s="text-2 px-3 py-1.5 round-6px bg-primary text-background cursor-pointer shrink-0" click={apply}>
-          Applica
-        </div>
-        <show when={() => hasSaved()}>
-          <t s="text-2 opacity-70 cursor-pointer underline shrink-0" click={clearUser}>
-            Reimposta
-          </t>
-        </show>
+      {/* HEADER */}
+      <div s="row centerx children-center p-4">
+        <Year />
       </div>
-      <iframe
-        key={srcSig()}
-        title="Google Calendar"
-        src={srcSig()}
-        s="w-100% h-100% flex-1 minh-0 border-0 round-round"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-      />
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// YEAR
+// ───────────────────────────────────────────────────────────────────────────────
+function Year() {
+  const YEAR_MIN = 1990;
+  const YEAR_MAX = 2060;
+
+  function yearRowsAround(anchor: number, len = 9): number[] {
+    let start = anchor - 1;
+    if (start < YEAR_MIN) start = YEAR_MIN;
+    if (start + (len - 1) > YEAR_MAX) start = YEAR_MAX - (len - 1);
+    return Array.from({ length: len }, (_, i) => start + i);
+  }
+
+  const closePulse = state(0);
+
+  return (
+    <>
+      <Popmenu
+        mode="light"
+        direction="bottom"
+        collapsed={() => <t s="px-4 py-2 row text-3 font-6">{year}</t>}
+        closePulse={() => closePulse()}
+        extended={() => (
+          <div s="p-4 col-3">
+            <For each={yearRowsAround(year())}>
+              {(y) => (
+                <t
+                  s={() =>
+                    y === year()
+                      ? "px-2 py-1 mx-1 my-1 row text-3 scale-105 font-6 bg-primary cursor-pointer round-10px "
+                      : "px-2 py-1 mx-1 my-1 row text-3 cursor-pointer hover:(scale-105 bg-#a6a6a6) round-10px"
+                  }
+                  click={() => {
+                    year(y);
+                    closePulse(1);
+                    setTimeout(() => closePulse(0), 100);
+                  }}
+                >
+                  {y}
+                </t>
+              )}
+            </For>
+          </div>
+        )}
+      />
+    </>
   );
 }
