@@ -5,6 +5,7 @@ import { getStoreSnapshot, setStoreFromSnapshot } from "../state/utils/store";
 import { ValidationError, type InferSchema, type InputSchema } from "../validator/properties/defs";
 import { v } from "../validator/index";
 import { FIELD_OPTIONAL, readFieldType, type FieldTypeDesc } from "../validator/field-meta";
+import { bump } from "../debug/leakProbe";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 export type FormStorage = "session" | "persist";
@@ -195,6 +196,27 @@ function clearStorageKey(storage: Storage, key: string): void {
 
 const DEBOUNCE_MS = 300;
 
+const formStorageFlushers = new Set<() => void>();
+let formStorageGlobalsBound = false;
+
+function ensureFormStorageGlobals(): void {
+	if (formStorageGlobalsBound || typeof window === "undefined") return;
+	formStorageGlobalsBound = true;
+	const flushAll = (): void => {
+		for (const fn of formStorageFlushers) {
+			try {
+				fn();
+			} catch {
+				/* */
+			}
+		}
+	};
+	window.addEventListener("beforeunload", flushAll);
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") flushAll();
+	});
+}
+
 function bindJsonStorage(store: Record<string, unknown>, key: string, storage: Storage): void {
 	try {
 		const raw = storage.getItem(key);
@@ -224,10 +246,8 @@ function bindJsonStorage(store: Record<string, unknown>, key: string, storage: S
 	});
 
 	if (typeof window !== "undefined") {
-		window.addEventListener("beforeunload", flush);
-		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "hidden") flush();
-		});
+		ensureFormStorageGlobals();
+		formStorageFlushers.add(flush);
 	}
 }
 
@@ -241,6 +261,45 @@ type FormEnterRegistry = {
 };
 const formEnterRegistry = new Map<string, FormEnterRegistry>();
 let formEnterListenerAttached = false;
+
+/**
+ * Cleanup periodico: rimuove dal `formEnterRegistry` tutte le entry il cui form
+ * non ha più alcun `[data-fw-form="<id>"]` nel DOM. Coincide con lo smontaggio
+ * della pagina/Popmenu che conteneva il form. Senza questo, i `Form()` restano
+ * "vivi" in memoria insieme a `ctlByBinding` e listener Enter.
+ *
+ * Non usiamo MutationObserver (rumoroso): un setInterval ogni 5s è impercettibile
+ * e si ferma quando il registry è vuoto.
+ */
+let formGcTimer: ReturnType<typeof setInterval> | null = null;
+function bumpFormDispose(formId: string): void {
+	if (typeof window === "undefined") return;
+	try {
+		(window as unknown as { __fwLeakBump?: (k: string, t: "create" | "dispose") => void }).__fwLeakBump?.(
+			"formInstances",
+			"dispose",
+		);
+	} catch {
+		/* */
+	}
+	formEnterRegistry.delete(formId);
+}
+function ensureFormGc(): void {
+	if (formGcTimer != null || typeof document === "undefined") return;
+	formGcTimer = setInterval(() => {
+		if (formEnterRegistry.size === 0) {
+			if (formGcTimer) {
+				clearInterval(formGcTimer);
+				formGcTimer = null;
+			}
+			return;
+		}
+		for (const id of [...formEnterRegistry.keys()]) {
+			const has = document.querySelector(`[data-fw-form="${CSS.escape(id)}"]`);
+			if (!has) bumpFormDispose(id);
+		}
+	}, 5000);
+}
 
 /**
  * Preferisce la copia “visiva” del campo: componenti come `Popmenu` montano lo stesso
@@ -348,7 +407,7 @@ function parseFieldValueForForm(
 	}
 	if (isOptional) return { ok: true, value: parsed };
 	const ft = readFieldType(sub);
-	if (ft?.kind === "string" || ft?.kind === "password") {
+	if (ft?.kind === "string" || ft?.kind === "password" || ft?.kind === "select") {
 		if (String(parsed as string).trim() === "") return { ok: false, message: "" };
 	}
 	return { ok: true, value: parsed };
@@ -503,6 +562,7 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 			onEnter: options.onEnter,
 			isValid: () => valid(),
 		});
+		ensureFormGc();
 	} else {
 		formEnterRegistry.delete(id);
 	}
@@ -519,6 +579,8 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		}
 		return await handler(parsed);
 	}
+
+	bump("formInstances", "create");
 
 	const out: Record<string, unknown> = { values: valuesAll, reset, errors, valid, submit };
 

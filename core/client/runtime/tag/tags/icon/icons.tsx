@@ -242,6 +242,23 @@ export const chevronRight = (
   </svg>
 );
 
+export const chevronDown = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-chevron-down-icon lucide-chevron-down"
+  >
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
 export const key = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -334,6 +351,46 @@ export const calendar = (
     <path d="M16 2v4" />
     <rect width="18" height="18" x="3" y="4" rx="2" />
     <path d="M3 10h18" />
+  </svg>
+);
+
+export const calendarClock = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-calendar-clock-icon lucide-calendar-clock"
+  >
+    <path d="M16 14v2.2l1.6 1" />
+    <path d="M16 2v4" />
+    <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+    <path d="M3 10h5" />
+    <path d="M8 2v4" />
+    <circle cx="16" cy="16" r="6" />
+  </svg>
+);
+
+export const stickyNote = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-sticky-note-icon lucide-sticky-note"
+  >
+    <path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" />
+    <path d="M15 3v5a1 1 0 0 0 1 1h5" />
   </svg>
 );
 

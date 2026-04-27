@@ -45,6 +45,8 @@ export const sessions = table({
 // resourceId
 export const openingHours = table({
   resourceId: v.fk("resources").optional(),
+  /** Fascia valida solo per questo servizio (item). Se null, vale per risorsa / globale come prima. */
+  itemId: v.fk("items").optional(),
   dayOfWeek: v.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
   startTime: v.time(),
   endTime: v.time(),

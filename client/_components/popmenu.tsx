@@ -2,7 +2,8 @@ import { state, watch, icon } from "client";
 import { toNodes } from "../../core/client/runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
-import { logInputDebug } from "./input/inputDebug";
+import { INPUT_DEBUG, logInputDebug } from "./input/inputDebug";
+import { bump } from "../../core/client/debug/leakProbe";
 
 /**
  * Converte "N" (in unità del canvas, stesse di w-N/h-N del framework) in rem.
@@ -213,6 +214,7 @@ function strengthenShadowColor(rawColor: string, strength: number): string {
 function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
   return ((el) => {
     if (!el) return;
+    bump("resizeObserver", "create");
     const ro = new ResizeObserver(([entry]) => {
       if (!entry) return;
       /**
@@ -234,7 +236,10 @@ function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
       setH(Math.ceil(h));
     });
     ro.observe(el as Element);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      bump("resizeObserver", "dispose");
+    };
   }) as (el: HTMLElement | SVGElement | null) => (() => void) | void;
 }
 
@@ -308,6 +313,7 @@ function ensureFwPopmenuPortal(): HTMLDivElement {
 }
 
 export default function Popmenu(props: PopmenuProps) {
+  bump("popmenuInstances", "create");
   const {
     collapsed,
     extended,
@@ -438,13 +444,16 @@ export default function Popmenu(props: PopmenuProps) {
     const wrap = wrapEl;
     const ph = layoutPlaceholder;
     if (!ph) {
+      if (wrap && fwPopmenuPortal && wrap.parentElement === fwPopmenuPortal) {
+        fwPopmenuPortal.removeChild(wrap);
+      }
       portalMounted(false);
       return;
     }
     const parent = ph.parentElement;
-    if (wrap && fwPopmenuPortal && wrap.parentElement === fwPopmenuPortal && parent) {
+    if (wrap && fwPopmenuPortal && wrap.parentElement === fwPopmenuPortal) {
       fwPopmenuPortal.removeChild(wrap);
-      parent.insertBefore(wrap, ph);
+      if (parent) parent.insertBefore(wrap, ph);
     }
     ph.remove();
     layoutPlaceholder = null;
@@ -464,6 +473,16 @@ export default function Popmenu(props: PopmenuProps) {
   };
 
   /** Tentativo di chiusura: se confirmCollapsed attivo, mostra la conferma. Altrimenti chiude subito. */
+  const nowMs = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
+  /**
+   * Dopo l’apertura (Popmenu annidato, wrap spostato in portal, o `mouseup` che finisce sul
+   * backdrop) il `click` può colpire il backdrop a fine gesto. Ignoriamo le chiusure su backdrop
+   * per qualche decina di millisecondi: evita "clicco e si chiude subito" senza bloccare
+   * una seconda chiusura intenzionale (tap fuori subito dopo).
+   */
+  let ignoreBackdropCloseUntilMs = 0;
+  const BACKDROP_CLOSE_GRACE_MS = 300;
+
   const requestClose = () => {
     if (!open()) return;
     if (feedbackActive()) {
@@ -492,12 +511,13 @@ export default function Popmenu(props: PopmenuProps) {
   const requestOpen = () => {
     if (open()) return;
     open(true);
+    ignoreBackdropCloseUntilMs = nowMs() + BACKDROP_CLOSE_GRACE_MS;
     confirming(false);
     /** Focus immediato sincrono (iOS). Un secondo tentativo ritardato per desktop/Android. */
     tryAutofocus();
   };
 
-  watch(() => {
+  if (INPUT_DEBUG) watch(() => {
     const shellBg =
       resolvedMode === "light"
         ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
@@ -1011,6 +1031,9 @@ export default function Popmenu(props: PopmenuProps) {
 
   const onBackdropTap = (ev: Event) => {
     ev.stopPropagation();
+    if (open() && nowMs() < ignoreBackdropCloseUntilMs) {
+      return;
+    }
     if (feedbackActive()) {
       onFeedbackDismiss?.();
       return;
@@ -1151,7 +1174,13 @@ export default function Popmenu(props: PopmenuProps) {
   return (
     <div
       ref={(el) => {
-        wrapEl = el as HTMLDivElement | null;
+        if (!el) return;
+        wrapEl = el as HTMLDivElement;
+        onNodeDispose(el, () => {
+          cancelPendingTeardown();
+          teardownPortal();
+          bump("popmenuInstances", "dispose");
+        });
       }}
       style={wrapStyle as any}
     >

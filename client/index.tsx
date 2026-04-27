@@ -1,4 +1,5 @@
 import { App, auth, go, url } from "client";
+import "../core/client/debug/leakProbe";
 import "./index.css";
 
 App((Page) => {

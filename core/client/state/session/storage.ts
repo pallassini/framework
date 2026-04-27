@@ -2,8 +2,30 @@ import { watch } from "../effect";
 import { enqueueAsyncChain } from "../utils/asyncChain";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { cleanupStaleSessionKeys, getSessionState, setSessionState } from "./idb";
+import { bump } from "../../debug/leakProbe";
 
 const DEBOUNCE_MS = 300;
+
+const sessionFlushers = new Set<() => void>();
+let sessionGlobalsBound = false;
+
+function ensureSessionGlobals(): void {
+	if (sessionGlobalsBound || typeof window === "undefined") return;
+	sessionGlobalsBound = true;
+	const flushAll = (): void => {
+		for (const fn of sessionFlushers) {
+			try {
+				fn();
+			} catch {
+				/* */
+			}
+		}
+	};
+	window.addEventListener("beforeunload", flushAll);
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") flushAll();
+	});
+}
 
 export function bindSessionIdb(store: Record<string, unknown>, key: string): void {
 	cleanupStaleSessionKeys();
@@ -46,9 +68,8 @@ export function bindSessionIdb(store: Record<string, unknown>, key: string): voi
 	});
 
 	if (typeof window !== "undefined") {
-		window.addEventListener("beforeunload", flush);
-		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "hidden") flush();
-		});
+		ensureSessionGlobals();
+		sessionFlushers.add(flush);
+		bump("sessionBindings", "create");
 	}
 }

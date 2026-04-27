@@ -8,6 +8,10 @@ import type { StyleInput } from "../../../core/client/style";
 import type { Signal } from "../../../core/client/state/state";
 import type { InlineStyleValue } from "../../../core/client/runtime/tag/props/style-inline";
 import { resolveFieldBinding, type FieldBinding, type FormStyle } from "../../../core/client/form/form";
+import type { FieldTypeDesc } from "../../../core/client/validator/field-meta";
+import InputSelect, { type InputSelectOption, type InputSelectProps } from "./inputSelect";
+
+export type { InputSelectOption, InputSelectPanelDirection } from "./inputSelect";
 
 export type { InputMode } from "./presets";
 
@@ -16,7 +20,7 @@ export type { InputMode } from "./presets";
  * Ogni tipo ha la sua UI dedicata in un file separato (`inputString.tsx`, `inputNumber.tsx`, …).
  * Il tipo di default è `"string"`.
  */
-export type InputType = "string" | "number" | "password";
+export type InputType = "string" | "number" | "password" | "select";
 
 /**
  * `size` numerico da 1 a 10 (coerente col resto del framework: `text-N`, `p-N`, `round-Npx`).
@@ -115,7 +119,8 @@ export type InputPropsBase = {
 export type InputProps =
   | ({ type?: "string" } & InputStringProps)
   | ({ type: "password" } & InputStringProps)
-  | ({ type: "number" } & InputNumberProps);
+  | ({ type: "number" } & InputNumberProps)
+  | ({ type: "select" } & InputSelectProps);
 
 function inferTypeFromField(field: FieldBinding | undefined): InputType | undefined {
   if (!field) return undefined;
@@ -124,10 +129,28 @@ function inferTypeFromField(field: FieldBinding | undefined): InputType | undefi
     if (meta?.kind === "number") return "number";
     if (meta?.kind === "password") return "password";
     if (meta?.kind === "string") return "string";
+    if (meta?.kind === "enum" || meta?.kind === "fk" || meta?.kind === "select") return "select";
   } catch {
     // In fallback manteniamo il default storico.
   }
   return undefined;
+}
+
+function selectOptionsFromFieldMeta(field: FieldBinding | undefined): readonly InputSelectOption[] {
+  if (!field) return [];
+  let meta: FieldTypeDesc | undefined;
+  try {
+    meta = resolveFieldBinding(field).meta();
+  } catch {
+    return [];
+  }
+  if (meta?.kind === "enum" && meta.options.length > 0) {
+    return meta.options.map((value) => ({ value, label: value }));
+  }
+  if (meta?.kind === "fk" || meta?.kind === "select") {
+    return [];
+  }
+  return [];
 }
 
 /**
@@ -145,13 +168,39 @@ export default function Input(props: InputProps) {
       fieldStyle = undefined;
     }
   }
-  const inferred = inferTypeFromField((props as { field?: FieldBinding }).field);
+  const fieldBinding = (props as { field?: FieldBinding }).field;
+  const inferred = inferTypeFromField(fieldBinding);
   const type = props.type ?? inferred ?? "string";
   const p = props as InputPropsBase;
   const size = p.size ?? fieldStyle?.size ?? 3;
   /** Stesso criterio di `size`: il `mode` del `Form` finisce nelle prop così la palette non resta a default `dark`. */
   const mode = p.mode ?? fieldStyle?.mode;
   const merged = { ...props, size, mode } as InputProps;
+  let selectMerged = merged;
+  if (type === "select") {
+    const sp = merged as InputSelectProps;
+    const fromMeta = selectOptionsFromFieldMeta(fieldBinding);
+    const options = sp.options !== undefined && sp.options !== null ? sp.options : fromMeta;
+    let emptyLabel = sp.emptyLabel;
+    if (emptyLabel === undefined && fieldBinding) {
+      try {
+        const ctl = resolveFieldBinding(fieldBinding);
+        const meta = ctl.meta();
+        const noOpts = options.length === 0;
+        if (
+          ctl.optional() ||
+          meta?.kind === "enum" ||
+          meta?.kind === "select" ||
+          (meta?.kind === "fk" && noOpts)
+        ) {
+          emptyLabel = "—";
+        }
+      } catch {
+        /* */
+      }
+    }
+    selectMerged = { ...sp, options, emptyLabel } as InputProps;
+  }
   return (
     <switch value={type}>
       <case when="string">
@@ -165,6 +214,9 @@ export default function Input(props: InputProps) {
       </case>
       <case when="number">
         <InputNumber {...(merged as InputNumberProps)} />
+      </case>
+      <case when="select">
+        <InputSelect {...(selectMerged as InputSelectProps)} />
       </case>
     </switch>
   );

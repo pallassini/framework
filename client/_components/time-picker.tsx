@@ -41,14 +41,17 @@ export function TimePicker(props: {
     panelRoot.style.left = `${left}px`;
   };
 
-  /** Stile pannello senza transizioni: evita il “salto” visivo da 0,0 al trigger. */
+  /**
+   * Sopra il portale Popmenu (`--fw-z-popmenu-portal`), altrimenti il dropdown resta “sotto” il menu.
+   * Backdrop +1, pannello +2 rispetto al portal.
+   */
   const panelShellStyle = (top: number, left: number): string =>
     [
       "position:fixed",
       `top:${top}px`,
       `left:${left}px`,
       "transform:translateX(-50%)",
-      "z-index:100081",
+      "z-index:calc(var(--fw-z-popmenu-portal, 2147483646) + 2)",
       "box-shadow:0 10px 30px rgba(0,0,0,0.6)",
       "transition:none",
       "opacity:1",
@@ -83,7 +86,8 @@ export function TimePicker(props: {
     const left = r.left + r.width / 2;
 
     backdrop = document.createElement("div");
-    backdrop.style.cssText = "position:fixed;inset:0;z-index:100080;transition:none;";
+    backdrop.style.cssText =
+      "position:fixed;inset:0;z-index:calc(var(--fw-z-popmenu-portal, 2147483646) + 1);transition:none;";
     backdrop.addEventListener("click", close);
     document.body.appendChild(backdrop);
 

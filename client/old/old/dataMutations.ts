@@ -5,7 +5,7 @@ export async function loadAdminData() {
     server.user.itemCategory.get(),
     server.user.item.get({}),
     server.user.resource.get(),
-    server.user.opening.get({}),
+    server.user.opening.get({ resourceId: undefined, itemId: undefined }),
     server.user.closures.get({}),
   ]);
   return {

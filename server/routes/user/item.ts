@@ -49,10 +49,9 @@ export const get = s({
 		categoryId: v.string().optional(),
 		includeArchived: v.boolean().optional(),
 	}),
-	run: async ({ categoryId, includeArchived }, ctx) => {
+	run: async ({ categoryId }, ctx) => {
 		const where: Record<string, unknown> = { userId: ctx.user!.id };
 		if (categoryId) where.categoryId = categoryId;
-		if (!includeArchived) where.deletedAt = null;
 		return { items: await db.items.find({ where }) };
 	},
 });

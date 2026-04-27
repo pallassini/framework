@@ -20,6 +20,7 @@ import {
 import { unknown } from "./properties/unknown";
 import { uuid } from "./properties/uuid";
 import { fk } from "./fk";
+import { select } from "./properties/select";
 
 export const v = {
 	uuid,
@@ -47,6 +48,11 @@ export const v = {
 	object,
 	/** FK verso `tableName.id` (stesso comportamento di `fk()` da `core/db/schema/table`). */
 	fk,
+	/**
+	 * Stringa con `<Input type` implicito `select` — le opzioni si passano con `options={...}`
+	 * (dati a runtime; non c’è chiusura statica in tipo).
+	 */
+	select,
 } as const;
 
 export { noPasswordError } from "./properties/string";

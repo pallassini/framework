@@ -13,8 +13,11 @@ import { TimePicker } from "../../_components/time-picker";
 export default function Resources() {
   const resources = state(server.user.resource.get);
   const refresh = () => resources(server.user.resource.get());
-  const openings = state(server.user.opening.get({ resourceId: undefined }));
-  const refreshOpenings = () => openings(server.user.opening.get({ resourceId: undefined }));
+  const openings = state(
+    server.user.opening.get({ resourceId: undefined, itemId: undefined }),
+  );
+  const refreshOpenings = () =>
+    openings(server.user.opening.get({ resourceId: undefined, itemId: undefined }));
   return (
     <>
       <div s="des:(row)">
@@ -33,7 +36,7 @@ export default function Resources() {
                       label={d.label}
                       rows={
                         (openings.openingHours() ?? []).filter(
-                          (o) => o.dayOfWeek === d.day,
+                          (o) => o.dayOfWeek === d.day && o.itemId == null,
                         ) as OpeningHourRow[]
                       }
                       refreshOpenings={refreshOpenings}
@@ -90,6 +93,7 @@ type OpeningHourRow = {
   dayOfWeek: string;
   startTime: string;
   endTime: string;
+  itemId?: string | undefined;
 };
 
 const DEFAULT_OPEN_START = "09:00:00";

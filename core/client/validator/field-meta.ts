@@ -50,6 +50,8 @@ export type FieldTypeDesc =
 	| { kind: "date" }
 	| { kind: "time" }
 	| { kind: "enum"; options: readonly string[] }
+	/** Opzioni solo in UI (`<Input options={...} />`), non nello schema. */
+	| { kind: "select" }
 	| { kind: "array"; of: FieldTypeDesc }
 	| { kind: "object"; shape?: Record<string, FieldTypeDesc> }
 	| { kind: "fk"; table: string }

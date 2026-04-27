@@ -222,12 +222,30 @@ function watchImpl(
 	const h = makeHandle(run, opts);
 	runHandle(h);
 
+	if (typeof window !== "undefined") {
+		try {
+			// Lazy import to avoid module cycle in non-browser environments.
+			const probe = (window as unknown as { __fwLeakBump?: (k: string, t: "create" | "dispose") => void }).__fwLeakBump;
+			probe?.("watch", "create");
+		} catch {
+			/* */
+		}
+	}
+
 	const disposer = (): void => {
 		if (h.disposed) return;
 		h.disposed = true;
 		queued.delete(h);
 		unlinkAll(h);
 		runCleanups(h);
+		if (typeof window !== "undefined") {
+			try {
+				const probe = (window as unknown as { __fwLeakBump?: (k: string, t: "create" | "dispose") => void }).__fwLeakBump;
+				probe?.("watch", "dispose");
+			} catch {
+				/* */
+			}
+		}
 	};
 	if (prefetchWatchDisposers) prefetchWatchDisposers.push(disposer);
 	return disposer;

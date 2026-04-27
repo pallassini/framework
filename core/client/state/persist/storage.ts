@@ -4,8 +4,36 @@ import { enqueueAsyncChain } from "../utils/asyncChain";
 import { persistLog, persistShortJson } from "../utils/persistDebug";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { broadcastPersistUpdate, createPersistBroadcast, getPersistState, setPersistState } from "./idb";
+import { bump } from "../../debug/leakProbe";
 
 const DEBOUNCE_MS = 300;
+
+/**
+ * Listener globali (`beforeunload`/`visibilitychange`) condivisi fra tutti gli store
+ * persisted: una sola registrazione per finestra, indipendentemente da quanti
+ * store vengono creati. Ogni store registra solo la propria callback `flush`
+ * dentro un Set; rimuovere lo store rimuove anche la callback (vedi cleanup).
+ */
+const persistFlushers = new Set<() => void>();
+let persistGlobalsBound = false;
+
+function ensurePersistGlobals(): void {
+	if (persistGlobalsBound || typeof window === "undefined") return;
+	persistGlobalsBound = true;
+	const flushAll = (): void => {
+		for (const fn of persistFlushers) {
+			try {
+				fn();
+			} catch {
+				/* */
+			}
+		}
+	};
+	window.addEventListener("beforeunload", flushAll);
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") flushAll();
+	});
+}
 /** Wrapper scalare per distinguere nell'IDB i valori persistiti come scalari (vs store). */
 const SCALAR_TAG = "__fw_scalar__";
 
@@ -85,10 +113,10 @@ export function bindPersistIdb(store: Record<string, unknown>, key: string): voi
 	});
 
 	if (typeof window !== "undefined") {
-		window.addEventListener("beforeunload", () => flush("beforeunload"));
-		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "hidden") flush("hidden-tab");
-		});
+		ensurePersistGlobals();
+		const flusher = (): void => flush("global");
+		persistFlushers.add(flusher);
+		bump("persistBindings", "create");
 	}
 
 	createPersistBroadcast(key, (info) => {
@@ -170,10 +198,10 @@ export function bindPersistScalarIdb<T>(sig: Signal<T>, key: string): void {
 	});
 
 	if (typeof window !== "undefined") {
-		window.addEventListener("beforeunload", () => flush("beforeunload"));
-		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "hidden") flush("hidden-tab");
-		});
+		ensurePersistGlobals();
+		const flusher = (): void => flush("global");
+		persistFlushers.add(flusher);
+		bump("persistBindings", "create");
 	}
 
 	createPersistBroadcast(key, () => {
