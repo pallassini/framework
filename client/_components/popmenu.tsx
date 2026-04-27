@@ -434,13 +434,14 @@ export default function Popmenu(props: PopmenuProps) {
     wrapPinTop(r.top);
   };
 
-  const onScrollOrResize = () => {
+  /** Riallinea il wrap al placeholder (stesso punto del trigger nel documento). */
+  const onScrollOrResizePin = () => {
     syncWrapPin();
   };
 
   const teardownPortal = () => {
-    window.removeEventListener("scroll", onScrollOrResize, true);
-    window.removeEventListener("resize", onScrollOrResize);
+    window.removeEventListener("scroll", onScrollOrResizePin, true);
+    window.removeEventListener("resize", onScrollOrResizePin);
     const wrap = wrapEl;
     const ph = layoutPlaceholder;
     if (!ph) {
@@ -643,8 +644,8 @@ export default function Popmenu(props: PopmenuProps) {
         syncWrapPin();
       });
 
-      window.addEventListener("scroll", onScrollOrResize, true);
-      window.addEventListener("resize", onScrollOrResize);
+      window.addEventListener("scroll", onScrollOrResizePin, true);
+      window.addEventListener("resize", onScrollOrResizePin);
     },
     { watch: [() => open()] },
   );
@@ -653,11 +654,19 @@ export default function Popmenu(props: PopmenuProps) {
     /**
      * Il wrap è fissato (position:fixed, ancorato al placeholder) finché è nel portal — anche durante
      * l’animazione di chiusura, altrimenti il cambio position interrompe la transizione CSS della shell.
+     * `transition: none` su left/top: allo scroll il pin si aggiorna ogni frame senza “scivolare” verso
+     * il trigger (resta agganciato al punto d’apertura nel layout, ma senza transizione sul contenitore).
      */
     const inPortal = portalMounted();
     return {
       position: inPortal ? ("fixed" as const) : ("relative" as const),
-      ...(inPortal ? { left: `${wrapPinLeft()}px`, top: `${wrapPinTop()}px` } : {}),
+      ...(inPortal
+        ? {
+            left: `${wrapPinLeft()}px`,
+            top: `${wrapPinTop()}px`,
+            transition: "none",
+          }
+        : {}),
       display: "block",
       width: `${cw()}px`,
       height: `${ch()}px`,
