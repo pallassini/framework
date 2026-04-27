@@ -11,10 +11,12 @@
     "db": "bun ./core/cli/db/index.ts"
   },
   "dependencies": {
-    "electrobun": "1.16.0"
+    "electrobun": "1.16.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/web-push": "^3.6.4",
     "csstype": "^3.2.3",
     "typescript": "^6.0.2",
     "vite": "latest",

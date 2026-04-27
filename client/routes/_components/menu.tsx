@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { label: "Servizi", icon: "layout", go: "services" },
   { label: "Risorse", icon: "users", go: "resources" },
   { label: "Impostazioni", icon: "bolt", go: "settings" },
+  { label: "Test", icon: "bolt", go: "test" },
 ];
 
 /** Path assoluto root: `""` → `"/"`, altrimenti `"/" + go`. */
@@ -52,7 +53,7 @@ export default function Menu() {
         </div>
       </case>
       <case when={(v) => v === "tab" || v === "des"}>
-        <div s="px-4 col h-100 hover:(pr-10)" hover={open}>
+        <div s="px-4 col h-fit hover:(pr-10)" hover={open}>
           <div s="mt-40 gapy-5 col">
             <For each={MENU_ITEMS}>
               {(item) => (

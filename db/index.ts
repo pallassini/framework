@@ -15,8 +15,8 @@ export const users = table({
 
   //________________ USER ________________________
 
-  // SETTINGS (impostati dopo la registrazione dal tenant, quindi optional)
-  domain: v.string().optional(), // "saloneluisa.it" — usato dal widget per riconoscere il tenant
+  // SETTINGS
+  domain: v.string().optional(),
   color: v.string().optional(),
   theme: v.enum(["light", "dark"]).default("dark"),
 
@@ -25,7 +25,7 @@ export const users = table({
   taxId: v.string().optional(), // Codice Fiscale o P.IVA
   sdiCode: v.string().optional(), // SDI (7 char) o PEC
 
-  // Stripe: solo ID di riferimento (no dati sensibili)
+  // Stripe
   stripeCustomerId: v.string().optional(),
   stripeSubscriptionId: v.string().optional(),
   subscriptionStatus: v
@@ -37,6 +37,43 @@ export const sessions = table({
   userId: "users",
   expiresAt: v.datetime(),
   revokedAt: v.datetime().optional(),
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// DEVICE
+// ───────────────────────────────────────────────────────────────────────────────
+export const device = table({
+  userId: "users",
+  ip: v.string().optional(),
+  /** `ios`, `android`, `windows`, `macos`, `linux`, `chromeos`, `web`, `other`, … */
+  os: v.string().optional(),
+  /** Apple, Samsung, Google, … */
+  brand: v.string().optional(),
+  /** Modello: `iPhone15,3`, `SM-G991B`, … */
+  model: v.string().optional(),
+  /** `safari`, `chrome`, `firefox`, `webview`, `samsung`, … */
+  browser: v.string().optional(),
+  /** PWA installata / `display-mode: standalone`. */
+  pwa: v.boolean().optional(),
+  /** BCP-47 es. `it-IT`. */
+  locale: v.string().optional(),
+  /** IANA es. `Europe/Rome`. */
+  tz: v.string().optional(),
+  /** WGS84 (solo se client o backend forniscono posizione). */
+  lat: v.number().optional(),
+  lng: v.number().optional(),
+  /** Viewport logico (CSS px). */
+  width: v.number().optional(),
+  height: v.number().optional(),
+  /** `devicePixelRatio`. */
+  dpr: v.number().optional(),
+  lastSeenAt: v.datetime().optional(),
+});
+
+export const notification = table({
+  deviceId: "device",
+  userId: "users",
+  subscription: v.string(),
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -132,7 +169,7 @@ export const resources = table({
 // ───────────────────────────────────────────────────────────────────────────────
 // SCHEMAS (namespaces)
 // ───────────────────────────────────────────────────────────────────────────────
-export const auth = schema([users, sessions]);
+export const auth = schema([users, sessions, device, notification]);
 export const availability = schema([openingHours, closures]);
 export const item = schema([items, itemCategories]);
 export const resource = schema([resources]);

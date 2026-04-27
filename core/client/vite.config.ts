@@ -10,6 +10,7 @@ import { genFwDbDataWatch } from "./vite-plugin-fwdb-data-watch";
 import { genServerRoutes } from "./server-routes-gen";
 import { lazyCaseChildrenPlugin } from "./vite-plugin-lazy-case-children";
 import { routeAssetSrcPlugin } from "./vite-plugin-route-asset-src";
+import { swPushPlugin } from "./vite-plugin-sw-push";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -49,6 +50,7 @@ export default defineConfig({
 	logLevel: "silent",
 	customLogger: muteIssueLogger(),
 	plugins: [
+		swPushPlugin(root),
 		lazyCaseChildrenPlugin(root),
 		routeAssetSrcPlugin(root),
 		genServerRoutes(root),

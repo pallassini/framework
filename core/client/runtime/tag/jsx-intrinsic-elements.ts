@@ -9,6 +9,7 @@ import type { ShowProps } from "./tags/show";
 import type { SwitchProps } from "./tags/switch";
 import type { CaseProps } from "./tags/switch/case";
 import type { ImgProps } from "./tags/img";
+import type { IframeProps } from "./tags/iframe";
 import type { VideoProps } from "./tags/video";
 import type { InputProps } from "./tags/input";
 import type { SelectProps } from "./tags/select";
@@ -33,6 +34,7 @@ export interface FrameworkIntrinsicElements {
 	case: CaseProps;
 	icon: IconProps;
 	img: ImgProps;
+	iframe: IframeProps;
 	video: VideoProps;
 	input: InputProps;
 	select: SelectProps;

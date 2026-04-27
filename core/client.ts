@@ -41,3 +41,6 @@ export { For, icon } from "./client/runtime/tag";
 
 // FORM
 export * from "./client/form";
+
+// Web Push — service worker (`core/client/push/sw-push.js`)
+export { initPushServiceWorker, SW_PUSH_SCRIPT_URL } from "./client/push/register";

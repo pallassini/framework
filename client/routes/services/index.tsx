@@ -24,12 +24,3 @@ export default function Services() {
     </>
   );
 }
-
-
-function Service() {
-  return (
-    <>
-      <t>Servizio</t>
-    </>
-  );
-}

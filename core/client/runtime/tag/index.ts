@@ -14,6 +14,8 @@ export { clientCase as case } from "./tags/switch/case";
 
 export { img } from "./tags/img";
 
+export { iframe } from "./tags/iframe";
+
 export { video } from "./tags/video";
 
 export { input } from "./tags/input";
