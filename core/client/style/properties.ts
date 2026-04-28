@@ -35,6 +35,7 @@ import { transformOrigin } from "./properties/transform-origin";
 import { easeTiming, transitionDurationToken } from "./properties/transition-tokens";
 import { eventsPointer, noPrefix } from "./properties/pointer-events";
 import { resolveSpacingToken } from "./properties/utils/units";
+import { aspect } from "./properties/aspect";
 
 /**
  * `dshadow-*`: scala **blur** (1–5) e **intensity** (1–5) mappate a variabili CSS così più token
@@ -371,6 +372,8 @@ export const map = styleMap({
   /** `ws-nowrap` → `white-space: nowrap`. */
   ws: (suffix: string) =>
     suffix === "nowrap" ? { whiteSpace: "nowrap" as const } : undefined,
+  /** `aspect-square` / `aspect-16/9` / `aspect-1` → `aspect-ratio`. */
+  aspect: aspect,
 });
 
 // TYPES
