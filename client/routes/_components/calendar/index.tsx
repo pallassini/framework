@@ -1,4 +1,4 @@
-import { For, state } from "client";
+import { For, server, state } from "client";
 import Popmenu from "../../../_components/popmenu";
 
 /** Mese 0 = gennaio. */
@@ -218,6 +218,8 @@ function DateSwitcher() {
 // DAYS
 // ───────────────────────────────────────────────────────────────────────────────
 const weekCursor = state(new Date().getTime());
+const openingData = state(server.user.opening.get({ resourceId: undefined, itemId: undefined }));
+const closureData = state(server.user.closures.get({ resourceId: undefined }));
 function Days() {
   return (
     <>
@@ -390,6 +392,88 @@ function DayCompacted({
 // ───────────────────────────────────────────────────────────────────────────────
 function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
+  const OPENING_DAY_MAP = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+  const toLocalDateKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const parseTimeToMinutes = (t: string) => {
+    const [hh = "0", mm = "0"] = t.split(":");
+    return Number(hh) * 60 + Number(mm);
+  };
+
+  const mergeIntervals = (intervals: Array<{ start: number; end: number }>) => {
+    if (intervals.length === 0) return intervals;
+    const sorted = [...intervals]
+      .filter((x) => x.end > x.start)
+      .sort((a, b) => a.start - b.start);
+    if (sorted.length === 0) return sorted;
+    const out = [sorted[0]!];
+    for (let i = 1; i < sorted.length; i++) {
+      const cur = sorted[i]!;
+      const prev = out[out.length - 1]!;
+      if (cur.start <= prev.end) prev.end = Math.max(prev.end, cur.end);
+      else out.push({ ...cur });
+    }
+    return out;
+  };
+
+  const dayClosedRanges = (date: Date) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const dayKey = OPENING_DAY_MAP[(date.getDay() + 6) % 7];
+    const openings = (openingData.openingHours?.() ?? [])
+      .filter(
+        (o: any) =>
+          String(o.dayOfWeek).toLowerCase() === dayKey &&
+          o.itemId == null &&
+          o.resourceId == null,
+      )
+      .map((o: any) => ({
+        start: Math.max(0, parseTimeToMinutes(String(o.startTime))),
+        end: Math.min(24 * 60, parseTimeToMinutes(String(o.endTime))),
+      }));
+    const mergedOpen = mergeIntervals(openings);
+
+    const closedFromOpening: Array<{ start: number; end: number }> = [];
+    if (mergedOpen.length === 0) {
+      closedFromOpening.push({ start: 0, end: 24 * 60 });
+    } else {
+      let cursor = 0;
+      for (const w of mergedOpen) {
+        if (w.start > cursor) closedFromOpening.push({ start: cursor, end: w.start });
+        cursor = Math.max(cursor, w.end);
+      }
+      if (cursor < 24 * 60) closedFromOpening.push({ start: cursor, end: 24 * 60 });
+    }
+
+    const closureRanges = (closureData.closures?.() ?? [])
+      .filter((c: any) => c.resourceId == null)
+      .map((c: any) => {
+        const s = new Date(c.startAt as any).getTime();
+        const e = new Date(c.endAt as any).getTime();
+        const overlapStart = Math.max(s, dayStart.getTime());
+        const overlapEnd = Math.min(e, dayEnd.getTime());
+        if (overlapEnd <= overlapStart) return null;
+        const startMin = (overlapStart - dayStart.getTime()) / 60000;
+        const endMin = (overlapEnd - dayStart.getTime()) / 60000;
+        return { start: startMin, end: endMin };
+      })
+      .filter((x): x is { start: number; end: number } => x != null);
+
+    const merged = mergeIntervals([...closedFromOpening, ...closureRanges]);
+    console.log("[calendar][global-ranges]", {
+      date: toLocalDateKey(dayStart),
+      dayKey,
+      openings,
+      closedFromOpening,
+      closureRanges,
+      merged,
+    });
+    return merged;
+  };
 
   const visibleDays = () => {
     const cursor = new Date(weekCursor());
@@ -440,9 +524,20 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
         </div>
         <div s={() => `${daysColsClass()} gap-2 w-100%`}>
           <For each={visibleDays}>
-            {() => (
-              <div s="col bg-#ffffff14 round-8px overflow-hidden">
+            {(d) => (
+              <div s="relative col bg-#ffffff14 round-8px overflow-hidden">
                 <For each={() => HOURS}>{() => <div s="h-10 bb-1 b-#ffffff1a" />}</For>
+                <For each={() => dayClosedRanges(d.date)}>
+                  {(r) => (
+                    <div
+                      s="absolute left right bg-#000000b3 events-none"
+                      style={() => ({
+                        top: `${(r.start / (24 * 60)) * 100}%`,
+                        height: `${Math.max(0, ((r.end - r.start) / (24 * 60)) * 100)}%`,
+                      })}
+                    />
+                  )}
+                </For>
               </div>
             )}
           </For>

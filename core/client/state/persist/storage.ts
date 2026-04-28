@@ -4,7 +4,6 @@ import { enqueueAsyncChain } from "../utils/asyncChain";
 import { persistLog, persistShortJson } from "../utils/persistDebug";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { broadcastPersistUpdate, createPersistBroadcast, getPersistState, setPersistState } from "./idb";
-import { bump } from "../../debug/leakProbe";
 
 const DEBOUNCE_MS = 300;
 
@@ -116,7 +115,6 @@ export function bindPersistIdb(store: Record<string, unknown>, key: string): voi
 		ensurePersistGlobals();
 		const flusher = (): void => flush("global");
 		persistFlushers.add(flusher);
-		bump("persistBindings", "create");
 	}
 
 	createPersistBroadcast(key, (info) => {
@@ -201,7 +199,6 @@ export function bindPersistScalarIdb<T>(sig: Signal<T>, key: string): void {
 		ensurePersistGlobals();
 		const flusher = (): void => flush("global");
 		persistFlushers.add(flusher);
-		bump("persistBindings", "create");
 	}
 
 	createPersistBroadcast(key, () => {

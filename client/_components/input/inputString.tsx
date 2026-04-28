@@ -17,8 +17,6 @@ import {
 } from "./presets";
 import { INPUT_DEBUG, logInputDebug } from "./inputDebug";
 import { pickInputElementDom } from "./common";
-import { bump } from "../../../core/client/debug/leakProbe";
-import { onNodeDispose } from "../../../core/client/runtime/logic/lifecycle";
 
 /**
  * Props specifiche per `<Input type="string">`.
@@ -67,7 +65,6 @@ export type InputStringProps = InputPropsBase & {
  *  - l'errore è letto automaticamente dal `field` se presente
  */
 export default function InputString(props: InputStringProps) {
-  bump("inputStringInstances", "create");
   const {
     size = 3,
     placeholder,
@@ -743,9 +740,6 @@ export default function InputString(props: InputStringProps) {
           stringInputEl = el;
           if (el && passwordMode) {
             el.type = passwordShown ? "text" : "password";
-          }
-          if (el) {
-            onNodeDispose(el, () => bump("inputStringInstances", "dispose"));
           }
         }}
         style={mergedInputStyle as any}

@@ -2,7 +2,6 @@ import { watch } from "../effect";
 import { enqueueAsyncChain } from "../utils/asyncChain";
 import { getStoreSnapshot, setStoreFromSnapshot } from "../utils/store";
 import { cleanupStaleSessionKeys, getSessionState, setSessionState } from "./idb";
-import { bump } from "../../debug/leakProbe";
 
 const DEBOUNCE_MS = 300;
 
@@ -70,6 +69,5 @@ export function bindSessionIdb(store: Record<string, unknown>, key: string): voi
 	if (typeof window !== "undefined") {
 		ensureSessionGlobals();
 		sessionFlushers.add(flush);
-		bump("sessionBindings", "create");
 	}
 }

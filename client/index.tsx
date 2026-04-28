@@ -1,5 +1,4 @@
 import { App, auth, go, initPushServiceWorker, url } from "client";
-import "../core/client/debug/leakProbe";
 import "./index.css";
 
 if (typeof window !== "undefined") {

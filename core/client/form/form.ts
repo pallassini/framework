@@ -5,7 +5,6 @@ import { getStoreSnapshot, setStoreFromSnapshot } from "../state/utils/store";
 import { ValidationError, type InferSchema, type InputSchema } from "../validator/properties/defs";
 import { v } from "../validator/index";
 import { FIELD_OPTIONAL, readFieldType, type FieldTypeDesc } from "../validator/field-meta";
-import { bump } from "../debug/leakProbe";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 export type FormStorage = "session" | "persist";
@@ -579,8 +578,6 @@ export function Form<Shape extends Record<string, InputSchema<unknown>>>(options
 		}
 		return await handler(parsed);
 	}
-
-	bump("formInstances", "create");
 
 	const out: Record<string, unknown> = { values: valuesAll, reset, errors, valid, submit };
 

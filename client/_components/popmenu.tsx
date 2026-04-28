@@ -3,7 +3,6 @@ import { toNodes } from "../../core/client/runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
 import { INPUT_DEBUG, logInputDebug } from "./input/inputDebug";
-import { bump } from "../../core/client/debug/leakProbe";
 
 /**
  * Converte "N" (in unità del canvas, stesse di w-N/h-N del framework) in rem.
@@ -214,7 +213,6 @@ function strengthenShadowColor(rawColor: string, strength: number): string {
 function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
   return ((el) => {
     if (!el) return;
-    bump("resizeObserver", "create");
     const ro = new ResizeObserver(([entry]) => {
       if (!entry) return;
       /**
@@ -238,7 +236,6 @@ function observeSize(setW: (v: number) => void, setH: (v: number) => void) {
     ro.observe(el as Element);
     return () => {
       ro.disconnect();
-      bump("resizeObserver", "dispose");
     };
   }) as (el: HTMLElement | SVGElement | null) => (() => void) | void;
 }
@@ -313,7 +310,6 @@ function ensureFwPopmenuPortal(): HTMLDivElement {
 }
 
 export default function Popmenu(props: PopmenuProps) {
-  bump("popmenuInstances", "create");
   const {
     collapsed,
     extended,
@@ -1188,7 +1184,6 @@ export default function Popmenu(props: PopmenuProps) {
         onNodeDispose(el, () => {
           cancelPendingTeardown();
           teardownPortal();
-          bump("popmenuInstances", "dispose");
         });
       }}
       style={wrapStyle as any}
