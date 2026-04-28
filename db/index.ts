@@ -138,6 +138,7 @@ export const itemCategories = table({
 export const items = table({
   name: v.string(),
   description: v.string().optional(),
+  bookingMode: v.enum(["single", "multi", "delivery"]),
   categoryId: v.fk("itemCategories").optional(),
   price: v.number().optional(),
   duration: v.number().optional(), // MINUTI

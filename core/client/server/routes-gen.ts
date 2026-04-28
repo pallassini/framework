@@ -7,6 +7,7 @@ import { rpc as _admin_db_rpc } from "../../../server/routes/_admin/db";
 import { default as _devtools_db, rowCreate as _devtools_db_rowCreate, rowDelete as _devtools_db_rowDelete, rowUpdate as _devtools_db_rowUpdate } from "../../../server/routes/_devtools/db/index";
 import { getUsers as admin_getUsers, userDelete as admin_userDelete, userUpdate as admin_userUpdate } from "../../../server/routes/admin/index";
 import { login as auth_login, me as auth_me, register as auth_register } from "../../../server/routes/auth/index";
+import { default as consumer } from "../../../server/routes/consumer/index";
 import { default as db, rowDelete as db_rowDelete, rowUpdate as db_rowUpdate } from "../../../server/routes/db";
 import { default as notification, subscribe as notification_subscribe } from "../../../server/routes/notification";
 import { cancel as user_booking_cancel, create as user_booking_create, get as user_booking_get, remove as user_booking_remove, update as user_booking_update } from "../../../server/routes/user/booking";
@@ -33,6 +34,7 @@ export type ServerRoutes = {
 	"auth.login": InferRoute<typeof auth_login>;
 	"auth.me": InferRoute<typeof auth_me>;
 	"auth.register": InferRoute<typeof auth_register>;
+	consumer: InferRoute<typeof consumer>;
 	db: InferRoute<typeof db>;
 	"db.rowDelete": InferRoute<typeof db_rowDelete>;
 	"db.rowUpdate": InferRoute<typeof db_rowUpdate>;

@@ -10,9 +10,7 @@ export default function Home() {
         </div>
 
         <div s="col centerx children-centerx w-100% des:(-ml-19)">
-        
-            <Calendar />
-          
+          <Calendar />
         </div>
       </div>
     </>

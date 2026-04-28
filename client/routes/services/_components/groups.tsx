@@ -31,6 +31,7 @@ export default function Groups() {
                     items?: {
                       id: string;
                       name: string;
+                      bookingMode?: "single" | "multi" | "delivery";
                       capacity: number;
                       description?: string | null;
                       resources?: string[] | null;
@@ -100,6 +101,7 @@ export default function Groups() {
                         resource={i.resources?.[0] ?? ""}
                         duration={i.duration ?? 0}
                         price={i.price ?? 0}
+                        bookingMode={i.bookingMode ?? "single"}
                         categoryId={i.categoryId ?? ""}
                         resourceOptions={resourceOptions}
                         onUpdated={() => {
@@ -189,6 +191,7 @@ function CreateItem(p: { categoryId: string }) {
       resource: v.select(),
       duration: v.number(),
       capacity: v.number().min(1),
+      bookingMode: v.select(),
       price: v.number().min(0).optional(),
       description: v.string().optional(),
     },
@@ -211,6 +214,16 @@ function CreateItem(p: { categoryId: string }) {
               <Input placeholder="Risorsa" field={form.resource} options={resourceOptions} />
 
               <Input placeholder="Durata (minuti)" field={form.duration} />
+
+              <Input
+                placeholder="Modalità prenotazione"
+                field={form.bookingMode}
+                options={[
+                  { value: "single", label: "Single" },
+                  { value: "multi", label: "Multi" },
+                  { value: "delivery", label: "Delivery" },
+                ]}
+              />
 
               <Input placeholder="Prezzo" field={form.price} />
 

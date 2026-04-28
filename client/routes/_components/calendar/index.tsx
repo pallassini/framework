@@ -30,16 +30,16 @@ export const WEEKDAYS_IT = [
 
 export default function Calendar() {
   return (
-    <div s="des:(w-90% h-85) mob:(w-100% h-74)  round-round mt-5 col minh-0 overflow-hidden">
+    <div s="des:(w-90% h-85) mob:(w-100% h-74)  round-round mt-0 col  overflow-hidden">
       {/* HEADER */}
-      <div s="row centerx children-center p-4 w-100% relative">
+      <div s="row centerx children-center px-4 pb-4 pt-2 w-100% relative">
         <div s="absolute left p-2">
           <DateSwitcher />
         </div>
         <div s="center">
           <YearMonth />
         </div>
-        <div s="absolute right m-4">
+        <div s="absolute right m-2">
           <View />
         </div>
       </div>

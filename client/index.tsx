@@ -12,6 +12,7 @@ App((Page) => {
   const path = url.pathname();
 
   if (path.startsWith("/_devtools")) return <Page />;
+  if (path.startsWith("/booker")) return <Page />;
 
   if (!auth.ready()) return <Page />;
 

@@ -25,6 +25,14 @@ type ItemHourRow = {
   startTime: string;
   endTime: string;
 };
+type BookingMode = "single" | "multi" | "delivery";
+
+const BOOKING_MODE_LABEL: Record<BookingMode, string> = {
+  single: "Single",
+  multi: "Multi",
+  delivery: "Delivery",
+};
+const BOOKING_MODES: BookingMode[] = ["single", "multi", "delivery"];
 
 const DEFAULT_SVC_OPEN_START = "09:00:00";
 const DEFAULT_SVC_OPEN_END = "18:00:00";
@@ -47,6 +55,7 @@ export type ItemProps = {
   resource: string;
   duration: number;
   price: number;
+  bookingMode: BookingMode;
   categoryId: string;
   /** Stabile dal parent: **non** creare con `state()` qui dentro. */
   resourceOptions: readonly InputSelectOption[];
@@ -57,6 +66,7 @@ export type ItemProps = {
 export default function Item(p: ItemProps) {
   const { resourceOptions, onUpdated } = p;
   const delClosePulse = state(0);
+  const bookingModeClosePulse = state(0);
   const itemHours = state(
     server.user.opening.get({ resourceId: undefined, itemId: p.id }),
   );
@@ -216,6 +226,39 @@ export default function Item(p: ItemProps) {
                 getHours={() => (itemHours()?.openingHours ?? []) as ItemHourRow[]}
                 refresh={refreshItemHours}
               />
+            )}
+          />
+        </div>
+        <div s="row children-centery gapx-1 w-100% minw-0">
+          <Popmenu
+            mode="light"
+            direction="bottom-right"
+            closePulse={() => bookingModeClosePulse()}
+            collapsed={() => (
+              <div s="row children-centery gapx-1 px-2 py-1 round-8px bg-#ffffff0f">
+                <icon name="chevronDown" size={5} stroke={2} s="text-secondary" />
+                <t s="text-3">{BOOKING_MODE_LABEL[p.bookingMode]}</t>
+              </div>
+            )}
+            extended={() => (
+              <div s="col gap-2 p-3">
+                <t s="text-3 font-6 opacity-90">Modalità prenotazione</t>
+                <For each={() => BOOKING_MODES.filter((m) => m !== p.bookingMode)}>
+                  {(mode) => (
+                    <div
+                      s="px-3 py-2 round-8px bg-#ffffff12 hover:(bg-#ffffff1f) cursor-pointer text-3"
+                      click={() => {
+                        void server.user.item.update({ id: p.id, bookingMode: mode }).then(() => {
+                          bookingModeClosePulse(bookingModeClosePulse() + 1);
+                          afterSave();
+                        });
+                      }}
+                    >
+                      {BOOKING_MODE_LABEL[mode]}
+                    </div>
+                  )}
+                </For>
+              </div>
             )}
           />
         </div>
