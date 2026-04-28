@@ -30,7 +30,7 @@ export const WEEKDAYS_IT = [
 
 export default function Calendar() {
   return (
-    <div s="des:(w-80% h-85) mob:(w-100% h-74) bg-secondary round-round mt-5 col minh-0 overflow-hidden">
+    <div s="des:(w-90% h-85) mob:(w-100% h-74)  round-round mt-5 col minh-0 overflow-hidden">
       {/* HEADER */}
       <div s="row centerx children-center p-4 w-100% relative">
         <div s="absolute left m-4">
@@ -43,7 +43,7 @@ export default function Calendar() {
           <View />
         </div>
       </div>
-      <div s="w-100% des:(p-4) mob:(p-0) scrolly mt-4">
+      <div s="w-100% des:() mob:(p-0) scrolly ">
         <Days />
       </div>
     </div>
@@ -118,7 +118,7 @@ function YearMonth() {
 // ───────────────────────────────────────────────────────────────────────────────
 // VIEW
 // ───────────────────────────────────────────────────────────────────────────────
-const VIEWS = ["Settimana", "Mese", "3 Mesi", "Anno"];
+const VIEWS = ["Giorno", "Settimana", "3 Giorni", "Mese", "3 Mesi", "Anno"];
 const view = state(VIEWS[1]);
 const collapsedView = state(VIEWS[1]);
 function View() {
@@ -131,11 +131,11 @@ function View() {
         collapsed={() => <t s="px-5 py-3 row text-3 font-6">{collapsedView}</t>}
         closePulse={() => closePulse()}
         extended={() => (
-          <div s="p-4 col-3 col children-centerx gap-2">
+          <div s="p-4 col-3 col children-centerx gap-0">
             <For each={() => VIEWS.filter((item) => item !== view())}>
               {(v) => (
                 <t
-                  s="px-2 py-2  row text-3 font-6 round-10px hover:( bg-#a6a6a6)"
+                  s="px-2 py-3  row text-3 font-6 round-10px hover:( bg-#a6a6a6)"
                   click={() => {
                     view(v);
                     closePulse(1);
@@ -168,7 +168,9 @@ function DateSwitcher() {
 
   const shift = (delta: number) => {
     const d = new Date(weekCursor());
-    if (view() === "Settimana") d.setDate(d.getDate() + delta * 7);
+    if (view() === "Giorno") d.setDate(d.getDate() + delta);
+    else if (view() === "Settimana") d.setDate(d.getDate() + delta * 7);
+    else if (view() === "3 Giorni") d.setDate(d.getDate() + delta * 3);
     else if (view() === "Mese") d.setMonth(d.getMonth() + delta);
     else if (view() === "3 Mesi") d.setMonth(d.getMonth() + delta * 3);
     else d.setFullYear(d.getFullYear() + delta);
@@ -217,39 +219,25 @@ function DateSwitcher() {
 // ───────────────────────────────────────────────────────────────────────────────
 const weekCursor = state(new Date().getTime());
 function Days() {
-  const weekDays = () => {
-    const c = new Date(weekCursor());
-    const day = (c.getDay() + 6) % 7;
-    const start = new Date(c);
-    start.setDate(c.getDate() - day);
-
-    return WEEKDAYS_IT.map((label, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      return { label, dayNumber: d.getDate() };
-    });
-  };
   return (
     <>
       <switch value={view}>
+        <case when="Giorno">
+          <DaysTimeline daysCount={1} />
+        </case>
         <case when="Settimana">
-          <div s="col gap-2 minw-0 w-100% text-left">
-            <For each={weekDays}>
-              {(d) => (
-                <t s="text-3 font-5">
-                  {d.label}: {d.dayNumber}
-                </t>
-              )}
-            </For>
-          </div>
+          <DaysTimeline daysCount={7} />
+        </case>
+        <case when="3 Giorni">
+          <DaysTimeline daysCount={3} />
         </case>
         <case when="Mese">
-          <div s="des:(w-60%) mob:(w-100%) centerx">
+          <div s="des:(w-60%) mob:(w-100%) centerx mt-4">
             <Month monthOffset={0} />
           </div>
         </case>
         <case when="3 Mesi">
-          <div s="des:(col-3 gap-4) mob:(col gap-2)">
+          <div s="des:(col-3 gap-4) mob:(col gap-2) mt-4">
             <For each={() => [0, 1, 2]}>
               {(i) => (
                 <div s="w-100%">
@@ -260,7 +248,7 @@ function Days() {
           </div>
         </case>
         <case when="Anno">
-          <div s="des:(col-4 gap-3) mob:(col-2 gap-2)">
+          <div s="des:(col-4 gap-3) mob:(col-2 gap-2) mt-4">
             <For each={() => Array.from({ length: 12 }, (_, i) => i)}>
               {(i) => <Month monthOffset={i} />}
             </For>
@@ -335,7 +323,13 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
       click={openMonthFromYearView}
     >
       <show when={() => view() !== "Mese"}>
-        <t s={() => (isCurrentMonth() ? "text-2 font-6 text-center mb-1 text-primary" : "text-2 font-6 text-center mb-1")}>
+        <t
+          s={() =>
+            isCurrentMonth()
+              ? "text-2 font-6 text-center mb-1 text-primary"
+              : "text-2 font-6 text-center mb-1"
+          }
+        >
           {monthLabel}
         </t>
       </show>
@@ -361,7 +355,15 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
 // ───────────────────────────────────────────────────────────────────────────────
 // DAY COMPATTED
 // ───────────────────────────────────────────────────────────────────────────────
-function DayCompacted({ day, muted = false, isToday = false }: { day: number; muted?: boolean; isToday?: boolean }) {
+function DayCompacted({
+  day,
+  muted = false,
+  isToday = false,
+}: {
+  day: number;
+  muted?: boolean;
+  isToday?: boolean;
+}) {
   return (
     <div
       s={{
@@ -381,5 +383,68 @@ function DayCompacted({ day, muted = false, isToday = false }: { day: number; mu
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// 
+// DAYS TIMELINE
 // ───────────────────────────────────────────────────────────────────────────────
+function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
+  const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+  const visibleDays = () => {
+    const cursor = new Date(weekCursor());
+    const start = new Date(cursor);
+    if (daysCount === 7) {
+      const weekday = (cursor.getDay() + 6) % 7;
+      start.setDate(cursor.getDate() - weekday);
+    }
+
+    return Array.from({ length: daysCount }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return {
+        date: d,
+        label: WEEKDAYS_IT[(d.getDay() + 6) % 7],
+        dayNumber: d.getDate(),
+      };
+    });
+  };
+
+  const daysColsClass = () => (daysCount === 7 ? "col-7" : daysCount === 3 ? "col-3" : "col-1");
+
+  return (
+    <div s="col gap-2 w-100% mb-10 px-2">
+      <div s="row  gap-1 w-100% sticky top z-10 bg-background py-1">
+        <div s="pr-1">
+          <div s="h-5 row children-center text-1 font-5 opacity-0">00</div>
+        </div>
+        <div s={() => `${daysColsClass()} gap-2 w-100%`}>
+          <For each={visibleDays}>
+            {(d) => (
+              <div s="col w-100% children-center">
+                <t s="text-2 font-6">{d.label.slice(0, 1)}</t>
+                <t s="text-3 font-6">{d.dayNumber}</t>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+
+      <div s="row gap-1 w-100%">
+        <div s="col pr-1 -mt-14">
+          <For each={() => HOURS}>
+            {(h) => (
+              <div s="h-10 row children-center text-1 font-5">{String(h).padStart(2, "0")}</div>
+            )}
+          </For>
+        </div>
+        <div s={() => `${daysColsClass()} gap-2 w-100%`}>
+          <For each={visibleDays}>
+            {() => (
+              <div s="col bg-#ffffff14 round-8px overflow-hidden">
+                <For each={() => HOURS}>{() => <div s="h-10 bb-1 b-#ffffff1a" />}</For>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+    </div>
+  );
+}
