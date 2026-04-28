@@ -33,7 +33,7 @@ export default function Calendar() {
     <div s="des:(w-90% h-85) mob:(w-100% h-74)  round-round mt-5 col minh-0 overflow-hidden">
       {/* HEADER */}
       <div s="row centerx children-center p-4 w-100% relative">
-        <div s="absolute left m-4">
+        <div s="absolute left p-2">
           <DateSwitcher />
         </div>
         <div s="center">
@@ -55,6 +55,20 @@ export default function Calendar() {
 // ───────────────────────────────────────────────────────────────────────────────
 const year = state(new Date().getFullYear());
 const month = state(new Date().getMonth());
+const weekCursor = state(new Date().getTime());
+
+function setCursorYearMonth(nextYear: number, nextMonth: number) {
+  const cur = new Date(weekCursor());
+  const curDay = cur.getDate();
+  const maxDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+  const safeDay = Math.min(curDay, maxDay);
+  const next = new Date(cur);
+  next.setFullYear(nextYear, nextMonth, safeDay);
+  weekCursor(next.getTime());
+  year(nextYear);
+  month(nextMonth);
+}
+
 function YearMonth() {
   const closePulse = state(0);
 
@@ -77,7 +91,7 @@ function YearMonth() {
                 name="chevronLeft"
                 stroke="3"
                 s="hover:(bg-#a6a6a6 scale-120 ) px-2 py-1 round-10px"
-                click={() => year(year() - 1)}
+                click={() => setCursorYearMonth(year() - 1, month())}
               />
               <t s="text-5 font-6">{year}</t>
               <icon
@@ -85,7 +99,7 @@ function YearMonth() {
                 name="chevronRight"
                 stroke="3"
                 s="hover:(bg-#a6a6a6 scale-120 ) px-2 py-1 round-10px"
-                click={() => year(year() + 1)}
+                click={() => setCursorYearMonth(year() + 1, month())}
               />
             </div>
             <div s="col-4">
@@ -100,7 +114,7 @@ function YearMonth() {
                     click={() => {
                       closePulse(1);
                       setTimeout(() => closePulse(0), 100);
-                      setTimeout(() => month(MONTHS_IT.indexOf(y)), 450);
+                      setTimeout(() => setCursorYearMonth(year(), MONTHS_IT.indexOf(y)), 450);
                     }}
                   >
                     {y}
@@ -121,6 +135,9 @@ function YearMonth() {
 const VIEWS = ["Giorno", "Settimana", "3 Giorni", "Mese", "3 Mesi", "Anno"];
 const view = state(VIEWS[1]);
 const collapsedView = state(VIEWS[1]);
+const COMPRESSION_MODES = ["full", "semi", "compress"] as const;
+type CompressionMode = (typeof COMPRESSION_MODES)[number];
+const compressionMode = state<CompressionMode>("full");
 function View() {
   const closePulse = state(0);
   return (
@@ -160,6 +177,7 @@ function View() {
 function DateSwitcher() {
   const leftPressed = state(false);
   const rightPressed = state(false);
+  const modeClosePulse = state(0);
   const syncFromDate = (d: Date) => {
     weekCursor(d.getTime());
     year(d.getFullYear());
@@ -187,8 +205,47 @@ function DateSwitcher() {
     }, 120);
   };
 
+  const modeMeta = (
+    mode: CompressionMode,
+  ): { icon: "maximize" | "minimize" | "minimize2"; label: string } => {
+    if (mode === "full") return { icon: "maximize", label: "Massimizza" };
+    if (mode === "semi") return { icon: "minimize", label: "Compressa" };
+    return { icon: "minimize2", label: "Compressa tutto" };
+  };
+
   return (
     <div s="row children-center gap-1">
+      <Popmenu
+        mode="light"
+        direction="bottom-right"
+        closePulse={() => modeClosePulse()}
+        collapsed={() => (
+          <icon
+            size="6"
+            name={modeMeta(compressionMode()).icon}
+            stroke="2.5"
+            s="p-1 round-10px cursor-pointer hover:(bg-#a6a6a6)"
+          />
+        )}
+        extended={() => (
+          <div s="p-2 col gap-1">
+            <For each={() => COMPRESSION_MODES.filter((m) => m !== compressionMode())}>
+              {(m) => (
+                <div
+                  s="row children-start gap-2 px-2 py-2 round-10px cursor-pointer hover:(bg-#a6a6a6) w-100%"
+                  pointerdown={() => {
+                    compressionMode(m);
+                    modeClosePulse(modeClosePulse() + 1);
+                  }}
+                >
+                  <icon size="5" name={modeMeta(m).icon} stroke="2.5" />
+                  <t s="text-2 font-6">{modeMeta(m).label}</t>
+                </div>
+              )}
+            </For>
+          </div>
+        )}
+      />
       <icon
         size="8"
         name="chevronLeft"
@@ -217,7 +274,6 @@ function DateSwitcher() {
 // ───────────────────────────────────────────────────────────────────────────────
 // DAYS
 // ───────────────────────────────────────────────────────────────────────────────
-const weekCursor = state(new Date().getTime());
 const openingData = state(server.user.opening.get({ resourceId: undefined, itemId: undefined }));
 const closureData = state(server.user.closures.get({ resourceId: undefined }));
 function Days() {
@@ -274,13 +330,15 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
   const isCurrentMonth = () =>
     target().getMonth() === today().getMonth() && target().getFullYear() === today().getFullYear();
   const monthWeeks = () => {
-    const prevMonthDays = new Date(target().getFullYear(), target().getMonth(), 0).getDate();
+    const base = target();
+    const prevMonthDays = new Date(base.getFullYear(), base.getMonth(), 0).getDate();
     const offset = firstOffset();
     const cells = [
       ...Array.from({ length: offset }, (_, i) => ({
         day: prevMonthDays - offset + i + 1,
         muted: true,
         isToday: false,
+        date: new Date(base.getFullYear(), base.getMonth() - 1, prevMonthDays - offset + i + 1),
       })),
       ...Array.from({ length: daysInMonth() }, (_, i) => ({
         day: i + 1,
@@ -289,6 +347,7 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
           i + 1 === today().getDate() &&
           target().getMonth() === today().getMonth() &&
           target().getFullYear() === today().getFullYear(),
+        date: new Date(base.getFullYear(), base.getMonth(), i + 1),
       })),
     ];
     const missing = (7 - (cells.length % 7)) % 7;
@@ -297,9 +356,10 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
         day: i + 1,
         muted: true,
         isToday: false,
+        date: new Date(base.getFullYear(), base.getMonth() + 1, i + 1),
       })),
     );
-    const weeks: { day: number; muted: boolean; isToday: boolean }[][] = [];
+    const weeks: { day: number; muted: boolean; isToday: boolean; date: Date }[][] = [];
     for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
     return weeks;
   };
@@ -348,7 +408,21 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
           {(week) => (
             <div s="col-7 gap-2 w-100%">
               <For each={() => week}>
-                {(d) => <DayCompacted day={d.day} muted={d.muted} isToday={d.isToday} />}
+                {(d) => (
+                  <DayCompacted
+                    day={d.day}
+                    muted={d.muted}
+                    isToday={d.isToday}
+                    click={() => {
+                      if (view() !== "Mese") return;
+                      weekCursor(d.date.getTime());
+                      year(d.date.getFullYear());
+                      month(d.date.getMonth());
+                      view("Giorno");
+                      collapsedView("Giorno");
+                    }}
+                  />
+                )}
               </For>
             </div>
           )}
@@ -364,10 +438,12 @@ function DayCompacted({
   day,
   muted = false,
   isToday = false,
+  click,
 }: {
   day: number;
   muted?: boolean;
   isToday?: boolean;
+  click?: () => void;
 }) {
   return (
     <div
@@ -381,6 +457,7 @@ function DayCompacted({
           "bg-#e7e7e726": muted && !isToday,
         },
       }}
+      click={click}
     >
       <t s="text-4 font-6">{day}</t>
     </div>
@@ -391,7 +468,6 @@ function DayCompacted({
 // DAYS TIMELINE
 // ───────────────────────────────────────────────────────────────────────────────
 function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
-  const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const OPENING_DAY_MAP = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
   const toLocalDateKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -494,6 +570,80 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
     });
   };
 
+  const dayOpenRanges = (date: Date) => {
+    const closed = dayClosedRanges(date);
+    const out: Array<{ start: number; end: number }> = [];
+    let cursor = 0;
+    for (const r of closed) {
+      if (r.start > cursor) out.push({ start: cursor, end: r.start });
+      cursor = Math.max(cursor, r.end);
+    }
+    if (cursor < 24 * 60) out.push({ start: cursor, end: 24 * 60 });
+    return out;
+  };
+
+  const activeRanges = () => {
+    if (compressionMode() === "full") return [{ start: 0, end: 24 * 60 }];
+    const open = visibleDays()
+      .flatMap((d) => dayOpenRanges(d.date))
+      .filter((r) => r.end > r.start);
+    if (open.length === 0) return [{ start: 0, end: 24 * 60 }];
+    if (compressionMode() === "semi") {
+      const minStart = Math.min(...open.map((r) => r.start));
+      const maxEnd = Math.max(...open.map((r) => r.end));
+      const start = Math.max(0, Math.floor(minStart / 60) * 60);
+      const end = Math.min(24 * 60, Math.ceil(maxEnd / 60) * 60);
+      if (end <= start) return [{ start: 0, end: 24 * 60 }];
+      return [{ start, end }];
+    }
+    const merged = mergeIntervals(
+      open.map((r) => ({
+        start: Math.max(0, Math.floor(r.start / 60) * 60),
+        end: Math.min(24 * 60, Math.ceil(r.end / 60) * 60),
+      })),
+    ).filter((r) => r.end > r.start);
+    return merged.length > 0 ? merged : [{ start: 0, end: 24 * 60 }];
+  };
+
+  const activeTotalMinutes = () => activeRanges().reduce((acc, r) => acc + (r.end - r.start), 0);
+
+  const compressMinute = (minute: number) => {
+    const m = Math.max(0, Math.min(24 * 60, minute));
+    let y = 0;
+    for (const r of activeRanges()) {
+      if (m >= r.end) {
+        y += r.end - r.start;
+        continue;
+      }
+      if (m > r.start) y += m - r.start;
+      break;
+    }
+    return y;
+  };
+
+  const timelineHours = () => {
+    const out: number[] = [];
+    for (const r of activeRanges()) {
+      const startHour = Math.floor(r.start / 60);
+      const endHour = Math.ceil(r.end / 60);
+      for (let h = startHour; h < endHour; h++) out.push(h);
+    }
+    return out.length > 0 ? out : Array.from({ length: 24 }, (_, i) => i);
+  };
+
+  const closedRangesInWindow = (date: Date) => {
+    const closed = dayClosedRanges(date);
+    const clipped: Array<{ start: number; end: number }> = [];
+    for (const c of closed) {
+      for (const a of activeRanges()) {
+        const start = Math.max(c.start, a.start);
+        const end = Math.min(c.end, a.end);
+        if (end > start) clipped.push({ start, end });
+      }
+    }
+    return clipped;
+  };
+
   const daysColsClass = () => (daysCount === 7 ? "col-7" : daysCount === 3 ? "col-3" : "col-1");
 
   return (
@@ -516,7 +666,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
 
       <div s="row gap-1 w-100%">
         <div s="col pr-1 -mt-14">
-          <For each={() => HOURS}>
+          <For each={timelineHours}>
             {(h) => (
               <div s="h-10 row children-center text-1 font-5">{String(h).padStart(2, "0")}</div>
             )}
@@ -525,16 +675,21 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
         <div s={() => `${daysColsClass()} gap-2 w-100%`}>
           <For each={visibleDays}>
             {(d) => (
-              <div s="relative col bg-#ffffff14 round-8px overflow-hidden">
-                <For each={() => HOURS}>{() => <div s="h-10 bb-1 b-#ffffff1a" />}</For>
-                <For each={() => dayClosedRanges(d.date)}>
+              <div s="relative col bg-#5e5e5e14 round-8px overflow-hidden">
+                <For each={timelineHours}>{() => <div s="h-10 bb-1 b-#ffffff1a" />}</For>
+                <For each={() => closedRangesInWindow(d.date)}>
                   {(r) => (
                     <div
                       s="absolute left right bg-#000000b3 events-none"
-                      style={() => ({
-                        top: `${(r.start / (24 * 60)) * 100}%`,
-                        height: `${Math.max(0, ((r.end - r.start) / (24 * 60)) * 100)}%`,
-                      })}
+                      style={() => {
+                        const span = Math.max(1, activeTotalMinutes());
+                        const startY = compressMinute(r.start);
+                        const endY = compressMinute(r.end);
+                        return {
+                          top: `${(startY / span) * 100}%`,
+                          height: `${Math.max(0, ((endY - startY) / span) * 100)}%`,
+                        };
+                      }}
                     />
                   )}
                 </For>
