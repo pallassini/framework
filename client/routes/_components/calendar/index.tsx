@@ -33,6 +33,9 @@ export default function Calendar() {
     <div s="des:(w-80% h-85) mob:(w-100% h-74) bg-secondary round-round mt-5 col minh-0 overflow-hidden">
       {/* HEADER */}
       <div s="row centerx children-center p-4 w-100% relative">
+        <div s="absolute left m-4">
+          <DateSwitcher />
+        </div>
         <div s="center">
           <YearMonth />
         </div>
@@ -40,10 +43,7 @@ export default function Calendar() {
           <View />
         </div>
       </div>
-      <div s="centerx mt-4">
-        <DaysSwitcher />
-      </div>
-      <div s="w-100% des:(p-4) mob:(p-0) scrolly">
+      <div s="w-100% des:(p-4) mob:(p-0) scrolly mt-4">
         <Days />
       </div>
     </div>
@@ -155,9 +155,11 @@ function View() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// DAYS SWITCHER
+// DATE SWITCHER
 // ───────────────────────────────────────────────────────────────────────────────
-function DaysSwitcher() {
+function DateSwitcher() {
+  const leftPressed = state(false);
+  const rightPressed = state(false);
   const syncFromDate = (d: Date) => {
     weekCursor(d.getTime());
     year(d.getFullYear());
@@ -173,41 +175,39 @@ function DaysSwitcher() {
     syncFromDate(d);
   };
 
-  const switcherLabel = () => {
-    if (view() === "Settimana") {
-      const c = new Date(weekCursor());
-      const day = (c.getDay() + 6) % 7;
-      const start = new Date(c);
-      start.setDate(c.getDate() - day);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      return `Settimana ${start.getDate()}-${end.getDate()}`;
-    }
-    if (view() === "Mese") return `${MONTHS_IT[month()]} ${year()}`;
-    if (view() === "3 Mesi") {
-      const start = new Date(year(), month(), 1);
-      const end = new Date(year(), month() + 2, 1);
-      return `${MONTHS_IT[start.getMonth()]} - ${MONTHS_IT[end.getMonth()]} ${end.getFullYear()}`;
-    }
-    return `${year()}`;
+  const press = (side: "left" | "right", delta: number) => {
+    if (side === "left") leftPressed(true);
+    else rightPressed(true);
+    shift(delta);
+    setTimeout(() => {
+      if (side === "left") leftPressed(false);
+      else rightPressed(false);
+    }, 120);
   };
 
   return (
-    <div s="row centerx children-center gap-2 mb-3">
+    <div s="row children-center gap-1">
       <icon
-        size="6"
+        size="8"
         name="chevronLeft"
         stroke="3"
-        s="hover:(bg-#a6a6a6 scale-120 ) px-2 py-1 round-10px cursor-pointer"
-        click={() => shift(-1)}
+        s={() =>
+          leftPressed()
+            ? "bg-#a6a6a6 px-2 py-1 round-10px cursor-pointer"
+            : "hover:(bg-#a6a6a6) px-2 py-1 round-10px cursor-pointer"
+        }
+        pointerdown={() => press("left", -1)}
       />
-      <t s="text-3 font-6 minw-120px text-center">{switcherLabel}</t>
       <icon
-        size="6"
+        size="8"
         name="chevronRight"
         stroke="3"
-        s="hover:(bg-#a6a6a6 scale-120 ) px-2 py-1 round-10px cursor-pointer"
-        click={() => shift(1)}
+        s={() =>
+          rightPressed()
+            ? "bg-#a6a6a6 px-2 py-1 round-10px cursor-pointer"
+            : "hover:(bg-#a6a6a6) px-2 py-1 round-10px cursor-pointer"
+        }
+        pointerdown={() => press("right", 1)}
       />
     </div>
   );
@@ -375,7 +375,7 @@ function DayCompacted({ day, muted = false, isToday = false }: { day: number; mu
         },
       }}
     >
-      <t s="text-2 font-6">{day}</t>
+      <t s="text-4 font-6">{day}</t>
     </div>
   );
 }
