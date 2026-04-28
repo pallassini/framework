@@ -1,7 +1,6 @@
 import { db } from "db";
 import { error, s, v } from "server";
 
-type PublicBookingLine = { itemId?: string; quantity?: number };
 type BookingMode = "single" | "multi" | "delivery";
 
 const cleanHost = (raw: string) => raw.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "");
@@ -60,21 +59,39 @@ export default s({
 			return Number.isFinite(endMs) && endMs >= nowMs;
 		});
 
-		const reservationsByItem = new Map<string, Map<string, number>>();
+		const reservationsByResource = new Map<string, Map<string, number>>();
 		for (const b of activeBookings as any[]) {
 			const startAtIso = new Date(b.startAt as Date).toISOString();
 			const endAtIso = new Date(b.endAt as Date).toISOString();
-			const lines = Array.isArray(b.items) ? (b.items as PublicBookingLine[]) : [];
-			for (const line of lines) {
-				const itemId = typeof line.itemId === "string" ? line.itemId : "";
-				if (!itemId) continue;
-				const qty = typeof line.quantity === "number" && Number.isFinite(line.quantity) ? Math.max(1, line.quantity) : 1;
-				const slotKey = `${startAtIso}|${endAtIso}`;
-				const slotMap = reservationsByItem.get(itemId) ?? new Map<string, number>();
-				slotMap.set(slotKey, (slotMap.get(slotKey) ?? 0) + qty);
-				reservationsByItem.set(itemId, slotMap);
+			const slotKey = `${startAtIso}|${endAtIso}`;
+			const assigned = Array.isArray(b.assignments)
+				? b.assignments.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+				: [];
+			for (const resourceId of assigned) {
+				const slotMap = reservationsByResource.get(resourceId) ?? new Map<string, number>();
+				slotMap.set(slotKey, (slotMap.get(slotKey) ?? 0) + 1);
+				reservationsByResource.set(resourceId, slotMap);
 			}
 		}
+
+		const globalOpeningHours = openingHours
+			.filter((o: any) => o.itemId == null && o.resourceId == null)
+			.map((o: any) => ({
+				dayOfWeek: o.dayOfWeek,
+				startTime: o.startTime,
+				endTime: o.endTime,
+			}));
+
+		const resources = allResources.map((r: any) => ({
+			id: r.id,
+			name: r.name,
+			type: r.type,
+			capacity: typeof r.capacity === "number" ? r.capacity : 1,
+			reservations: [...(reservationsByResource.get(r.id)?.entries() ?? [])].map(([slot, quantity]) => {
+				const [startAt, endAt] = slot.split("|");
+				return { startAt, endAt, quantity };
+			}),
+		}));
 
 		const serviceRows = items
 			.filter((it: any) => it.archived !== true)
@@ -85,7 +102,6 @@ export default s({
 				const linkedResources = allResources.filter((r: any) => resourceIds.includes(r.id));
 				const resourceCapacity = linkedResources.reduce((sum: number, r: any) => sum + (typeof r.capacity === "number" ? r.capacity : 1), 0);
 				const capacity = Math.max(1, (typeof it.capacity === "number" ? it.capacity : resourceCapacity) || 1);
-				const hasOpening = openingHours.some((o: any) => o.itemId === it.id || o.itemId == null);
 				const serviceOpeningHours = openingHours
 					.filter((o: any) => (o.itemId == null || o.itemId === it.id) && (o.resourceId == null || resourceIds.includes(o.resourceId)))
 					.map((o: any) => ({
@@ -94,6 +110,7 @@ export default s({
 						endTime: o.endTime,
 						resourceId: o.resourceId ?? null,
 					}));
+				const serviceSpecificOpeningHours = serviceOpeningHours.filter((o) => o.resourceId != null || openingHours.some((x: any) => x.itemId === it.id && x.startTime === o.startTime && x.endTime === o.endTime && x.dayOfWeek === o.dayOfWeek));
 				const serviceClosures = closures
 					.filter((c: any) => c.resourceId == null || resourceIds.includes(c.resourceId))
 					.map((c: any) => ({
@@ -101,30 +118,26 @@ export default s({
 						endAt: new Date(c.endAt as Date).toISOString(),
 						resourceId: c.resourceId ?? null,
 					}));
-				const serviceReservations = [...(reservationsByItem.get(it.id)?.entries() ?? [])].map(([slot, reserved]) => {
-					const [startAt, endAt] = slot.split("|");
-					return { startAt, endAt, quantity: reserved };
-				});
 				const bookingMode: BookingMode =
 					it.bookingMode === "multi" || it.bookingMode === "delivery" ? it.bookingMode : "single";
 				return {
 					id: it.id,
 					name: it.name,
+					description: typeof it.description === "string" ? it.description : null,
 					bookingMode,
 					duration: typeof it.duration === "number" ? it.duration : null,
 					price: typeof it.price === "number" ? it.price : null,
 					capacity,
-					bookable: hasOpening && capacity > 0,
 					resources: resourceIds,
-					openingHours: serviceOpeningHours,
+					globalOpeningHours,
+					serviceOpeningHours: serviceSpecificOpeningHours,
 					closures: serviceClosures,
-					reservations: serviceReservations,
 				};
 			});
 
 		const q = service?.trim();
 		const services = q ? serviceRows.filter((s) => s.id === q || s.name === q) : serviceRows;
 
-		return { services };
+		return { services, resources };
 	},
 });
