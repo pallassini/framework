@@ -121,7 +121,7 @@ function formatCompactErrorTail(
 			case "INTERNAL":
 				return (err.message || "").trim() || FLOW_ERROR_LOG_LABEL[err.type].toLowerCase();
 			case "UNAUTHORIZED":
-				return "auth required";
+				return (err.message || "").trim() || "auth required";
 			case "FORBIDDEN":
 				return "not allowed";
 			default:

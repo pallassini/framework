@@ -116,6 +116,7 @@ export default defineConfig(
 			},
 			define: {
 				"import.meta.env.VITE_SERVER_RPC_ORIGIN": JSON.stringify(serverRpcOrigin),
+				"import.meta.env.VITE_BOOKER_EMBED": JSON.stringify(false),
 			},
 			resolve: { tsconfigPaths: true },
 		};

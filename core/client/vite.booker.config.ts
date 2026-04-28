@@ -14,7 +14,7 @@ const serverRpcOrigin = (
 	.trim()
 	.replace(/\/$/, "");
 
-/** Bundle IIFE → `public/booker.js` — sorgente: `client/routes/booker/index.tsx` via `embed-entry.ts`. */
+/** Bundle IIFE → `public/booker.js`; stesso modulo della route con `VITE_BOOKER_EMBED`. */
 export default defineConfig({
 	root,
 	publicDir: false,
@@ -22,7 +22,7 @@ export default defineConfig({
 	build: {
 		emptyOutDir: false,
 		lib: {
-			entry: path.join(root, "client/booker/embed-entry.ts"),
+			entry: path.join(root, "client/routes/booker/index.tsx"),
 			name: "BookerEmbed",
 			formats: ["iife"],
 			fileName: () => "booker.js",
@@ -31,6 +31,7 @@ export default defineConfig({
 	},
 	define: {
 		"import.meta.env.VITE_SERVER_RPC_ORIGIN": JSON.stringify(serverRpcOrigin),
+		"import.meta.env.VITE_BOOKER_EMBED": JSON.stringify(true),
 	},
 	resolve: { tsconfigPaths: true },
 }) as Parameters<typeof defineConfig>[0];

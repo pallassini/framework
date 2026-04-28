@@ -114,11 +114,11 @@ export const login = s({
 		const rows = await db.users.find({ email: { $eq: input.email } }, { limit: 1 });
 		const user = rows[0];
 		if (!user) {
-			error("UNAUTHORIZED", "Credenziali non valide");
+			error("UNAUTHORIZED", "Email non trovata");
 		}
 		const ok = await verifyPassword(input.password, user.password as string);
 		if (!ok) {
-			error("UNAUTHORIZED", "Credenziali non valide");
+			error("UNAUTHORIZED", "Password errata");
 		}
 		const sess = await createSession(user.id);
 		return {

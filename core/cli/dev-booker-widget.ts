@@ -1,6 +1,6 @@
 /**
  * `bun dev:build`: stesso flusso di `bun dev` + `vite build --watch` su `booker.js` → `public/booker.js`.
- * Dopo ogni modifica a `routes/booker/index.tsx` o `embed-entry.ts` ricompila; ricarica la pagina per vedere lo script aggiornato.
+ * Dopo ogni modifica a `routes/booker/index.tsx` ricompila; ricarica la pagina per vedere lo script aggiornato.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";

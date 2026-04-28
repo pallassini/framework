@@ -43,18 +43,22 @@ function hostFromHeaders(headers: Headers): string | null {
 	return host ? cleanHost(host) : null;
 }
 
-async function resolveTenantUserId(host: string): Promise<string> {
+function rowUsername(u: { username?: unknown }): string | null {
+	return typeof u.username === "string" && u.username.length > 0 ? u.username : null;
+}
+
+async function resolveTenant(host: string): Promise<{ userId: string; username: string | null }> {
 	const users = await db.users.find({ where: { role: "user" } });
 	if (users.length === 0) error("NOT_FOUND", "Nessun tenant disponibile");
 	const byUsername = users.find((u: any) => typeof u.username === "string" && cleanHost(u.username) === host);
-	if (byUsername) return byUsername.id;
+	if (byUsername) return { userId: byUsername.id, username: rowUsername(byUsername) };
 	const byDomain = users.find((u: any) => typeof u.domain === "string" && cleanHost(u.domain) === host);
-	if (byDomain) return byDomain.id;
+	if (byDomain) return { userId: byDomain.id, username: rowUsername(byDomain) };
 	const byEmailDomain = users.find((u: any) => {
 		if (typeof u.email !== "string") return false;
 		return cleanHost(u.email.split("@")[1] ?? "") === host;
 	});
-	if (byEmailDomain) return byEmailDomain.id;
+	if (byEmailDomain) return { userId: byEmailDomain.id, username: rowUsername(byEmailDomain) };
 	error("NOT_FOUND", `Tenant non trovato per host: ${host}`);
 }
 
@@ -66,15 +70,31 @@ export default s({
 	run: async ({ service }, ctx) => {
 		const host = hostFromHeaders(ctx.headers);
 		if (!host) error("INPUT", "Host richiesta non valido");
-		const userId = await resolveTenantUserId(host);
+		const { userId, username } = await resolveTenant(host);
 
-		const [items, allResources, openingHours, closures, bookings] = await Promise.all([
+		const [items, allResources, openingHours, closures, bookings, itemCategories] = await Promise.all([
 			db.items.find({ where: { userId } }),
 			db.resources.find({ where: { userId } }),
 			db.openingHours.find({ where: { userId } }),
 			db.closures.find({ where: { userId } }),
 			db.bookings.find({ where: { userId } }),
+			db.itemCategories.find({ where: { userId } }),
 		]);
+
+		const itemCategoriesList = itemCategories
+			.map((c: any) => ({
+				id: c.id,
+				name: c.name,
+				order: typeof c.order === "number" ? c.order : null,
+			}))
+			.sort((a, b) => {
+				const oa = a.order ?? 1e9;
+				const ob = b.order ?? 1e9;
+				if (oa !== ob) return oa - ob;
+				return a.name.localeCompare(b.name);
+			});
+
+		const categoryById = new Map(itemCategoriesList.map((c) => [c.id, c]));
 
 		const nowMs = Date.now();
 		const activeBookings = bookings.filter((b: any) => {
@@ -143,10 +163,14 @@ export default s({
 						resourceId: c.resourceId ?? null,
 					}));
 				const booking = normalizeBooking(it.booking);
+				const categoryId = typeof it.categoryId === "string" && it.categoryId.length > 0 ? it.categoryId : null;
+				const itemCategory = categoryId ? (categoryById.get(categoryId) ?? null) : null;
 				return {
 					id: it.id,
 					name: it.name,
 					description: typeof it.description === "string" ? it.description : null,
+					categoryId,
+					itemCategory,
 					booking,
 					duration: typeof it.duration === "number" ? it.duration : null,
 					price: typeof it.price === "number" ? it.price : null,
@@ -161,6 +185,6 @@ export default s({
 		const q = service?.trim();
 		const services = q ? serviceRows.filter((s) => s.id === q || s.name === q) : serviceRows;
 
-		return { services, resources };
+		return { services, resources, itemCategories: itemCategoriesList, username };
 	},
 });
