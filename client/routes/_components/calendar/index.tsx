@@ -315,11 +315,14 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
 
   return (
     <div
-      s={() =>
-        isCurrentMonth()
-          ? `col gap-1 w-100% des:(p-2) mob:(p-2) bg-#ffffff0d b-1 b-primary round-10px ${canOpenMonth() ? "cursor-pointer" : ""}`
-          : `col gap-1 w-100% des:(p-2) mob:(p-2) bg-#ffffff0d b-1 b-#ffffff1a round-10px ${canOpenMonth() ? "cursor-pointer" : ""}`
-      }
+      s={{
+        base: {
+          "col gap-1 w-100% des:(p-2) mob:(p-2) bg-#ffffff0d b-1 round-10px": true,
+          "b-primary": isCurrentMonth(),
+          "b-#ffffff1a": !isCurrentMonth(),
+          "cursor-pointer": canOpenMonth(),
+        },
+      }}
       click={openMonthFromYearView}
     >
       <show when={() => view() !== "Mese"}>
@@ -333,15 +336,15 @@ function Month({ monthOffset = 0 }: { monthOffset?: number }) {
           {monthLabel}
         </t>
       </show>
-      <div s="row gap-2">
+      <div s="col-7 gap-2 w-100%">
         <For each={() => ["L", "M", "M", "G", "V", "S", "D"]}>
-          {(w) => <t s="w-14% text-center text-2 font-6">{w}</t>}
+          {(w) => <t s="text-center text-2 font-6">{w}</t>}
         </For>
       </div>
       <div s="col gap-2">
         <For each={monthWeeks}>
           {(week) => (
-            <div s="row gap-2">
+            <div s="col-7 gap-2 w-100%">
               <For each={() => week}>
                 {(d) => <DayCompacted day={d.day} muted={d.muted} isToday={d.isToday} />}
               </For>
@@ -368,9 +371,9 @@ function DayCompacted({
     <div
       s={{
         base: {
-          "aspect-square children-center": true,
-          "w-12% round-5px": view() === "Anno",
-          "w-14% round-10px": view() !== "Anno",
+          "w-100% aspect-square children-center": true,
+          "round-5px": view() === "Anno",
+          "round-10px": view() !== "Anno",
           "bg-primary text-background": isToday,
           "bg-#e5e5e5 text-background": !muted && !isToday,
           "bg-#e7e7e726": muted && !isToday,
@@ -419,8 +422,8 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
           <For each={visibleDays}>
             {(d) => (
               <div s="col w-100% children-center">
-                <t s="text-2 font-6">{d.label.slice(0, 1)}</t>
-                <t s="text-3 font-6">{d.dayNumber}</t>
+                <t s="text-2 font-6">{d.label.slice(0, 3)}</t>
+                <t s="text-6 font-6">{d.dayNumber}</t>
               </div>
             )}
           </For>
