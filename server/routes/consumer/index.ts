@@ -3,6 +3,28 @@ import { error, s, v } from "server";
 
 type BookingMode = "single" | "multi" | "delivery";
 
+function normalizeBooking(raw: unknown): {
+	mode: BookingMode;
+	peopleStep: { need: boolean; min: number | null; max: number | null };
+} {
+	const b = raw as
+		| {
+				mode?: unknown;
+				peopleStep?: { need?: unknown; min?: unknown; max?: unknown };
+		  }
+		| undefined;
+	const mode: BookingMode = b?.mode === "multi" || b?.mode === "delivery" ? b.mode : "single";
+	const ps = b?.peopleStep;
+	return {
+		mode,
+		peopleStep: {
+			need: ps?.need === true,
+			min: typeof ps?.min === "number" ? ps.min : null,
+			max: typeof ps?.max === "number" ? ps.max : null,
+		},
+	};
+}
+
 const cleanHost = (raw: string) => raw.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "");
 
 function hostFromHeaders(headers: Headers): string | null {
@@ -118,13 +140,12 @@ export default s({
 						endAt: new Date(c.endAt as Date).toISOString(),
 						resourceId: c.resourceId ?? null,
 					}));
-				const bookingMode: BookingMode =
-					it.bookingMode === "multi" || it.bookingMode === "delivery" ? it.bookingMode : "single";
+				const booking = normalizeBooking(it.booking);
 				return {
 					id: it.id,
 					name: it.name,
 					description: typeof it.description === "string" ? it.description : null,
-					bookingMode,
+					booking,
 					duration: typeof it.duration === "number" ? it.duration : null,
 					price: typeof it.price === "number" ? it.price : null,
 					capacity,

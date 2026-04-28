@@ -31,7 +31,10 @@ export default function Groups() {
                     items?: {
                       id: string;
                       name: string;
-                      bookingMode?: "single" | "multi" | "delivery";
+                      booking?: {
+                        mode?: "single" | "multi" | "delivery";
+                        peopleStep?: { need: boolean; min?: number | null; max?: number | null };
+                      };
                       capacity: number;
                       description?: string | null;
                       resources?: string[] | null;
@@ -101,7 +104,23 @@ export default function Groups() {
                         resource={i.resources?.[0] ?? ""}
                         duration={i.duration ?? 0}
                         price={i.price ?? 0}
-                        bookingMode={i.bookingMode ?? "single"}
+                        booking={{
+                          mode:
+                            i.booking?.mode === "multi" || i.booking?.mode === "delivery"
+                              ? i.booking.mode
+                              : "single",
+                          peopleStep: {
+                            need: i.booking?.peopleStep?.need === true,
+                            min:
+                              typeof i.booking?.peopleStep?.min === "number"
+                                ? i.booking.peopleStep.min
+                                : undefined,
+                            max:
+                              typeof i.booking?.peopleStep?.max === "number"
+                                ? i.booking.peopleStep.max
+                                : undefined,
+                          },
+                        }}
                         categoryId={i.categoryId ?? ""}
                         resourceOptions={resourceOptions}
                         onUpdated={() => {
@@ -239,10 +258,18 @@ function CreateItem(p: { categoryId: string }) {
                   if (!form.valid()) return;
                   const vals = form.values();
                   await server.user.item.create({
-                    ...vals,
+                    name: vals.name,
+                    duration: vals.duration,
+                    capacity: vals.capacity,
+                    price: vals.price,
+                    description: vals.description,
                     categoryId: p.categoryId,
                     resources: [vals.resource],
                     standalone: true,
+                    booking: {
+                      mode: vals.bookingMode as "single" | "multi" | "delivery",
+                      peopleStep: { need: false, min: undefined, max: undefined },
+                    },
                   });
                   form.reset();
                   items(server.user.item.get(listItemsInput));

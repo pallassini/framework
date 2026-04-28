@@ -34,6 +34,26 @@ const BOOKING_MODE_LABEL: Record<BookingMode, string> = {
 };
 const BOOKING_MODES: BookingMode[] = ["single", "multi", "delivery"];
 
+type PeopleStep = { need: boolean; min: number | undefined; max: number | undefined };
+type ItemBooking = { mode: BookingMode; peopleStep: PeopleStep };
+
+function bookingPatch(base: ItemBooking, patch: { mode?: BookingMode; peopleStep?: Partial<PeopleStep> }): ItemBooking {
+  const mode = patch.mode ?? base.mode;
+  const psIn = patch.peopleStep;
+  if (!psIn) return { mode, peopleStep: { ...base.peopleStep } };
+  const need = psIn.need !== undefined ? psIn.need : base.peopleStep.need;
+  let min = base.peopleStep.min;
+  let max = base.peopleStep.max;
+  if (need === true) {
+    if (typeof psIn.min === "number") min = psIn.min;
+    if (typeof psIn.max === "number") max = psIn.max;
+  } else {
+    min = undefined;
+    max = undefined;
+  }
+  return { mode, peopleStep: { need, min, max } };
+}
+
 const DEFAULT_SVC_OPEN_START = "09:00:00";
 const DEFAULT_SVC_OPEN_END = "18:00:00";
 
@@ -55,7 +75,7 @@ export type ItemProps = {
   resource: string;
   duration: number;
   price: number;
-  bookingMode: BookingMode;
+  booking: ItemBooking;
   categoryId: string;
   /** Stabile dal parent: **non** creare con `state()` qui dentro. */
   resourceOptions: readonly InputSelectOption[];
@@ -67,6 +87,7 @@ export default function Item(p: ItemProps) {
   const { resourceOptions, onUpdated } = p;
   const delClosePulse = state(0);
   const bookingModeClosePulse = state(0);
+  const partySizeClosePulse = state(0);
   const itemHours = state(
     server.user.opening.get({ resourceId: undefined, itemId: p.id }),
   );
@@ -77,6 +98,16 @@ export default function Item(p: ItemProps) {
   };
   const afterSave = () => {
     onUpdated?.();
+  };
+
+  const partySummary = () => {
+    if (p.booking.peopleStep.need !== true) return "Persone: no";
+    const min = typeof p.booking.peopleStep.min === "number" ? p.booking.peopleStep.min : null;
+    const max = typeof p.booking.peopleStep.max === "number" ? p.booking.peopleStep.max : null;
+    if (min != null && max != null) return `Persone: ${String(min)}–${String(max)}`;
+    if (min != null) return `Persone: min ${String(min)}`;
+    if (max != null) return `Persone: max ${String(max)}`;
+    return "Persone: sì";
   };
 
   return (
@@ -237,18 +268,20 @@ export default function Item(p: ItemProps) {
             collapsed={() => (
               <div s="row children-centery gapx-1 px-2 py-1 round-8px bg-#ffffff0f">
                 <icon name="chevronDown" size={5} stroke={2} s="text-secondary" />
-                <t s="text-3">{BOOKING_MODE_LABEL[p.bookingMode]}</t>
+                <t s="text-3">{BOOKING_MODE_LABEL[p.booking.mode]}</t>
               </div>
             )}
             extended={() => (
               <div s="col gap-2 p-3">
                 <t s="text-3 font-6 opacity-90">Modalità prenotazione</t>
-                <For each={() => BOOKING_MODES.filter((m) => m !== p.bookingMode)}>
+                <For each={() => BOOKING_MODES.filter((m) => m !== p.booking.mode)}>
                   {(mode) => (
                     <div
                       s="px-3 py-2 round-8px bg-#ffffff12 hover:(bg-#ffffff1f) cursor-pointer text-3"
                       click={() => {
-                        void server.user.item.update({ id: p.id, bookingMode: mode }).then(() => {
+                        void server.user.item
+                          .update({ id: p.id, booking: bookingPatch(p.booking, { mode }) })
+                          .then(() => {
                           bookingModeClosePulse(bookingModeClosePulse() + 1);
                           afterSave();
                         });
@@ -258,6 +291,109 @@ export default function Item(p: ItemProps) {
                     </div>
                   )}
                 </For>
+              </div>
+            )}
+          />
+        </div>
+        <div s="row children-centery gapx-1 w-100% minw-0">
+          <Popmenu
+            mode="light"
+            direction="bottom-right"
+            closePulse={() => partySizeClosePulse()}
+            collapsed={() => (
+              <div s="row children-centery gapx-1 px-2 py-1 round-8px bg-#ffffff0f max-w-100%">
+                <icon name="users" size={5} stroke={2} s="text-secondary shrink-0" />
+                <t s="text-3 truncate">{partySummary()}</t>
+              </div>
+            )}
+            extended={() => (
+              <div s="col gap-2 p-3 w-100% minw-0">
+                <t s="text-3 font-6 opacity-90">Quante persone</t>
+                <div
+                  s="px-3 py-2 round-8px bg-#ffffff12 hover:(bg-#ffffff1f) cursor-pointer text-3"
+                  click={() => {
+                    const nextNeed = p.booking.peopleStep.need !== true;
+                    void server.user.item
+                      .update({
+                        id: p.id,
+                        booking: nextNeed
+                          ? bookingPatch(p.booking, {
+                              peopleStep: { need: true, min: 1, max: p.capacity },
+                            })
+                          : bookingPatch(p.booking, { peopleStep: { need: false } }),
+                      })
+                      .then(() => {
+                        partySizeClosePulse(partySizeClosePulse() + 1);
+                        afterSave();
+                      });
+                  }}
+                >
+                  {p.booking.peopleStep.need === true ? "Non chiedere" : "Chiedi selezione persone"}
+                </div>
+                {p.booking.peopleStep.need === true ? (
+                  <>
+                    <div s="row children-centery gapx-1">
+                      <t s="text-3 opacity-80 w-8">Min</t>
+                      <Input
+                        size={7}
+                        s={S}
+                        defaultValue={
+                          typeof p.booking.peopleStep.min === "number" ? p.booking.peopleStep.min : 1
+                        }
+                        mode="none"
+                        type="number"
+                        min={1}
+                        blur={(value: number | undefined) => {
+                          if (value == null || Number.isNaN(value)) return;
+                          const max =
+                            typeof p.booking.peopleStep.max === "number"
+                              ? p.booking.peopleStep.max
+                              : p.capacity;
+                          const v = Math.max(1, Math.min(value, max));
+                          void server.user.item
+                            .update({
+                              id: p.id,
+                              booking: bookingPatch(p.booking, {
+                                peopleStep: { need: true, min: v, max },
+                              }),
+                            })
+                            .then(afterSave);
+                        }}
+                      />
+                    </div>
+                    <div s="row children-centery gapx-1">
+                      <t s="text-3 opacity-80 w-8">Max</t>
+                      <Input
+                        size={7}
+                        s={S}
+                        defaultValue={
+                          typeof p.booking.peopleStep.max === "number"
+                            ? p.booking.peopleStep.max
+                            : p.capacity
+                        }
+                        mode="none"
+                        type="number"
+                        min={1}
+                        blur={(value: number | undefined) => {
+                          if (value == null || Number.isNaN(value)) return;
+                          const min =
+                            typeof p.booking.peopleStep.min === "number"
+                              ? p.booking.peopleStep.min
+                              : 1;
+                          const v = Math.max(min, Math.min(value, p.capacity));
+                          void server.user.item
+                            .update({
+                              id: p.id,
+                              booking: bookingPatch(p.booking, {
+                                peopleStep: { need: true, min, max: v },
+                              }),
+                            })
+                            .then(afterSave);
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
           />
