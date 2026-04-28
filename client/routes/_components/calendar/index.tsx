@@ -468,6 +468,26 @@ function DayCompacted({
 // DAYS TIMELINE
 // ───────────────────────────────────────────────────────────────────────────────
 function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
+  const timelineZoom = state(1.15);
+  const BASE_HOUR_ROW_PX = 40;
+  const MIN_ZOOM = 0.6;
+  const MAX_ZOOM = 2.2;
+  const clampZoom = (z: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  const hourRowPx = () => BASE_HOUR_ROW_PX * timelineZoom();
+
+  const pinchPointers = new Map<number, { x: number; y: number }>();
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
+  const pointerDistance = () => {
+    const pts = [...pinchPointers.values()];
+    if (pts.length < 2) return 0;
+    const [a, b] = pts;
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.hypot(dx, dy);
+  };
+  const updateZoom = (next: number) => timelineZoom(clampZoom(next));
+
   const OPENING_DAY_MAP = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
   const toLocalDateKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -664,11 +684,44 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
         </div>
       </div>
 
-      <div s="row gap-1 w-100%">
-        <div s="col pr-1 -mt-14">
+      <div
+        s="row gap-1 w-100%"
+        wheel={(ev: WheelEvent) => {
+          if (!ev.ctrlKey) return;
+          ev.preventDefault();
+          updateZoom(timelineZoom() - ev.deltaY * 0.0015);
+        }}
+        pointerdown={(ev: PointerEvent) => {
+          pinchPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+          if (pinchPointers.size === 2) {
+            pinchStartDistance = pointerDistance();
+            pinchStartZoom = timelineZoom();
+          }
+        }}
+        pointermove={(ev: PointerEvent) => {
+          if (!pinchPointers.has(ev.pointerId)) return;
+          pinchPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+          if (pinchPointers.size < 2 || pinchStartDistance <= 0) return;
+          const nextDistance = pointerDistance();
+          if (nextDistance <= 0) return;
+          const ratio = nextDistance / pinchStartDistance;
+          updateZoom(pinchStartZoom * ratio);
+        }}
+        pointerup={(ev: PointerEvent) => {
+          pinchPointers.delete(ev.pointerId);
+          if (pinchPointers.size < 2) pinchStartDistance = 0;
+        }}
+        pointercancel={(ev: PointerEvent) => {
+          pinchPointers.delete(ev.pointerId);
+          if (pinchPointers.size < 2) pinchStartDistance = 0;
+        }}
+      >
+        <div s="col pr-1" style={() => ({ marginTop: `${-hourRowPx() * 0.52}px` })}>
           <For each={timelineHours}>
             {(h) => (
-              <div s="h-10 row children-center text-1 font-5">{String(h).padStart(2, "0")}</div>
+              <div style={() => ({ height: `${hourRowPx()}px` })} s="row children-center text-1 font-5">
+                {String(h).padStart(2, "0")}
+              </div>
             )}
           </For>
         </div>
@@ -676,7 +729,9 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
           <For each={visibleDays}>
             {(d) => (
               <div s="relative col bg-#5e5e5e14 round-8px overflow-hidden">
-                <For each={timelineHours}>{() => <div s="h-10 bb-1 b-#ffffff1a" />}</For>
+                <For each={timelineHours}>
+                  {() => <div style={() => ({ height: `${hourRowPx()}px` })} s="bb-1 b-#ffffff1a" />}
+                </For>
                 <For each={() => closedRangesInWindow(d.date)}>
                   {(r) => (
                     <div
