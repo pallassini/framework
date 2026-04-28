@@ -7,8 +7,7 @@ const MENU_ITEMS = [
   { label: "Calendario", icon: "calendar", go: ""  },
   { label: "Servizi", icon: "layout", go: "services" },
   { label: "Risorse", icon: "users", go: "resources" },
-  { label: "Impostazioni", icon: "bolt", go: "settings" },
-  { label: "Test", icon: "bolt", go: "test" },
+  { label: "Impostazioni", icon: "bolt", go: "settings" }
 ];
 
 /** Path assoluto root: `""` → `"/"`, altrimenti `"/" + go`. */
@@ -45,7 +44,7 @@ export default function Menu() {
                   },
                 })}
                 stroke={2.5}
-                size={9}
+                size={8}
                 click={() => go(menuHref(item.go))}
               />
             )}
