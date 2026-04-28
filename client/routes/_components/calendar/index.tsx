@@ -135,7 +135,7 @@ function YearMonth() {
 const VIEWS = ["Giorno", "Settimana", "3 Giorni", "Mese", "3 Mesi", "Anno"];
 const view = state(VIEWS[1]);
 const collapsedView = state(VIEWS[1]);
-const COMPRESSION_MODES = ["full", "semi", "compress"] as const;
+const COMPRESSION_MODES = ["full", "semi"] as const;
 type CompressionMode = (typeof COMPRESSION_MODES)[number];
 const compressionMode = state<CompressionMode>("full");
 function View() {
@@ -177,7 +177,6 @@ function View() {
 function DateSwitcher() {
   const leftPressed = state(false);
   const rightPressed = state(false);
-  const modeClosePulse = state(0);
   const syncFromDate = (d: Date) => {
     weekCursor(d.getTime());
     year(d.getFullYear());
@@ -205,46 +204,14 @@ function DateSwitcher() {
     }, 120);
   };
 
-  const modeMeta = (
-    mode: CompressionMode,
-  ): { icon: "maximize" | "minimize" | "minimize2"; label: string } => {
-    if (mode === "full") return { icon: "maximize", label: "Massimizza" };
-    if (mode === "semi") return { icon: "minimize", label: "Compressa" };
-    return { icon: "minimize2", label: "Compressa tutto" };
-  };
-
   return (
     <div s="row children-center gap-1">
-      <Popmenu
-        mode="light"
-        direction="bottom-right"
-        closePulse={() => modeClosePulse()}
-        collapsed={() => (
-          <icon
-            size="6"
-            name={modeMeta(compressionMode()).icon}
-            stroke="2.5"
-            s="p-1 round-10px cursor-pointer hover:(bg-#a6a6a6)"
-          />
-        )}
-        extended={() => (
-          <div s="p-2 col gap-1">
-            <For each={() => COMPRESSION_MODES.filter((m) => m !== compressionMode())}>
-              {(m) => (
-                <div
-                  s="row children-start gap-2 px-2 py-2 round-10px cursor-pointer hover:(bg-#a6a6a6) w-100%"
-                  pointerdown={() => {
-                    compressionMode(m);
-                    modeClosePulse(modeClosePulse() + 1);
-                  }}
-                >
-                  <icon size="5" name={modeMeta(m).icon} stroke="2.5" />
-                  <t s="text-2 font-6">{modeMeta(m).label}</t>
-                </div>
-              )}
-            </For>
-          </div>
-        )}
+      <icon
+        size="7"
+        name={() => (compressionMode() === "full" ? "maximize" : "minimize")}
+        stroke="2.5"
+        s="p-1 bg-#ffffff text-background round-10px cursor-pointer"
+        pointerdown={() => compressionMode(compressionMode() === "full" ? "semi" : "full")}
       />
       <icon
         size="8"
@@ -478,7 +445,6 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
   const pinchPointers = new Map<number, { x: number; y: number }>();
   let pinchStartDistance = 0;
   let pinchStartZoom = 1;
-  const COMPRESS_GAP_PX = 12;
   const pointerDistance = () => {
     const pts = [...pinchPointers.values()];
     if (pts.length < 2) return 0;
@@ -490,8 +456,6 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
   const updateZoom = (next: number) => timelineZoom(clampZoom(next));
 
   const OPENING_DAY_MAP = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
-  const toLocalDateKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   const parseTimeToMinutes = (t: string) => {
     const [hh = "0", mm = "0"] = t.split(":");
@@ -561,14 +525,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
       .filter((x): x is { start: number; end: number } => x != null);
 
     const merged = mergeIntervals([...closedFromOpening, ...closureRanges]);
-    console.log("[calendar][global-ranges]", {
-      date: toLocalDateKey(dayStart),
-      dayKey,
-      openings,
-      closedFromOpening,
-      closureRanges,
-      merged,
-    });
+
     return merged;
   };
 
@@ -626,7 +583,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
     return merged.length > 0 ? merged : [{ start: 0, end: 24 * 60 }];
   };
 
-  const formatHour = (m: number) => `${String((Math.floor(m / 60) + 24) % 24).padStart(2, "0")}:00`;
+  const formatHour = (m: number) => String((Math.floor(m / 60) + 24) % 24).padStart(2, "0");
 
   const timelineRows = () => {
     const rows: Array<
@@ -641,13 +598,18 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
       for (let h = startHour; h < endHour; h++) {
         rows.push({ kind: "hour", hour: h, heightPx: hourRowPx() });
       }
-      if (compressionMode() === "compress" && i < ranges.length - 1) {
-        const next = ranges[i + 1]!;
-        rows.push({ kind: "gap", fromMin: r.end, toMin: next.start, heightPx: COMPRESS_GAP_PX });
-      }
+      // no inter-range gap in simplified two-mode compression
     }
     return rows;
   };
+
+  const timelineHourValues = () =>
+    timelineRows()
+      .filter((r): r is { kind: "hour"; hour: number; heightPx: number } => r.kind === "hour")
+      .map((r) => r.hour);
+
+  const firstHourValue = () => timelineHourValues()[0];
+  const lastHourValue = () => timelineHourValues()[timelineHourValues().length - 1];
 
   const totalTimelinePx = () => timelineRows().reduce((acc, r) => acc + r.heightPx, 0);
 
@@ -660,7 +622,6 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
       const rangePx = ((r.end - r.start) / 60) * hourRowPx();
       if (m >= r.end) {
         y += rangePx;
-        if (compressionMode() === "compress" && i < ranges.length - 1) y += COMPRESS_GAP_PX;
         continue;
       }
       if (m > r.start) {
@@ -679,6 +640,19 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
       for (const a of activeRanges()) {
         const start = Math.max(c.start, a.start);
         const end = Math.min(c.end, a.end);
+        if (end > start) clipped.push({ start, end });
+      }
+    }
+    return clipped;
+  };
+
+  const openRangesInWindow = (date: Date) => {
+    const open = dayOpenRanges(date);
+    const clipped: Array<{ start: number; end: number }> = [];
+    for (const o of open) {
+      for (const a of activeRanges()) {
+        const start = Math.max(o.start, a.start);
+        const end = Math.min(o.end, a.end);
         if (end > start) clipped.push({ start, end });
       }
     }
@@ -737,7 +711,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
           if (pinchPointers.size < 2) pinchStartDistance = 0;
         }}
       >
-        <div s="col pr-1" style={() => ({ marginTop: `${-hourRowPx() * 0.52}px` })}>
+        <div s="col pr-1" style={() => ({ marginTop: `${-hourRowPx() * 0.5}px` })}>
           <For each={timelineRows}>
             {(row) => (
               <show
@@ -750,28 +724,57 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
                   </div>
                 }
               >
-                <div style={() => ({ height: `${row.heightPx}px` })} s="row children-center text-1 font-5">
-                  {String((row as { hour: number }).hour).padStart(2, "0")}
+                <div
+                  style={() => ({ height: `${row.heightPx}px` })}
+                  s={() =>
+                    (row as { hour: number }).hour === firstHourValue() ||
+                    (row as { hour: number }).hour === lastHourValue()
+                      ? "row children-center text-1 font-5"
+                      : "row children-center text-1 font-5 opacity-55"
+                  }
+                >
+                  {formatHour((row as { hour: number }).hour * 60)}
                 </div>
               </show>
             )}
           </For>
-          <div style={() => ({ height: `${hourRowPx()}px` })} s="row children-center text-1 font-5">
-            {() => String((Math.floor(activeRanges()[activeRanges().length - 1]!.end / 60) + 24) % 24).padStart(2, "0")}
+          <div style={{ height: "0px", overflow: "visible" }} s="row text-1 font-5 mt-3">
+            {() => formatHour(activeRanges()[activeRanges().length - 1]!.end)}
           </div>
         </div>
         <div s={() => `${daysColsClass()} gap-2 w-100%`}>
           <For each={visibleDays}>
             {(d) => (
-              <div s="relative col bg-#5e5e5e14 round-8px overflow-hidden">
+              <div s="relative col bg-background round-8px overflow-hidden">
+                <div s="absolute left right top bottom bg-#0000008a events-none" />
                 <For each={timelineRows}>
                   {(row) => (
                     <show
                       when={() => row.kind === "hour"}
                       fallback={<div style={() => ({ height: `${row.heightPx}px` })} s="bg-#ffffff08" />}
                     >
-                      <div style={() => ({ height: `${row.heightPx}px` })} s="bb-1 b-#ffffff1a" />
+                      <div
+                        style={() => ({ height: `${row.heightPx}px`, boxSizing: "border-box" } as any)}
+                        s="bb-1 b-#ffffff40"
+                      />
                     </show>
+                  )}
+                </For>
+                <For each={() => openRangesInWindow(d.date)}>
+                  {(r) => (
+                    <div
+                      s="absolute left right bg-#5e5e5e14 round-8px events-none"
+                      style={() => {
+                        const span = Math.max(1, totalTimelinePx());
+                        const startY = compressMinutePx(r.start);
+                        const endY = compressMinutePx(r.end);
+                        return {
+                          top: `${(startY / span) * 100}%`,
+                          height: `${Math.max(0, ((endY - startY) / span) * 100)}%`,
+                          zIndex: 1,
+                        };
+                      }}
+                    />
                   )}
                 </For>
                 <For each={() => closedRangesInWindow(d.date)}>
@@ -785,6 +788,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
                         return {
                           top: `${(startY / span) * 100}%`,
                           height: `${Math.max(0, ((endY - startY) / span) * 100)}%`,
+                          zIndex: 1,
                         };
                       }}
                     />

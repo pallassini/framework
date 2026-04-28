@@ -46,7 +46,7 @@ export type IconShadow = ShadowStatic | (() => ShadowStatic);
 
 export type IconProps = SharedProps & {
 	/** Chiavi di `icons.tsx` (autocomplete completo). */
-	name: Icon;
+	name: Icon | (() => Icon);
 	/**
 	 * Scala `clientConfig.style.icon` (`size={2}` / `size="3"`), px numerici, o CSS (`24px`).
 	 * Se **omesso**: larghezza/altezza = `1em` → segue il `font-size` del contesto (es. `text-6` sul genitore).
@@ -203,7 +203,49 @@ function splitIconStyleString(str: string): { wrap: string; svg: string; hasCirc
 
 export function icon(props: IconProps): UiNode {
 	const { name, size, stroke, shadow, children: _c, s: sProp, ...rest } = props;
-	const src = resolveTemplate(name);
+	const readIconName = (): string | undefined => {
+		if (typeof name === "function") return (name as () => Icon)();
+		return name;
+	};
+	const applyTemplateToSvg = (target: SVGElement, tpl: SVGElement): void => {
+		const keep = new Set(["style", "width", "height"]);
+		const nextAttrs = new Map<string, string>();
+		for (const a of Array.from(tpl.attributes)) nextAttrs.set(a.name, a.value);
+		for (const a of Array.from(target.attributes)) {
+			if (!nextAttrs.has(a.name) && !keep.has(a.name)) target.removeAttribute(a.name);
+		}
+		for (const [k, v] of nextAttrs) {
+			if (keep.has(k)) continue;
+			target.setAttribute(k, v);
+		}
+		while (target.firstChild) target.removeChild(target.firstChild);
+		for (const n of Array.from(tpl.childNodes)) target.appendChild(n.cloneNode(true));
+	};
+	const applyIconSizingAndStroke = (target: SVGElement): void => {
+		target.style.boxSizing = "content-box";
+		if (size == null) {
+			target.removeAttribute("width");
+			target.removeAttribute("height");
+			target.style.width = "1em";
+			target.style.height = "1em";
+			target.style.display = "inline-block";
+			target.style.verticalAlign = "middle";
+		} else {
+			const s = resolveIconSizeProp(size);
+			target.setAttribute("width", s);
+			target.setAttribute("height", s);
+		}
+		if (stroke != null) target.setAttribute("stroke-width", String(stroke));
+		if (target.getAttribute("stroke") === "currentColor") {
+			target.removeAttribute("stroke");
+			target.style.stroke = "currentColor";
+		}
+		if (target.getAttribute("fill") === "currentColor") {
+			target.removeAttribute("fill");
+			target.style.fill = "currentColor";
+		}
+	};
+	const src = resolveTemplate(readIconName() ?? "");
 	if (src == null) {
 		return null;
 	}
@@ -251,21 +293,7 @@ export function icon(props: IconProps): UiNode {
 		applyDomProps(svg, { ...rest, children: undefined, s: sProp } as DomProps);
 	}
 
-	/** `border-box` su SVG + `p-*` riduce l’area del disegno; `content-box` fa sì che padding/bg espandano il box mantenendo l’icona a `width`/`height`. */
-	svg.style.boxSizing = "content-box";
-	if (size == null) {
-		svg.removeAttribute("width");
-		svg.removeAttribute("height");
-		svg.style.width = "1em";
-		svg.style.height = "1em";
-		svg.style.display = "inline-block";
-		svg.style.verticalAlign = "middle";
-	} else {
-		const s = resolveIconSizeProp(size);
-		svg.setAttribute("width", s);
-		svg.setAttribute("height", s);
-	}
-	if (stroke != null) svg.setAttribute("stroke-width", String(stroke));
+	applyIconSizingAndStroke(svg);
 
 	if (shadow !== undefined) {
 		/** Di default gli SVG clippano al viewBox: il glow di `drop-shadow` resterebbe nascosto fuori dal glifo. */
@@ -289,13 +317,18 @@ export function icon(props: IconProps): UiNode {
 	 * (solo le proprietà **CSS** lo sono). Se l’attributo è `currentColor`, lo promuoviamo a
 	 * proprietà CSS così il cambio di `color` (es. toggle di `text-primary`) viene interpolato.
 	 */
-	if (svg.getAttribute("stroke") === "currentColor") {
-		svg.removeAttribute("stroke");
-		svg.style.stroke = "currentColor";
-	}
-	if (svg.getAttribute("fill") === "currentColor") {
-		svg.removeAttribute("fill");
-		svg.style.fill = "currentColor";
+	if (typeof name === "function") {
+		let prev = readIconName();
+		const stop = watch(() => {
+			const next = readIconName();
+			if (!next || next === prev) return;
+			const tpl = resolveTemplate(next);
+			if (!tpl) return;
+			applyTemplateToSvg(svg, tpl);
+			applyIconSizingAndStroke(svg);
+			prev = next;
+		});
+		onNodeDispose(svg, stop);
 	}
 
 	if (wrapEl) {
