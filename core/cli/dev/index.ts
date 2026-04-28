@@ -7,6 +7,7 @@ import { writeDesktopRoutesGen } from "../../desktop/routes/write-client-routes-
 import { writeServerRoutesGen } from "../../server/routes/generate";
 import { killViteProc, startClient } from "./client";
 import { isDesktopDevRunning, killDesktop, startDesktop } from "./desktop";
+import { reserveDevRpcPort } from "./ports";
 import { killRpcServer, startRpcServer } from "./server";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -38,9 +39,18 @@ process.on("exit", () => {
 	killDesktop();
 });
 
+// —— SERVER (porta RPC: env o prima libera su stesso host di `Bun.serve`)
+let rpcPort: number;
+try {
+	rpcPort = await reserveDevRpcPort();
+} catch (e) {
+	console.error("[dev] assegnazione porta RPC:", e);
+	process.exit(1);
+}
+
 // —— SERVER
 try {
-	await startRpcServer(root);
+	await startRpcServer(root, rpcPort);
 } catch (e) {
 	console.error("[dev] RPC server non avviato:", e);
 	process.exit(1);

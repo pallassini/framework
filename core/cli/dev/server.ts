@@ -89,7 +89,7 @@ async function waitForRpcListen(baseUrl: string): Promise<void> {
 	throw new Error(`RPC non risponde su ${baseUrl}`);
 }
 
-export async function startRpcServer(projectRoot: string): Promise<void> {
+export async function startRpcServer(projectRoot: string, rpcPort: number): Promise<void> {
 	if (child) return;
 
 	const entry = path.join(projectRoot, "core", "server", "routes", "serve.ts");
@@ -103,6 +103,7 @@ export async function startRpcServer(projectRoot: string): Promise<void> {
 		env: {
 			...process.env,
 			FRAMEWORK_PROJECT_ROOT: projectRoot,
+			SERVER_RPC_PORT: String(rpcPort),
 			/** Solo questo processo deve toccare `db-schema-reload` dopo reload schema (evita ping-pong con Electrodun). */
 			FWDB_DEV_RPC_CHILD: "1",
 		},
@@ -116,7 +117,7 @@ export async function startRpcServer(projectRoot: string): Promise<void> {
 		});
 	}
 
-	const base = `http://${serverConfig.host}:${serverConfig.port}/`;
+	const base = `http://${serverConfig.host}:${rpcPort}/`;
 	await Promise.race([
 		waitForRpcListen(base),
 		child.exited.then((code) => {

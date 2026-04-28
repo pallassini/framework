@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { createServer } from "node:net";
+import { randomUUID } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
+import { pickViteDevPort } from "./ports";
 
 const PORT_START = 3000;
 const PORT_SPAN = 200;
@@ -27,22 +28,6 @@ export function killViteProc(): void {
 	}
 }
 
-async function isPortFree(port: number): Promise<boolean> {
-	return await new Promise((resolve) => {
-		const s = createServer();
-		s.once("error", () => resolve(false));
-		s.once("listening", () => s.close(() => resolve(true)));
-		s.listen(port, "127.0.0.1");
-	});
-}
-
-async function pickPort(start: number, span: number): Promise<number> {
-	for (let p = start; p < start + span; p++) {
-		if (await isPortFree(p)) return p;
-	}
-	throw new Error(`nessuna porta libera in ${start}-${start + span - 1}`);
-}
-
 async function waitVpUrl(url: string): Promise<void> {
 	for (let i = 0; i < 250; i++) {
 		try {
@@ -57,16 +42,22 @@ async function waitVpUrl(url: string): Promise<void> {
 
 export async function startClient(root: string): Promise<{ client: ViteClient }> {
 	const cfg = path.join(root, "core/client/vite.config.ts");
-	const port = await pickPort(PORT_START, PORT_SPAN);
+	const port = await pickViteDevPort(PORT_START, PORT_SPAN);
+	const probeToken = randomUUID();
+	const probePath = `/__fw_dev_probe?t=${encodeURIComponent(probeToken)}`;
 	child = Bun.spawn({
-		cmd: ["bun", "x", "vp", "dev", "-c", cfg, "--port", String(port), "--strictPort"],
+		cmd: ["bun", "x", "vp", "dev", "--port", String(port), "--strictPort", "-c", cfg],
 		cwd: root,
-		env: { ...process.env },
+		env: {
+			...process.env,
+			FRAMEWORK_VITE_PORT: String(port),
+			FRAMEWORK_VITE_PROBE: probeToken,
+		},
 		stdout: "inherit",
 		stderr: "inherit",
 	});
 	const c = child;
-	const probe = `https://127.0.0.1:${port}/`;
+	const probe = `https://127.0.0.1:${port}${probePath}`;
 	await Promise.race([
 		waitVpUrl(probe),
 		c.exited.then((code) => {

@@ -48,6 +48,8 @@ async function resolveTenantUserId(host: string): Promise<string> {
 	if (users.length === 0) error("NOT_FOUND", "Nessun tenant disponibile");
 	const byUsername = users.find((u: any) => typeof u.username === "string" && cleanHost(u.username) === host);
 	if (byUsername) return byUsername.id;
+	const byDomain = users.find((u: any) => typeof u.domain === "string" && cleanHost(u.domain) === host);
+	if (byDomain) return byDomain.id;
 	const byEmailDomain = users.find((u: any) => {
 		if (typeof u.email !== "string") return false;
 		return cleanHost(u.email.split("@")[1] ?? "") === host;

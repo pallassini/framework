@@ -46,4 +46,6 @@ export interface FrameworkIntrinsicElements {
 	circle: SharedProps;
 	span: SharedProps;
 	pre: SharedProps;
+	/** `<script>` nativo (`createElement("script")`): `src`, `defer`, `async`, … */
+	script: SharedProps;
 }
