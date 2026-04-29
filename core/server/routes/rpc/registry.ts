@@ -5,10 +5,13 @@ import {
 	type ConcurrencyOpts,
 	type Middleware,
 	type RateLimitOpts,
+	type RouteAutoConfig,
+	type RouteAuth,
 	type RouteInputConfig,
 	type RouteNoInputConfig,
 	type SizeLimitOpts,
 } from "../../middlewares";
+import { expandAutoRoute, isAutoRouteDef } from "./expand-auto";
 import { compose } from "../../middlewares/logic/compose";
 import { timeoutMs } from "../../middlewares/logic/route-config";
 import { serverConfig } from "../../../../server/config";
@@ -91,10 +94,14 @@ function buildFn(
 	return (rawInput, ctx) => logMw(ctx, () => pipeline(rawInput, ctx));
 }
 
-function mergeMiddlewares(def: { auth?: boolean; middlewares?: Middleware[] }): Middleware[] {
+function mergeMiddlewares(def: { auth?: RouteAuth; middlewares?: Middleware[] }): Middleware[] {
 	const user = def.middlewares ?? [];
-	if (def.auth) return [routeMw.requireAuth(), routeMw.applyUserTenantScope(), ...user];
-	return user;
+	const a = def.auth;
+	if (a === undefined || a === false) return user;
+	if (a === "admin") return [routeMw.requireAuth(), routeMw.requireAdmin(), ...user];
+	if (a === true) return [routeMw.requireAuth(), routeMw.applyUserTenantScope(), ...user];
+	const roles = Array.isArray(a) ? a : [a];
+	return [routeMw.requireAuth(), routeMw.requireRole(roles), routeMw.applyUserTenantScope(), ...user];
 }
 
 function sWithInput<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O> {
@@ -147,11 +154,17 @@ function sNoInput<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O> 
 
 export function s<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O>;
 export function s<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O>;
+export function s(def: RouteAutoConfig): ServerRouteDescTyped<unknown, unknown>;
 export function s(
-	def: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown>,
+	def: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown> | RouteAutoConfig,
 ): ServerRouteDescTyped<unknown, unknown> {
-	if (isServerInputRoute(def)) return sWithInput(def);
-	return sNoInput(def);
+	const resolved: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown> = isAutoRouteDef(
+		def as object,
+	)
+		? expandAutoRoute(def as RouteAutoConfig)
+		: (def as RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown>);
+	if (isServerInputRoute(resolved)) return sWithInput(resolved);
+	return sNoInput(resolved);
 }
 
 export function getServerFn(desc: ServerRouteDesc): ServerFn {

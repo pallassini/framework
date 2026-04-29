@@ -88,12 +88,10 @@ export default function Item(p: ItemProps) {
   const delClosePulse = state(0);
   const bookingModeClosePulse = state(0);
   const partySizeClosePulse = state(0);
-  const itemHours = state(
-    server.user.opening.get({ resourceId: undefined, itemId: p.id }),
-  );
+  const itemHours = state(() => server.user.opening.get({ where: { itemId: p.id } }));
   const refreshItemHours = () => {
     void server.user.opening
-      .get({ resourceId: undefined, itemId: p.id })
+      .get({ where: { itemId: p.id } })
       .then((r) => itemHours(r));
   };
   const afterSave = () => {
@@ -254,7 +252,7 @@ export default function Item(p: ItemProps) {
             extended={() => (
               <ItemAvailabilityPanel
                 itemId={p.id}
-                getHours={() => (itemHours()?.openingHours ?? []) as ItemHourRow[]}
+                getHours={() => (Array.isArray(itemHours()) ? itemHours() : []) as ItemHourRow[]}
                 refresh={refreshItemHours}
               />
             )}

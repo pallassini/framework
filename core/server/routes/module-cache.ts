@@ -40,7 +40,7 @@ export function uncacheModulesUnderDir(dir: string): void {
  *
  * Così, modificando qualunque file in `server/`, `db/`, `client/` (e anche la radice),
  * il prossimo import dinamico delle route rileggerà i sorgenti aggiornati,
- * comprese le loro transitive (es. `./guards`, `../auth/index`, `db`, ecc.).
+ * comprese le loro transitive (es. helper locali, `../auth/index`, `db`, ecc.).
  */
 export function uncacheUserModules(projectRoot: string): void {
 	const root = normalize(resolve(projectRoot)).toLowerCase();

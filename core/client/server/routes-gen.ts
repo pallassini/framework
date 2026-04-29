@@ -10,7 +10,7 @@ import { login as auth_login, me as auth_me, register as auth_register } from ".
 import { default as consumer } from "../../../server/routes/consumer/index";
 import { default as db, rowDelete as db_rowDelete, rowUpdate as db_rowUpdate } from "../../../server/routes/db";
 import { default as notification, subscribe as notification_subscribe } from "../../../server/routes/notification";
-import { cancel as user_booking_cancel, create as user_booking_create, get as user_booking_get, remove as user_booking_remove, update as user_booking_update } from "../../../server/routes/user/booking";
+import { create as user_booking_create, get as user_booking_get, remove as user_booking_remove, update as user_booking_update } from "../../../server/routes/user/booking";
 import { create as user_closures_create, get as user_closures_get, remove as user_closures_remove, update as user_closures_update } from "../../../server/routes/user/closures";
 import { update as user_update } from "../../../server/routes/user/index";
 import { create as user_item_create, get as user_item_get, remove as user_item_remove, update as user_item_update } from "../../../server/routes/user/item";
@@ -40,7 +40,6 @@ export type ServerRoutes = {
 	"db.rowUpdate": InferRoute<typeof db_rowUpdate>;
 	notification: InferRoute<typeof notification>;
 	"notification.subscribe": InferRoute<typeof notification_subscribe>;
-	"user.booking.cancel": InferRoute<typeof user_booking_cancel>;
 	"user.booking.create": InferRoute<typeof user_booking_create>;
 	"user.booking.get": InferRoute<typeof user_booking_get>;
 	"user.booking.remove": InferRoute<typeof user_booking_remove>;

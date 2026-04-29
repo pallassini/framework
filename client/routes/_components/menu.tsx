@@ -4,9 +4,10 @@ import { Icon } from "../../../core/client/runtime/tag/tags/icon";
 
 
 const MENU_ITEMS = [
-  { label: "Calendario", icon: "calendar", go: ""  },
+  { label: "Prenotazioni", icon: "calendarCheck", go: ""  },
   { label: "Servizi", icon: "layout", go: "services" },
   { label: "Risorse", icon: "users", go: "resources" },
+  { label: "Calendario", icon: "calendarClock", go: "settings" },
   { label: "Impostazioni", icon: "bolt", go: "settings" }
 ];
 

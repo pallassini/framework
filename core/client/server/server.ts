@@ -122,15 +122,24 @@ type ApiForPath<P extends ServerPath> = [ServerRoutes[P]["in"]] extends [void]
 			(): Promise<ServerRoutes[P]["out"]>;
 			(opts: RpcCb<ServerRoutes[P]["out"]>): Promise<ServerRoutes[P]["out"]>;
 		}
-	: [Extract<ServerRoutes[P]["in"], undefined>] extends [never]
-		? (
-				input: ServerRoutes[P]["in"],
-				opts?: RpcCb<ServerRoutes[P]["out"]>,
-			) => Promise<ServerRoutes[P]["out"]>
-		: (
-				input?: ServerRoutes[P]["in"],
-				opts?: RpcCb<ServerRoutes[P]["out"]>,
-			) => Promise<ServerRoutes[P]["out"]>;
+	: unknown extends ServerRoutes[P]["in"]
+		? {
+				(): Promise<ServerRoutes[P]["out"]>;
+				(opts: RpcCb<ServerRoutes[P]["out"]>): Promise<ServerRoutes[P]["out"]>;
+				(
+					input: ServerRoutes[P]["in"],
+					opts?: RpcCb<ServerRoutes[P]["out"]>,
+				): Promise<ServerRoutes[P]["out"]>;
+			}
+		: [Extract<ServerRoutes[P]["in"], undefined>] extends [never]
+			? (
+					input: ServerRoutes[P]["in"],
+					opts?: RpcCb<ServerRoutes[P]["out"]>,
+				) => Promise<ServerRoutes[P]["out"]>
+			: (
+					input?: ServerRoutes[P]["in"],
+					opts?: RpcCb<ServerRoutes[P]["out"]>,
+				) => Promise<ServerRoutes[P]["out"]>;
 
 type PathToObject<P extends string, V> = P extends `${infer K}.${infer Rest}`
 	? { readonly [key in K]: PathToObject<Rest, V> }

@@ -6,18 +6,33 @@ import Menu from "../_components/menu";
 import Input from "../../_components/input";
 import { TimePicker } from "../../_components/time-picker";
 
+type ResourceRow = {
+  id: string;
+  name: string;
+  capacity?: number | null;
+  type?: "space" | "person" | null;
+};
+
 // ───────────────────────────────────────────────────────────────────────────────
 // RESORCES
 // ───────────────────────────────────────────────────────────────────────────────
 
+function resourceRowsFromSignal(get: () => unknown): ResourceRow[] {
+  const v = get();
+  return Array.isArray(v) ? (v as ResourceRow[]) : [];
+}
+
 export default function Resources() {
   const resources = state(server.user.resource.get);
-  const refresh = () => resources(server.user.resource.get());
-  const openings = state(
-    server.user.opening.get({ resourceId: undefined, itemId: undefined }),
+  const spaceResources = state(() =>
+    resourceRowsFromSignal(resources).filter((r) => r.type === "space"),
   );
-  const refreshOpenings = () =>
-    openings(server.user.opening.get({ resourceId: undefined, itemId: undefined }));
+  const personResources = state(() =>
+    resourceRowsFromSignal(resources).filter((r) => r.type === "person"),
+  );
+  const refresh = () => resources(server.user.resource.get());
+  const openings = state(server.user.opening.get);
+  const refreshOpenings = () => openings(server.user.opening.get({}));
   return (
     <>
       <div s="des:(row)">
@@ -35,9 +50,9 @@ export default function Resources() {
                       day={d.day}
                       label={d.label}
                       rows={
-                        (openings.openingHours() ?? []).filter(
+                        ((Array.isArray(openings()) ? openings() : []) as OpeningHourRow[]).filter(
                           (o) => o.dayOfWeek === d.day && o.itemId == null,
-                        ) as OpeningHourRow[]
+                        )
                       }
                       refreshOpenings={refreshOpenings}
                     />
@@ -52,7 +67,7 @@ export default function Resources() {
                 blockIcon: "boxes",
                 nameRowIcon: "box",
                 form: createSpace,
-                listEach: resources.space,
+                listEach: spaceResources,
                 refresh,
               })}
               {resorce({
@@ -61,7 +76,7 @@ export default function Resources() {
                 blockIcon: "users",
                 nameRowIcon: "user",
                 form: createPerson,
-                listEach: resources.person,
+                listEach: personResources,
                 refresh,
               })}
             </div>
@@ -391,7 +406,7 @@ function ResourceItemRow(p: {
             <Input
               size={7}
               s={RESOURCE_INPUT_S}
-              defaultValue={r.capacity}
+              defaultValue={r.capacity ?? undefined}
               mode="none"
               type="number"
               blur={(value: number | undefined) => {
@@ -414,12 +429,6 @@ function rpcErrorMessage(e: unknown): string {
   }
   return "Something went wrong. Please try again.";
 }
-
-type ResourceRow = {
-  id: string;
-  name: string;
-  capacity: number;
-};
 
 function ResourceDeletePopmenu(props: { resourceId: string; onDeleted: () => void }) {
   const { resourceId, onDeleted } = props;

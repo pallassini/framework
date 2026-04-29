@@ -8,10 +8,29 @@ import Popmenu from "../../../_components/popmenu";
 import Block from "../../../_components/block";
 import Item from "./item";
 
-const listItemsInput = { categoryId: undefined, includeArchived: undefined };
+type ResourceListRow = { id: string; name: string; type?: "space" | "person" | null };
+function resourceList(get: () => unknown): ResourceListRow[] {
+  const v = get();
+  return Array.isArray(v) ? (v as ResourceListRow[]) : [];
+}
+
+type CategoryRow = { id: string; name: string };
+function categoryList(get: () => unknown): CategoryRow[] {
+  const v = get();
+  return Array.isArray(v) ? (v as CategoryRow[]) : [];
+}
+
+const listItemsInput = { categoryId: undefined as string | undefined, includeArchived: undefined };
+
+function listItemsGetInput() {
+  return listItemsInput.categoryId
+    ? { where: { categoryId: listItemsInput.categoryId } }
+    : {};
+}
 
 const categories = state(server.user.itemCategory.get);
-const items = state(() => server.user.item.get(listItemsInput));
+const categoryRows = state(() => categoryList(categories));
+const items = state(() => server.user.item.get(listItemsGetInput()));
 const resources = state(server.user.resource.get);
 export default function Groups() {
   return (
@@ -21,36 +40,33 @@ export default function Groups() {
       <div s="col gap-4 des:(w-80%) mob:(w-96%) mt-20 mb-30">
 
         {/* CATEGORIES */}
-        <For each={categories}>
+        <For each={categoryRows}>
           {(c) => {
             const closePulse = state(0);
             const categoryId = c.id;
             const rowsForCategory = state(() => {
-              const root = items() as
-                | {
-                    items?: {
-                      id: string;
-                      name: string;
-                      booking?: {
-                        mode?: "single" | "multi" | "delivery";
-                        peopleStep?: { need: boolean; min?: number | null; max?: number | null };
-                      };
-                      capacity: number;
-                      description?: string | null;
-                      resources?: string[] | null;
-                      duration?: number | null;
-                      price?: number | null;
-                      categoryId?: string | null;
-                    }[];
-                  }
-                | undefined;
-              const list = root?.items ?? [];
+              const list = Array.isArray(items())
+                ? (items() as {
+                    id: string;
+                    name: string;
+                    booking?: {
+                      mode?: "single" | "multi" | "delivery";
+                      peopleStep?: { need: boolean; min?: number | null; max?: number | null };
+                    };
+                    capacity: number;
+                    description?: string | null;
+                    resources?: string[] | null;
+                    duration?: number | null;
+                    price?: number | null;
+                    categoryId?: string | null;
+                  }[])
+                : [];
               return list.filter(
                 (it) => it != null && String(it.categoryId ?? "") === String(categoryId),
               );
             });
 
-            const resourceOptions: InputSelectOption[] = (resources()?.resources ?? [])
+            const resourceOptions: InputSelectOption[] = resourceList(resources)
               .map((r) => ({
                 value: r.id,
                 label: r.name,
@@ -124,7 +140,7 @@ export default function Groups() {
                         categoryId={i.categoryId ?? ""}
                         resourceOptions={resourceOptions}
                         onUpdated={() => {
-                          items(server.user.item.get(listItemsInput));
+                          items(server.user.item.get(listItemsGetInput()));
                         }}
                       />
                     );
@@ -193,7 +209,7 @@ function CreateCategory() {
 // ───────────────────────────────────────────────────────────────────────────────
 function CreateItem(p: { categoryId: string }) {
   const closePulse = state(0);
-  const resourceOptions: InputSelectOption[] = (resources()?.resources ?? [])
+  const resourceOptions: InputSelectOption[] = resourceList(resources)
     .map((r) => ({
       value: r.id,
       label: r.name,
@@ -272,7 +288,7 @@ function CreateItem(p: { categoryId: string }) {
                     },
                   });
                   form.reset();
-                  items(server.user.item.get(listItemsInput));
+                  items(server.user.item.get(listItemsGetInput()));
                   closePulse(1);
                   setTimeout(() => closePulse(0), 300);
                 }}

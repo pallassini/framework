@@ -3,7 +3,7 @@ import { error, s, v } from "server";
 import { hashPassword } from "../auth/index";
 
 export const getUsers = s({
-  auth: true,
+  auth: "admin",
   run: async () => {
     const users = await db.users.find({ where: { role: "user" } });
     return users;
@@ -12,7 +12,7 @@ export const getUsers = s({
 
 /** Patch riga `users`: stesso schema della tabella (campi opzionali), `id` obbligatorio; `password` in chiaro → hash come in registrazione. */
 export const userUpdate = s({
-  auth: true,
+  auth: "admin",
   input: db.users.partial({ with: { id: v.string() }, min: 1 }),
   run: async (input) => {
     const { id, ...patch } = input as { id: string } & Record<string, unknown>;
@@ -36,11 +36,6 @@ export const userUpdate = s({
 });
 
 export const userDelete = s({
-  auth: true,
-  input: v.object({ id: v.string() }),
-  run: async ({ id }) => {
-    const res = await db.users.delete({ where: { id } });
-    if (res.count === 0) error("NOT_FOUND", `user ${id}`);
-    return { ok: true as const };
-  },
+  auth: "admin",
+  auto: "users.delete",
 });

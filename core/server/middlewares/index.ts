@@ -1,4 +1,6 @@
 import { requireAuth } from "./auth";
+import { requireAdmin } from "./require-admin";
+import { requireRole } from "./require-role";
 import { applyUserTenantScope } from "./user-tenant-scope";
 import { createCacheWrapper } from "./cache";
 import { createConcurrencyWrapper } from "./concurrency";
@@ -22,11 +24,21 @@ export const routeMw = {
 	cache: createCacheWrapper,
 	concurrency: createConcurrencyWrapper,
 	requireAuth,
+	requireAdmin,
+	requireRole,
 	applyUserTenantScope,
 } as const;
 
 export type { Middleware, Next } from "./logic/types";
 export type { RateLimitOpts, ConcurrencyOpts, ConcurrencySameClientOpts, SizeLimitOpts } from "./logic/opts";
-export type { RouteInputConfig, RouteNoInputConfig } from "./logic/route-config";
+export type {
+	RouteAutoConfig,
+	RouteAutoOp,
+	RouteAutoSpec,
+	RouteAuth,
+	RouteInputConfig,
+	RouteNoInputConfig,
+	UserRole,
+} from "./logic/route-config";
 
 export { collectServerRpcMiddlewareLogParts } from "./rpc-log-collect";

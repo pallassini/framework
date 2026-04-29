@@ -241,8 +241,8 @@ function DateSwitcher() {
 // ───────────────────────────────────────────────────────────────────────────────
 // DAYS
 // ───────────────────────────────────────────────────────────────────────────────
-const openingData = state(server.user.opening.get({ resourceId: undefined, itemId: undefined }));
-const closureData = state(server.user.closures.get({ resourceId: undefined }));
+const openingData = state(server.user.opening.get);
+const closureData = state(server.user.closures.get);
 function Days() {
   return (
     <>
@@ -485,7 +485,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
     dayEnd.setDate(dayStart.getDate() + 1);
 
     const dayKey = OPENING_DAY_MAP[(date.getDay() + 6) % 7];
-    const openings = (openingData.openingHours?.() ?? [])
+    const openings = (Array.isArray(openingData()) ? openingData() : [])
       .filter(
         (o: any) =>
           String(o.dayOfWeek).toLowerCase() === dayKey &&
@@ -510,7 +510,7 @@ function DaysTimeline({ daysCount }: { daysCount: 1 | 3 | 7 }) {
       if (cursor < 24 * 60) closedFromOpening.push({ start: cursor, end: 24 * 60 });
     }
 
-    const closureRanges = (closureData.closures?.() ?? [])
+    const closureRanges = (Array.isArray(closureData()) ? closureData() : [])
       .filter((c: any) => c.resourceId == null)
       .map((c: any) => {
         const s = new Date(c.startAt as any).getTime();
