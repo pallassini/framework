@@ -93,7 +93,7 @@ function buildFn(
 
 function mergeMiddlewares(def: { auth?: boolean; middlewares?: Middleware[] }): Middleware[] {
 	const user = def.middlewares ?? [];
-	if (def.auth) return [routeMw.requireAuth(), ...user];
+	if (def.auth) return [routeMw.requireAuth(), routeMw.applyUserTenantScope(), ...user];
 	return user;
 }
 

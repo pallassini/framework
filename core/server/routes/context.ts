@@ -40,7 +40,10 @@ export interface ServerContext {
 		userId: string;
 		sessionId: string;
 	};
-	/** Shortcut: `id` = utente collegato alla sessione (stesso `auth.userId`). */
+	/**
+	 * Shortcut dati tenant per la RPC: di solito coincide con `auth.userId`.
+	 * Sulle route `user.*`, dopo `applyUserTenantScope`, può essere l’id impersonato (admin + header).
+	 */
 	user?: { id: string };
 }
 

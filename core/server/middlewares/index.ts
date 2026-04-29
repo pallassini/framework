@@ -1,4 +1,5 @@
 import { requireAuth } from "./auth";
+import { applyUserTenantScope } from "./user-tenant-scope";
 import { createCacheWrapper } from "./cache";
 import { createConcurrencyWrapper } from "./concurrency";
 import { limit } from "./limit";
@@ -21,6 +22,7 @@ export const routeMw = {
 	cache: createCacheWrapper,
 	concurrency: createConcurrencyWrapper,
 	requireAuth,
+	applyUserTenantScope,
 } as const;
 
 export type { Middleware, Next } from "./logic/types";

@@ -1,4 +1,4 @@
-import { App, auth, go, initPushServiceWorker, url } from "client";
+import { App, auth, getTargetUserId, go, initPushServiceWorker, setTargetUserId, url } from "client";
 import "./index.css";
 
 if (typeof window !== "undefined") {
@@ -17,8 +17,26 @@ App((Page) => {
   if (!auth.ready()) return <Page />;
 
   if (role === "" && path !== "/login" && path !== "/test") go("/login");
-  else if (role === "admin" && !path.startsWith("/admin")) go("/admin");
   else if (role === "user" && path.startsWith("/admin")) go("/");
 
-  return <Page />;
+  const impersonating = role === "admin" && getTargetUserId() != null;
+
+  return (
+    <>
+      {impersonating ? (
+        <div
+          s="fixed top-3 left-3 z-1000 row items-center gapx-2 px-3 py-2 round-10px bg-primary text-background text-4 font-6 cursor-pointer shadow-md"
+          click={() => {
+            setTargetUserId(null);
+            go("/admin/users");
+          }}
+          title="Esci dalla vista utente"
+        >
+          <icon name="chevronLeft" size={5} stroke={2.5} s="shrink-0" />
+          Admin
+        </div>
+      ) : null}
+      <Page />
+    </>
+  );
 });

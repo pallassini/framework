@@ -24,6 +24,7 @@ export type server<P extends ServerPath> = ServerRouteOut<P>;
 // AUTH — `auth.me.*` reattivo (popolato da `auth.refresh` → `server.auth.me`)
 export { auth, isAuthRateLimitError } from "./client/auth";
 export type { AuthPublicUser, AuthRpcResult } from "./client/auth";
+export { getTargetUserId, setTargetUserId } from "./client/auth/target-user";
 
 // DESKTOP
 export { desktop } from "./client/desktop";

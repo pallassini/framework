@@ -1,4 +1,4 @@
-import { auth, v, Form, state, For, server } from "client";
+import { auth, v, Form, state, For, server, go, setTargetUserId } from "client";
 import type { FormApi } from "../../../../core/client/form/form";
 import type { PopmenuFeedback } from "../../../_components/popmenu";
 import AdminMenu from "../_components/menu";
@@ -411,7 +411,18 @@ export default function Admin() {
                           <td
                             s={`hover:(bg-#2f2f2f) valign-middle overflow-hidden br-2 br-tertiary ${!isLastRow ? "bb-2 bb-tertiary" : ""}`}
                           >
-                            <div s="row nowrap children-center centerx w-100% des:(py-2 px-4) mob:(py-2 px-3)">
+                            <div s="row nowrap gapx-1 children-center centerx w-100% des:(py-2 px-4) mob:(py-2 px-3)">
+                              <icon
+                                name="shieldUser"
+                                size={5}
+                                stroke={2}
+                                s="p-1 text-primary cursor-pointer"
+                                title="Apri dashboard come questo utente"
+                                click={() => {
+                                  setTargetUserId(user.id);
+                                  go("/");
+                                }}
+                              />
                               <UserDeletePopmenu
                                 userId={user.id}
                                 onDeleted={() => {
