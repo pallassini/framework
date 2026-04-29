@@ -47,11 +47,23 @@ function patternFromFile(input: string): string | null {
 	return null;
 }
 
+/**
+ * Cartelle `(gruppo)` = route group: non compaiono nell’URL (stile Next/App Router).
+ * Es. `(user)/(calendar)/index` → solo `index` → `/`.
+ */
+function stripRouteGroups(seg: string): string {
+	return seg
+		.split("/")
+		.filter((part) => part.length > 0 && !/^\([^)]+\)$/.test(part))
+		.join("/");
+}
+
 function segmentToPath(seg: string): string {
-	if (seg === "index") return "/";
-	if (seg.endsWith("/index")) return "/" + seg.slice(0, -"/index".length);
-	if (seg.includes("[...")) return "*";
-	return "/" + seg.replace(/\[([^\]]+)\]/g, ":$1");
+	const s = stripRouteGroups(seg);
+	if (s === "index") return "/";
+	if (s.endsWith("/index")) return "/" + s.slice(0, -"/index".length);
+	if (s.includes("[...")) return "*";
+	return "/" + s.replace(/\[([^\]]+)\]/g, ":$1");
 }
 
 function resolveRoute(pathname: string): RouteLoader | undefined {
