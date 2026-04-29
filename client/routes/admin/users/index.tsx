@@ -1,4 +1,13 @@
-import { auth, v, Form, state, For, server, go, setTargetUserId } from "client";
+import {
+  auth,
+  v,
+  Form,
+  state,
+  For,
+  server,
+  IMPERSONATE_LANDING_PATH,
+  setTargetUserId,
+} from "client";
 import type { FormApi } from "../../../../core/client/form/form";
 import type { PopmenuFeedback } from "../../../_components/popmenu";
 import AdminMenu from "../_components/menu";
@@ -414,13 +423,13 @@ export default function Admin() {
                             <div s="row nowrap gapx-1 children-center centerx w-100% des:(py-2 px-4) mob:(py-2 px-3)">
                               <icon
                                 name="shieldUser"
-                                size={5}
+                                size={8}
                                 stroke={2}
-                                s="p-1 text-primary cursor-pointer"
+                                s="p-2 text-primary cursor-pointer"
                                 title="Apri dashboard come questo utente"
                                 click={() => {
                                   setTargetUserId(user.id);
-                                  go("/");
+                                  window.location.assign(IMPERSONATE_LANDING_PATH);
                                 }}
                               />
                               <UserDeletePopmenu

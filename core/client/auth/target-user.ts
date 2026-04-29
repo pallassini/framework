@@ -2,6 +2,9 @@ import { signal } from "../state";
 
 const TARGET_USER_KEY = "fw_target_user_id";
 
+/** Solo ingresso impersonation: `location.assign` così l’app riparte con i dati del tenant. */
+export const IMPERSONATE_LANDING_PATH = "/";
+
 function readTargetUserId(): string | null {
 	if (typeof window === "undefined") return null;
 	const v = window.localStorage.getItem(TARGET_USER_KEY);
