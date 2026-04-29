@@ -72,13 +72,14 @@ export default s({
 		if (!host) error("INPUT", "Host richiesta non valido");
 		const { userId, username } = await resolveTenant(host);
 
-		const [items, allResources, openingHours, closures, bookings, itemCategories] = await Promise.all([
+		const [items, allResources, openingHours, closures, bookings, itemCategories, resourceGroups] = await Promise.all([
 			db.items.find({ where: { userId } }),
 			db.resources.find({ where: { userId } }),
 			db.openingHours.find({ where: { userId } }),
 			db.closures.find({ where: { userId } }),
 			db.bookings.find({ where: { userId } }),
 			db.itemCategories.find({ where: { userId } }),
+			db.resourceGroups.find({ where: { userId } }),
 		]);
 
 		const itemCategoriesList = itemCategories
@@ -95,6 +96,19 @@ export default s({
 			});
 
 		const categoryById = new Map(itemCategoriesList.map((c) => [c.id, c]));
+		const resourceGroupsList = resourceGroups
+			.map((g: any) => ({
+				id: g.id,
+				name: g.name,
+				order: typeof g.order === "number" ? g.order : null,
+			}))
+			.sort((a, b) => {
+				const oa = a.order ?? 1e9;
+				const ob = b.order ?? 1e9;
+				if (oa !== ob) return oa - ob;
+				return a.name.localeCompare(b.name);
+			});
+		const resourceGroupById = new Map(resourceGroupsList.map((g) => [g.id, g]));
 
 		const nowMs = Date.now();
 		const activeBookings = bookings.filter((b: any) => {
@@ -130,6 +144,11 @@ export default s({
 			id: r.id,
 			name: r.name,
 			type: r.type,
+			groupId: typeof r.groupId === "string" && r.groupId.length > 0 ? r.groupId : null,
+			group:
+				typeof r.groupId === "string" && r.groupId.length > 0
+					? (resourceGroupById.get(r.groupId) ?? null)
+					: null,
 			capacity: typeof r.capacity === "number" ? r.capacity : 1,
 			reservations: [...(reservationsByResource.get(r.id)?.entries() ?? [])].map(([slot, quantity]) => {
 				const [startAt, endAt] = slot.split("|");
@@ -185,6 +204,12 @@ export default s({
 		const q = service?.trim();
 		const services = q ? serviceRows.filter((s) => s.id === q || s.name === q) : serviceRows;
 
-		return { services, resources, itemCategories: itemCategoriesList, username };
+		return {
+			services,
+			resources,
+			itemCategories: itemCategoriesList,
+			resourceGroups: resourceGroupsList,
+			username,
+		};
 	},
 });

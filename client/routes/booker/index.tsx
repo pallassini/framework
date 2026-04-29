@@ -1,5 +1,6 @@
 import { mount, state, type server, watch, For, auth } from "client";
 import Popmenu from "../../_components/popmenu";
+import Arrows from "./_components/arrows";
 
 const data = state<server<"consumer">>(
   fetch("https://localhost:3000/_server/consumer", {
@@ -9,6 +10,8 @@ const data = state<server<"consumer">>(
   }).then((r) => r.json()),
 );
 watch(() => console.log(data()));
+
+
 
 export default function Booker() {
   return (
@@ -22,7 +25,13 @@ export default function Booker() {
           extended={() => (
             <>
               <div s="p-4 des:(w-40) col ">
-                <t s="text-6 font-6 centerx row">{data.username}</t>
+                {/* HEADER */}
+                <div s="row children-center relative">
+                  <t s="text-6 font-6 centerx row">{data.username}</t>
+                  <div s="right absolute">
+                    <Arrows />
+                  </div>
+                </div>
                 {/* CATEGORIES */}
                 <div s="mt-4 gap-4 col">
                   <For each={() => data()?.itemCategories ?? []}>
@@ -41,14 +50,18 @@ export default function Booker() {
                             {(s) => (
                               <div s=" col centerx children-left round-10px bg-secondary des:(w-10) px-4 py-4 text-#fff gap-2">
                                 <t s="text-3 font-6 mb-2 centerx row">{s.name}</t>
-                                <div s='row children-center gap-1'>
+                                <div s="row children-center gap-1">
                                   <icon name="clock" size={6} stroke={2} s="text-#fff" />
-                                <t s="text-2 font-5" show={s.duration}>{s.duration} min</t>
+                                  <t s="text-2 font-5" show={s.duration}>
+                                    {s.duration} min
+                                  </t>
                                 </div>
-                               <div s='row children-center gap-1'>
-                                <icon name="euro" size={6} stroke={2} s="text-#fff" />
-                                <t s="text-2 font-5" show={s.price}>{s.price}</t>
-                               </div>
+                                <div s="row children-center gap-1">
+                                  <icon name="euro" size={6} stroke={2} s="text-#fff" />
+                                  <t s="text-2 font-5" show={s.price}>
+                                    {s.price}
+                                  </t>
+                                </div>
                               </div>
                             )}
                           </For>
@@ -65,6 +78,9 @@ export default function Booker() {
     </>
   );
 }
+// ───────────────────────────────────────────────────────────────────────────────
+// ITEM
+// ───────────────────────────────────────────────────────────────────────────────
 
 // ───────────────────────────────────────────────────────────────────────────────
 // CONFIGURAZIONE EMBED DEL WIDGET
