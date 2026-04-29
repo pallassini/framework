@@ -7,7 +7,7 @@ const MENU_ITEMS = [
   { label: "Prenotazioni", icon: "calendarCheck", go: ""  },
   { label: "Servizi", icon: "layout", go: "services" },
   { label: "Risorse", icon: "users", go: "resources" },
-  { label: "Calendario", icon: "calendarClock", go: "settings" },
+  { label: "Calendario", icon: "calendarClock", go: "calendar" },
   { label: "Impostazioni", icon: "bolt", go: "settings" }
 ];
 

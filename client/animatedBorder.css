@@ -1,0 +1,303 @@
+/**
+ * Bordi animati: mesh (doppio radial) e edge (spot sul perimetro).
+ *
+ * Il glow è sul ::after (sotto). La “faccia” è sul ::before. **`bg-*` sullo stesso div no.**
+ * `b-animated(single, secondary, primary, white, dur-12, …)` — 3+ colori: 1ª faccia, resto palette glow in ordine.
+ * `dur-*` / `speed-*` per la velocità. Faccia da `bg-*` sullo stesso `s` → `--fw-ab-fill`.
+ * Varianti: `b-animated(mesh,…,col1,col2,col3,potenza,blur)` oppure `aborder-*` + classe `fw-ab-*`.
+ *
+ * I figli diretti hanno z-index sopra ai pseudo.
+ */
+
+:root {
+  --fw-ab-power: 1;
+  --fw-ab-blur-mul: 1;
+  /* Quanto il layer glow sporge oltre il box (px), lato “spessore” esterno */
+  --fw-ab-spread: 22px;
+  --fw-ab-fill: #131313;
+  /* Durata ciclo animazione (override da `dur-*` / `speed-*` in b-animated) */
+  --fw-ab-duration: 15s;
+  /* tripletta spaziata per rgb(var(--fw-ab-rgb) / alpha) */
+  --fw-ab-rgb: 0 243 210;
+  /* Ciclo edge: 5 step keyframe → 5 triplette (ripetute se palette più corta) */
+  --fw-ab-c0: 0 243 210;
+  --fw-ab-c1: 0 243 210;
+  --fw-ab-c2: 0 243 210;
+  --fw-ab-c3: 0 243 210;
+  --fw-ab-c4: 0 243 210;
+  --fw-ab-o0: 1;
+  --fw-ab-o1: 1;
+  --fw-ab-o2: 1;
+  --fw-ab-o3: 1;
+  --fw-ab-o4: 1;
+  --fw-ab-mesh-rgb-a: 0 243 210;
+  --fw-ab-mesh-rgb-b: 200 255 248;
+}
+
+/* ─── Mesh ─── */
+@property --x-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 2.2881652338788356%;
+}
+@property --y-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 2.7292413381123057%;
+}
+@property --s-start-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --s-end-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 52%;
+}
+@property --t-0 {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --c-0 {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 243 210 / 0.55);
+}
+@property --c-1 {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(200 255 248 / 0.45);
+}
+@property --x-1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0.86572265625%;
+}
+@property --s-start-1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --s-end-1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 52%;
+}
+@property --y-1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 4.086100260416667%;
+}
+@property --t-1 {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --b {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 10px;
+}
+
+@keyframes ani-fw-ab-mesh {
+  0% {
+    --x-0: 2.2881652338788356%;
+    --y-0: 2.7292413381123057%;
+    --s-start-0: 0%;
+    --s-end-0: 52%;
+    --t-0: 0px;
+    --c-0: rgb(var(--fw-ab-mesh-rgb-a) / calc(0.55 * var(--fw-ab-power, 1)));
+    --c-1: rgb(var(--fw-ab-mesh-rgb-b) / calc(0.45 * var(--fw-ab-power, 1)));
+    --x-1: 0.86572265625%;
+    --s-start-1: 0%;
+    --s-end-1: 52%;
+    --y-1: 4.086100260416667%;
+    --t-1: 0px;
+    --b: calc(10px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  50% {
+    --x-0: 99.02306933317625%;
+    --y-0: 1.7095094086021505%;
+    --s-start-0: 0%;
+    --s-end-0: 52%;
+    --t-0: 0px;
+    --c-0: rgb(var(--fw-ab-mesh-rgb-a) / calc(0.5 * var(--fw-ab-power, 1)));
+    --c-1: rgb(var(--fw-ab-mesh-rgb-b) / calc(0.5 * var(--fw-ab-power, 1)));
+    --x-1: 1.68701171875%;
+    --s-start-1: 0%;
+    --s-end-1: 52%;
+    --y-1: 97.71402994791667%;
+    --t-1: 0px;
+    --b: calc(18px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  100% {
+    --x-0: 98.21337890625%;
+    --y-0: 92.70589192708333%;
+    --s-start-0: 0%;
+    --s-end-0: 52%;
+    --t-0: 0px;
+    --c-0: rgb(var(--fw-ab-mesh-rgb-a) / calc(0.5 * var(--fw-ab-power, 1)));
+    --c-1: rgb(var(--fw-ab-mesh-rgb-b) / calc(0.45 * var(--fw-ab-power, 1)));
+    --x-1: 98.9208984375%;
+    --s-start-1: 0%;
+    --s-end-1: 52%;
+    --y-1: 97.56266276041667%;
+    --t-1: 0px;
+    --b: calc(8px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+}
+
+.fw-ab-mesh {
+  --fw-ab-duration: 5s;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  /* Lo sfondo sul box coprirebbe l’alone: la faccia è sul ::before */
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.fw-ab-mesh > * {
+  position: relative;
+  z-index: 2;
+}
+
+.fw-ab-mesh::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: var(--fw-ab-fill);
+  pointer-events: none;
+}
+
+.fw-ab-mesh::after {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--fw-ab-spread, 22px));
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  --x-0: 2.2881652338788356%;
+  --y-0: 2.7292413381123057%;
+  --t-0: 0px;
+  --c-0: rgb(var(--fw-ab-mesh-rgb-a) / calc(0.55 * var(--fw-ab-power, 1)));
+  --c-1: rgb(var(--fw-ab-mesh-rgb-b) / calc(0.45 * var(--fw-ab-power, 1)));
+  --x-1: 0.86572265625%;
+  --y-1: 4.086100260416667%;
+  --t-1: 0px;
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at var(--x-0) var(--y-0), var(--c-0) var(--s-start-0), transparent var(--s-end-0)),
+    radial-gradient(circle at var(--x-1) var(--y-1), var(--c-1) var(--s-start-1), transparent var(--s-end-1));
+  background-blend-mode: normal, normal;
+  animation: ani-fw-ab-mesh var(--fw-ab-duration, 5s) linear infinite alternate;
+  filter: blur(var(--b));
+  will-change: filter;
+}
+
+/* ─── Edge ─── */
+@property --edge-c-0 {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 243 210 / 0.38);
+}
+@property --edge-x-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 1%;
+}
+@property --edge-y-0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 1%;
+}
+@property --edge-b {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 12px;
+}
+
+@keyframes ani-fw-ab-edge {
+  0% {
+    --edge-c-0: rgb(var(--fw-ab-c0) / calc(var(--fw-ab-o0, 1) * 0.58 * var(--fw-ab-power, 1)));
+    --edge-x-0: 1%;
+    --edge-y-0: 1%;
+    --edge-b: calc(12px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  25% {
+    --edge-c-0: rgb(var(--fw-ab-c1) / calc(var(--fw-ab-o1, 1) * 0.5 * var(--fw-ab-power, 1)));
+    --edge-x-0: 99%;
+    --edge-y-0: 1%;
+    --edge-b: calc(22px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  50% {
+    --edge-c-0: rgb(var(--fw-ab-c2) / calc(var(--fw-ab-o2, 1) * 0.44 * var(--fw-ab-power, 1)));
+    --edge-x-0: 99%;
+    --edge-y-0: 99%;
+    --edge-b: calc(14px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  75% {
+    --edge-c-0: rgb(var(--fw-ab-c3) / calc(var(--fw-ab-o3, 1) * 0.5 * var(--fw-ab-power, 1)));
+    --edge-x-0: 1%;
+    --edge-y-0: 99%;
+    --edge-b: calc(22px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+  100% {
+    --edge-c-0: rgb(var(--fw-ab-c4) / calc(var(--fw-ab-o4, 1) * 0.58 * var(--fw-ab-power, 1)));
+    --edge-x-0: 1%;
+    --edge-y-0: 1%;
+    --edge-b: calc(12px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  }
+}
+
+.fw-ab-edge {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.fw-ab-edge > * {
+  position: relative;
+  z-index: 2;
+}
+
+.fw-ab-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: var(--fw-ab-fill);
+  pointer-events: none;
+}
+
+.fw-ab-edge::after {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--fw-ab-spread, 22px));
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  --edge-c-0: rgb(var(--fw-ab-c0) / calc(var(--fw-ab-o0, 1) * 0.58 * var(--fw-ab-power, 1)));
+  --edge-x-0: 1%;
+  --edge-y-0: 1%;
+  --edge-b: calc(12px * var(--fw-ab-power, 1) * var(--fw-ab-blur-mul, 1));
+  background-color: transparent;
+  /* Fascia stretta sul perimetro: fade corto + spread piccolo = alone sottile */
+  background-image: radial-gradient(
+    farthest-side at var(--edge-x-0) var(--edge-y-0),
+    var(--edge-c-0) 0%,
+    color-mix(in srgb, var(--edge-c-0) 10%, transparent) 22%,
+    transparent 36%
+  );
+  background-blend-mode: normal;
+  animation: ani-fw-ab-edge var(--fw-ab-duration, 15s) linear infinite;
+  filter: blur(var(--edge-b));
+  will-change: filter;
+}

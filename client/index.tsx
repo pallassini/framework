@@ -1,5 +1,7 @@
 import { App, auth, getTargetUserId, go, initPushServiceWorker, setTargetUserId, url } from "client";
 import "./index.css";
+import "./animatedBorder.css";
+import "./cardAurora.css";
 
 if (typeof window !== "undefined") {
 	void initPushServiceWorker().catch(() => {

@@ -23,6 +23,8 @@ import { isSignal, type Signal } from "../state/state/signal";
 import { isStyleEqDescriptor } from "./styleEq";
 import type { StyleViewport } from "./viewport";
 import { tokenizeStyleString } from "./tokenize-style";
+import { resolveBAnimatedToken } from "./properties/b-animated";
+import { resolveShadowCall } from "./properties/shadow-call";
 
 // ─── Tipi `s` ───────────────────────────────────────────────────────────────
 
@@ -444,6 +446,7 @@ export function resolveStyleString(
 	const tokens = tokenizeStyleString(active);
 	const known: string[] = [];
 	const passthrough: string[] = [];
+	const bAnimatedClasses: string[] = [];
 	const hoverInners: string[] = [];
 	const focusInners: string[] = [];
 	for (const t of tokens) {
@@ -455,6 +458,19 @@ export function resolveStyleString(
 			focusInners.push(t.slice(FOCUS_PREFIX.length, -1).trim());
 			continue;
 		}
+		if (/^b-animated\s*\(/i.test(t)) {
+			const ab = resolveBAnimatedToken(t);
+			if (ab) {
+				Object.assign(result.style, propsToStrings(ab.style));
+				bAnimatedClasses.push(ab.className);
+			}
+			continue;
+		}
+		if (/^shadow\s*\(/i.test(t)) {
+			const sh = resolveShadowCall(t);
+			if (sh) Object.assign(result.style, propsToStrings(sh));
+			continue;
+		}
 		if (parseStyleToken(t).base in map) known.push(t);
 		else passthrough.push(t);
 	}
@@ -463,7 +479,11 @@ export function resolveStyleString(
 		const props = resolveClasses(map, known.join(" "), extraBasesForVariants);
 		Object.assign(result.style, propsToStrings(props));
 	}
-	result.classes = passthrough;
+	/* `bg-*` solido sullo stesso elemento: la faccia animata usa `--fw-ab-fill` (il box ha bg trasparente !important). */
+	if (bAnimatedClasses.length && result.style.backgroundColor) {
+		result.style["--fw-ab-fill"] = result.style.backgroundColor;
+	}
+	result.classes = [...bAnimatedClasses, ...passthrough];
 	result.layers = hasLayersInActive(active);
 	applyPositionedInsetDefaultsResolved(result.style);
 

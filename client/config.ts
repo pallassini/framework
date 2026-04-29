@@ -1,3 +1,4 @@
+import { device } from "client";
 import { buildBaseScaleMap } from "../core/client/style/properties/utils/base-scale-rem";
 import { v } from "../core/client/validator";
 
@@ -27,7 +28,7 @@ export const clientConfig = {
   // STYLE
   style: {
     /** Stile tipo Lenis (Halo Lab): lerp unico, niente “strisciamento” solo in coda. */
-    smoothScroll: true,
+    smoothScroll: device() == "des" ? true : false,
     /**
      * Canvas di design per `w-N` / `h-N` / `maxw-N` / `maxh-N` / `minw-N` (N = % del canvas, 0–100, anche decimale: `w-1.2`, `h-3.7`).
      * Il valore è **% del canvas (lato `des`) convertita in `rem`**, poi scalata per viewport come `base` (mob 75%, tab 87.5% del `rem` desktop).

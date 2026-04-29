@@ -1,4 +1,5 @@
 import type { Properties } from "csstype";
+import { B_ANIM_FILL, B_ANIM_RGB, normalizeAnimatedPower } from "./properties/b-animated";
 import { backgroundColor } from "./properties/background";
 import { blur } from "./properties/blur";
 import { border, borderBottom, borderLeft, borderRight, borderTop } from "./properties/border";
@@ -7,6 +8,7 @@ import * as g from "./properties/gap";
 import { h } from "./properties/h";
 import { maxh } from "./properties/maxh";
 import { maxw } from "./properties/maxw";
+import { minh } from "./properties/minh";
 import { minw } from "./properties/minw";
 import { w } from "./properties/w";
 import * as m from "./properties/margin";
@@ -69,6 +71,68 @@ const DSHADOW_VAR_ALPHA = "--fw-dsh-alpha";
 
 const DSHADOW_FILTER = `drop-shadow(0 0 var(${DSHADOW_VAR_BLUR}, 8px) rgba(var(${DSHADOW_VAR_RGB}, 0, 243, 210), var(${DSHADOW_VAR_ALPHA}, 0.6)))`;
 
+/** Valori storici `aborder-power-1` … `5`; oltre si usa `normalizeAnimatedPower`. */
+const ABORDER_LEGACY_POWER: Record<string, string> = {
+	"1": "0.32",
+	"2": "0.48",
+	"3": "0.65",
+	"4": "0.82",
+	"5": "1",
+};
+
+function resolveAborder(suffix: string): Properties | undefined {
+	const s = suffix.trim();
+	if (!s) return undefined;
+
+	if (s.startsWith("face-")) {
+		const rest = s.slice("face-".length);
+		if (/^[0-9a-fA-F]{3,8}$/.test(rest)) {
+			return { ["--fw-ab-fill"]: `#${rest}` } as Properties;
+		}
+		const preset = B_ANIM_FILL[rest];
+		return preset ? ({ ["--fw-ab-fill"]: preset } as Properties) : undefined;
+	}
+
+	if (s.startsWith("power-")) {
+		const raw = s.slice("power-".length);
+		const legacy = ABORDER_LEGACY_POWER[raw];
+		if (legacy) return { ["--fw-ab-power"]: legacy } as Properties;
+		const num = Number(raw);
+		if (!Number.isNaN(num) && num > 0) {
+			return { ["--fw-ab-power"]: normalizeAnimatedPower(num) } as Properties;
+		}
+		return undefined;
+	}
+
+	if (s.startsWith("tint-")) {
+		const k = s.slice("tint-".length);
+		const rgb = B_ANIM_RGB[k];
+		if (!rgb) return undefined;
+		return {
+			["--fw-ab-rgb"]: rgb,
+			["--fw-ab-mesh-rgb-a"]: rgb,
+		} as Properties;
+	}
+
+	if (s.startsWith("mesh2-")) {
+		const k = s.slice("mesh2-".length);
+		const rgb = B_ANIM_RGB[k];
+		return rgb ? ({ ["--fw-ab-mesh-rgb-b"]: rgb } as Properties) : undefined;
+	}
+
+	if (s.startsWith("spread-")) {
+		const raw = s.slice("spread-".length);
+		const n = Number(raw.replace(/px$/i, ""));
+		if (!Number.isNaN(n) && n > 0) {
+			const px = Math.min(80, Math.max(4, n));
+			return { ["--fw-ab-spread"]: `${px}px` } as Properties;
+		}
+		return undefined;
+	}
+
+	return undefined;
+}
+
 function resolveDshadow(suffix: string): Properties | undefined {
   if (!suffix) return undefined;
   const parts = suffix.split("-");
@@ -96,6 +160,32 @@ function resolveDshadow(suffix: string): Properties | undefined {
   }
 
   return undefined;
+}
+
+/** Card sollevata (`box-shadow`): bordo chiaro in alto + ombre stratificate. */
+const SHADOW_CARD: Properties = {
+	boxShadow:
+		"0 1px 0 rgba(255, 255, 255, 0.09) inset, 0 2px 4px rgba(0, 0, 0, 0.45), 0 8px 20px rgba(0, 0, 0, 0.4), 0 20px 44px rgba(0, 0, 0, 0.35)",
+};
+
+const SHADOW_CARD_SM: Properties = {
+	boxShadow:
+		"0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.32)",
+};
+
+const SHADOW_CARD_LG: Properties = {
+	boxShadow:
+		"0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 4px 8px rgba(0, 0, 0, 0.5), 0 12px 28px rgba(0, 0, 0, 0.45), 0 28px 56px rgba(0, 0, 0, 0.38)",
+};
+
+/** `shadow-card*` → box UI; tutto il resto → stesso contratto di `dshadow-*` (glow). */
+function resolveShadow(suffix: string): Properties | undefined {
+	const s = suffix.trim();
+	if (!s) return undefined;
+	if (s === "card") return SHADOW_CARD;
+	if (s === "card-sm") return SHADOW_CARD_SM;
+	if (s === "card-lg") return SHADOW_CARD_LG;
+	return resolveDshadow(s);
 }
 
 /**
@@ -161,25 +251,37 @@ export const map = styleMap({
   bg: backgroundColor,
   blur: blur,
   /**
-   * `filter: drop-shadow(…)` sul solo alpha del disegno (non rettangolo come `box-shadow`).
-   * Su `<icon>`, i token `shadow-*` nella stringa `s` diventano `dshadow-*` sull’SVG interno.
+   * **`shadow-card`** / **`shadow-card-sm`** / **`shadow-card-lg`** → `box-shadow` da card sollevata (riuso su qualsiasi contenitore).
+   * **`shadow(…)`** → `box-shadow`: legacy `shadow(colore, 14, 2, 6, 0.5)` oppure nomi (`blur-*`, `spread-*`, `x-*` / `y-*`, anche **`x--4`** / **`-x-4`** per negativi, `pos-*`, `opacity-*`). Attenzione: **`overflow-hidden` sullo stesso nodo taglia l’ombra** — metti l’ombra su un wrapper esterno.
+   * **`shadow-*`** altrimenti → come **`dshadow-*`** (`filter: drop-shadow`, glow sul glifo/box).
+   * Su `<icon>`, i token `shadow-*` nella stringa `s` diventano `dshadow-*` sull’SVG interno (il formato **`shadow(...)`** resta sul contenitore, non sull’SVG).
    *
-   * Token **combinabili** (ogni token aggiunge una parte, l’ultimo definito vince):
-   * - **colore**: `dshadow-primary` / `dshadow-secondary` (default: blur **2**, intensità **3**).
-   * - **blur-N** (quanto si sparge, 1–5): `dshadow-blur-1` … `dshadow-blur-5` → 4/8/14/22/32 px.
-   * - **intensity-N** (potenza/opacità, 1–5): `dshadow-intensity-1` … `dshadow-intensity-5` → 20/40/60/80/100 %.
-   * Esempio: `shadow-primary shadow-blur-3 shadow-intensity-4` su `<icon>`.
+   * Token **combinabili** (glow; ogni token aggiunge una parte):
+   * - **colore**: `shadow-primary` / `dshadow-secondary` …
+   * - **blur-N** (1–5): `shadow-blur-1` …
+   * - **intensity-N** (1–5): `shadow-intensity-1` …
+   */
+  shadow: (suffix: string) => resolveShadow(suffix.trim()),
+  /**
+   * Solo glow `filter: drop-shadow` (equivalente a `shadow-*` se non è `shadow-card*`).
    */
   dshadow: (suffix: string) => {
     return resolveDshadow(suffix.trim());
   },
+  /**
+   * Bordi animati — **`b-animated(…)`**: `single|double`, colori (su `single`, 3+ = faccia + palette glow in ordine), poi `blur-*` … (vedi `resolveBAnimatedToken`).
+   * Oppure: `fw-ab-*` + `aborder-face-*`, `power-*`, `tint-*`, `mesh2-*`, **`aborder-spread-32`** (px, max 80).
+   */
+  aborder: (suffix: string) => resolveAborder(suffix),
   text: text,
   font: font,
   minw: minw,
   maxw: maxw,
+  minh: minh,
   maxh: maxh,
   wmax: maxw,
   hmax: maxh,
+  hmin: minh,
   w: w,
   h: h,
   z: zIndex,

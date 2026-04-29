@@ -5,10 +5,13 @@ import { resolveSpacingToken } from "./utils/units";
 
 type BorderCtx = { negative?: boolean };
 
-/** Larghezza tramite scala (`b-1`, `b-2`), lunghezza esplicita (`b-2px`), keyword (`auto`), o solo colore (`b-#fff`). Senza suffisso: `1px solid`. */
+/**
+ * Larghezza (`b-1`, `b-2px`), colore (`b-#fff`), … Il glow animato è **`b-animated(…)`** (token separato).
+ */
 export function border(suffix: string, ctx?: BorderCtx): Properties | undefined {
 	if (ctx?.negative) return undefined;
 	if (!suffix) return { borderStyle: "solid", borderWidth: "1px" };
+	if (/^animated\s*\(/i.test(suffix)) return undefined;
 
 	const scaled = resolveBorderScaleSuffix(suffix);
 	if (scaled) return { borderStyle: "solid", borderWidth: scaled };

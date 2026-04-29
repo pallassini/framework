@@ -1,4 +1,4 @@
-/** Token con spazi; `mob|tab|des:(…)`, `hover:(…)`, `focus:(…)` e `bg-gradient(…)` con parentesi bilanciate. */
+/** Token con spazi; `mob|tab|des:(…)`, `hover:(…)`, `focus:(…)`, `bg-gradient(…)`, `shadow(…)` e `b-animated(…)` con parentesi bilanciate. */
 export function tokenizeStyleString(input: string): string[] {
 	const s = input.trim();
 	const out: string[] = [];
@@ -66,6 +66,38 @@ export function tokenizeStyleString(input: string): string[] {
 			out.push(s.slice(i, j));
 			i = j;
 		} else if (/^bg-gradient\(/i.test(slice)) {
+			let depth = 0;
+			let j = i;
+			while (j < s.length) {
+				const ch = s[j]!;
+				if (ch === "(") depth++;
+				else if (ch === ")") {
+					depth--;
+					j++;
+					if (depth === 0) break;
+					continue;
+				}
+				j++;
+			}
+			out.push(s.slice(i, j));
+			i = j;
+		} else if (/^b-animated\(/i.test(slice)) {
+			let depth = 0;
+			let j = i;
+			while (j < s.length) {
+				const ch = s[j]!;
+				if (ch === "(") depth++;
+				else if (ch === ")") {
+					depth--;
+					j++;
+					if (depth === 0) break;
+					continue;
+				}
+				j++;
+			}
+			out.push(s.slice(i, j));
+			i = j;
+		} else if (/^shadow\(/i.test(slice)) {
 			let depth = 0;
 			let j = i;
 			while (j < s.length) {
