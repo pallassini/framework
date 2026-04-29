@@ -48,7 +48,7 @@ export const items = table({
     }),
   ),
   ...itemShared,
-  categoryId: v.fk("itemCategories").optional(),
+  categoryId: v.fk("itemCategories"),
   price: v.number().optional(),
   relations: v
     .array(
