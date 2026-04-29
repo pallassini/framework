@@ -16,7 +16,8 @@ App((Page) => {
 
   if (!auth.ready()) return <Page />;
 
-  if (role === "" && path !== "/login" && path !== "/test") go("/login");
+  if (role === "" && path !== "/login") go("/login");
+  else if (role !== "" && path === "/login") go("/");
   else if (role === "user" && path.startsWith("/admin")) go("/");
 
   const impersonating = role === "admin" && getTargetUserId() != null;

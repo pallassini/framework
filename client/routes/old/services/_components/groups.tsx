@@ -1,11 +1,11 @@
 import { state } from "client";
-import { Form } from "../../../../core/client/form";
-import { For } from "../../../../core/client/runtime/tag";
-import { server } from "../../../../core/client/server";
-import { v } from "../../../../core/client/validator";
-import Input, { type InputSelectOption } from "../../../_components/input";
-import Popmenu from "../../../_components/popmenu";
-import Block from "../../../_components/block";
+import { Form } from "../../../../../core/client/form";
+import { For } from "../../../../../core/client/runtime/tag";
+import { server } from "../../../../../core/client/server";
+import { v } from "../../../../../core/client/validator";
+import Input, { type InputSelectOption } from "../../../../_components/input";
+import Popmenu from "../../../../_components/popmenu";
+import Block from "../../../../_components/block";
 import Item from "./item";
 
 type ResourceListRow = { id: string; name: string; type?: "space" | "person" | null };

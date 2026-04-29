@@ -1,10 +1,10 @@
 import { device, For, Form, server, state, v } from "client";
-import type { PopmenuFeedback } from "../../_components/popmenu";
-import Block from "../../_components/block";
-import Popmenu from "../../_components/popmenu";
-import Menu from "../_components/menu";
-import Input from "../../_components/input";
-import { TimePicker } from "../../_components/time-picker";
+import type { PopmenuFeedback } from "../../../_components/popmenu";
+import Block from "../../../_components/block";
+import Popmenu from "../../../_components/popmenu";
+import Menu from "../../_components/menu";
+import Input from "../../../_components/input";
+import { TimePicker } from "../../../_components/time-picker";
 
 type ResourceRow = {
   id: string;

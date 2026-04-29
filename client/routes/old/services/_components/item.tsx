@@ -1,8 +1,8 @@
-import { server } from "../../../../core/client/server";
-import Input, { type InputSelectOption } from "../../../_components/input";
-import Block from "../../../_components/block";
-import Popmenu, { type PopmenuFeedback } from "../../../_components/popmenu";
-import { TimePicker } from "../../../_components/time-picker";
+import { server } from "../../../../../core/client/server";
+import Input, { type InputSelectOption } from "../../../../_components/input";
+import Block from "../../../../_components/block";
+import Popmenu, { type PopmenuFeedback } from "../../../../_components/popmenu";
+import { TimePicker } from "../../../../_components/time-picker";
 import { For, device, state } from "client";
 
 const S = "hover:(b-#ffffff30 b-2) focus:(b-#fff b-2) duration-0 round-10px py-1";

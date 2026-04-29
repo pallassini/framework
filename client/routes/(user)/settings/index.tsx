@@ -1,4 +1,4 @@
-import Menu from "../_components/menu";
+import Menu from "../../_components/menu";
 
 export default function Settings() {
   return (
