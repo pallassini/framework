@@ -1,6 +1,6 @@
 import Menu from "../../_components/menu";
 
-export default function Settings() {
+export default function Calendar() {
   return (
     <>
       <div s="des:(row)">
