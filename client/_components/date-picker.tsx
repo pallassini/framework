@@ -364,7 +364,7 @@ export function DatePicker(
     close();
   };
 
-  /** Il trigger interno può essere smontato quando il `<For>` del calendario re-renderizza; il guscio con `ref` resta stabile per `fixed` + viewport. */
+  /** Il trigger interno può essere smontato quando il `<For>` del calendario re-renderizza; il guscio con `ref` resta stabile per positioning. */
   const anchorForPanel = (): HTMLElement | null => {
     if (shellWrapEl?.isConnected) return shellWrapEl;
     if (triggerEl?.isConnected) return triggerEl;
@@ -391,14 +391,16 @@ export function DatePicker(
     if (!anchor || !panelRoot) return;
     const r = anchor.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
-    panelRoot.style.top = `${r.bottom + PANEL_GAP_Y}px`;
-    panelRoot.style.left = `${r.left + r.width / 2}px`;
+    const top = r.bottom + PANEL_GAP_Y + window.scrollY;
+    const left = r.left + r.width / 2 + window.scrollX;
+    panelRoot.style.top = `${top}px`;
+    panelRoot.style.left = `${left}px`;
   };
 
   const panelShellStyle = (top: number, left: number): string => {
     const minW = mob() ? "min(89vw,264px)" : "min(92vw,280px)";
     return [
-      "position:fixed",
+      "position:absolute",
       `top:${top}px`,
       `left:${left}px`,
       "transform:translateX(-50%)",
@@ -414,8 +416,8 @@ export function DatePicker(
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
-    const top = r.bottom + PANEL_GAP_Y;
-    const left = r.left + r.width / 2;
+    const top = r.bottom + PANEL_GAP_Y + window.scrollY;
+    const left = r.left + r.width / 2 + window.scrollX;
 
     backdrop = document.createElement("div");
     backdrop.style.cssText =

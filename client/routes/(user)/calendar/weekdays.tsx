@@ -5,7 +5,7 @@ import Popmenu from "../../../_components/popmenu";
 export default function Weekdays() {
   return (
     <>
-      <div s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-1 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)">
+      <div s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-4 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)">
         <Days />
       </div>
     </>
@@ -50,7 +50,7 @@ function Days() {
                 hover={hover}
                 s={{
                   base: {
-                    "relative w-100% h-25 overflow-hidden  round-round mb-3 text-background shadow(primary, blur-18, spread--6, x-0, y-10, opacity-0.72)  bg-gradient(0deg, var(--primary) 0%, var(--primary)20%, transparent 70%) px-1px pb-2px": true,
+                    "relative w-100% h-25 overflow-hidden round-round mb-3 text-background shadow(primary, blur-18, spread--6, x-0, y-10, opacity-0.72)  bg-gradient(0deg, var(--primary) 0%, var(--primary)20%, transparent 70%) px-1px pb-2px": true,
                     "shadow(error, blur-18, spread--6, x-0, y-10, opacity-0.72) bg-gradient(0deg, var(--error) 0%, transparent 70%)":
                       closed,
                   },
@@ -268,13 +268,17 @@ function Openings(p: {
     return prev;
   };
 
-  /** Stesso bordo su tutti i lati per entrambe le celle → hover/focus primary anche sul lato tra Inizio e Fine. */
-  const timePickShell =
-    "flex-1 basis-0 min-w-0 min-h-10 self-stretch box-border b-2 b-#2a2a2a py-2 px-2 round-none text-3 font-6 text-#fff row children-center hover:(b-primary) focus:(b-primary)";
+  /** Hover/focus primary; ultima riga: angoli bassi stondate (bl / br). */
+  const timePickShellBase =
+    "flex-1 basis-0 min-w-0 min-h-10 self-stretch box-border b-2 b-#2a2a2a py-2 px-2 text-3 font-6 text-#fff row children-center hover:(b-primary) focus:(b-primary)";
+  const timePickShell = (last: boolean, side: "start" | "end"): string =>
+    last
+      ? `${timePickShellBase} ${side === "start" ? "roundbl-6px" : "roundbr-6px"}`
+      : `${timePickShellBase} round-none`;
 
   return (
     <div
-      s="col min-h-0 min-w-0 w-100% des:(w-88% centerx) round-6px mt-3 overflow-hidden b-1 b-#2a2a2a bg-background"
+      s="col min-h-0 min-w-0 w-100% des:(w-88% centerx) mt-3 bg-background round-6px overflow-hidden"
       style={{
         flex: "1 1 0%",
         minHeight: 0,
@@ -284,11 +288,11 @@ function Openings(p: {
         boxSizing: "border-box",
       }}
     >
-      <div s="row w-100% min-w-0 shrink-0 bg-primary children-centerx py-1 bb-1 b-#2a2a2a">
-        <div s="w-50% min-w-0 row children-center py-1 px-2 roundtl-6px">
+      <div s="row w-100% min-w-0 shrink-0 bg-primary children-centerx py-1 bb-1 b-#2a2a2a roundt-6px overflow-hidden">
+        <div s="w-50% min-w-0 row children-center py-1 px-2 ">
           <t s="text-3 font-6 text-background">Inizio</t>
         </div>
-        <div s="w-50% min-w-0 row children-center py-1 px-2 roundtr-6px">
+        <div s="w-50% min-w-0 row children-center py-1 px-2">
           <t s="text-3 font-6 text-background">Fine</t>
         </div>
       </div>
@@ -301,6 +305,7 @@ function Openings(p: {
           overflowY: "auto",
           overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
+          boxSizing: "border-box",
         }}
       >
         <For each={rows}>
@@ -377,7 +382,7 @@ function Openings(p: {
                           .catch(() => {});
                       })();
                     }}
-                    s={timePickShell}
+                    s={() => timePickShell(isLast, "start")}
                   />
                   <TimePicker
                     fillCell
@@ -402,7 +407,7 @@ function Openings(p: {
                           .catch(() => {});
                       })();
                     }}
-                    s={timePickShell}
+                    s={() => timePickShell(isLast, "end")}
                   />
                 </div>
               );

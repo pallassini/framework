@@ -272,7 +272,7 @@ export default function Closures() {
 
   return (
     <>
-      <div s="b-4 col b-error round-round des:(w-80) mob:(w-98%) centerx mb-30 children-center bg-background pt-2">
+      <div s="b-4 col b-error round-round des:(w-80) mob:(w-98%) centerx mb-30 children-center bg-background pt-2 b-animated(single, error, blur-4, power-20, spread-4, dur-15)">
         {/* HEADER */}
         <div s="row w-100% center children-center relative mb-4">
           <t s="text-6 font-6 text-#fff row center">Chiusure</t>
