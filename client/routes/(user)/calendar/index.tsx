@@ -2,6 +2,7 @@ import { For, server, state } from "client";
 import Menu from "../../_components/menu";
 
 export default function Calendar() {
+
   return (
     <>
       <div s="des:(row)">
@@ -11,7 +12,10 @@ export default function Calendar() {
 
         <div s="col centerx children-centerx w-100% des:(-ml-19) mob:(mb-30)">
           <div s=" des:(w-80 mt-20 gap-6 col) mob:(col w-100% mt-20 gap-6 px-1) ">
-            <div s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-1 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)">
+            <div
+              s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-1 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)"
+
+            >
               {/* HEADER */}
 
               <Days />
@@ -27,7 +31,6 @@ export default function Calendar() {
 // ───────────────────────────────────────────────────────────────────────────────
 function Days() {
   const opening = state(server.user.opening.get);
-
   return (
     <>
       <div s="col-4 mob:(col-2) mt-4 gap-4">
@@ -61,12 +64,15 @@ function Days() {
                 <div
                   s={{
                     base: {
-                      "relative w-100% minh-25 round-round   text-background": true,
+                      "relative w-100% minh-25 round-round   text-background bg-background": true,
                       "": closed,
                     },
                   }}
                 >
-                  <div s=" round-16.5px">
+                  <div
+                    s=" round-16.5px "
+                    show={() => closed()}
+                  >
                     <div
                       s={{
                         base: {
@@ -88,9 +94,9 @@ function Days() {
                           },
                         }}
                       >
-                      <div s='row'>
-                        <div s="w-1.95 h-100% round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)"></div>
-                      </div>
+                        <div s="row">
+                          <div s="w-1.95 h-100% round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)"></div>
+                        </div>
                       </div>
                     </show>
                   </div>
