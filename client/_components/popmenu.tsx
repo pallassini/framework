@@ -113,8 +113,8 @@ interface PopmenuProps {
   feedback?: () => PopmenuFeedback | null | undefined;
   /** Tap backdrop, ESC, pulsante dismiss: azzera il feedback lato parent. */
   onFeedbackDismiss?: () => void;
-  /** Incrementa (es. `p(p()+1)`) per chiudere menu, conferma e feedback. */
-  closePulse?: () => number;
+  /** Cambia valore (numero o boolean) per chiudere menu, conferma e feedback. */
+  closePulse?: () => number | boolean;
 }
 
 type Axis = "top" | "bottom" | "left" | "right";
@@ -393,18 +393,18 @@ export default function Popmenu(props: PopmenuProps) {
     no: confirmNo,
   });
 
-  let lastClosePulse = -1;
+  let lastClosePulse: number | boolean | undefined = undefined;
   watch(
     () => {
       const v = closePulse?.();
       if (v === undefined) return;
-      if (v === lastClosePulse) return;
+      if (Object.is(v, lastClosePulse)) return;
       lastClosePulse = v;
       open(false);
       confirming(false);
       onFeedbackDismiss?.();
     },
-    { watch: [() => closePulse?.() ?? -1] },
+    { watch: [() => closePulse?.()] },
   );
 
   /** Elemento della shell per autofocus + outside-click affidabile cross-browser. */

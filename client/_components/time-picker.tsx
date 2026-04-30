@@ -10,6 +10,7 @@ import { For, state } from "client";
 export function TimePicker(props: {
   value: string;
   onChange: (value: string) => Promise<unknown> | unknown;
+  disabled?: boolean;
   /** Estremo minimo selezionabile (formato HH:MM o HH:MM:SS). */
   min?: string;
   /** Estremo massimo selezionabile (formato HH:MM o HH:MM:SS). */
@@ -131,6 +132,7 @@ export function TimePicker(props: {
   };
 
   const onToggle = (ev: Event): void => {
+    if (props.disabled) return;
     ev.stopPropagation();
     const el = (ev.currentTarget ?? ev.target) as HTMLElement;
     triggerEl = el;
@@ -158,6 +160,7 @@ export function TimePicker(props: {
             : "bg-transparent text-2 round-8px b-2 px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)"]: true,
           "b-#e3e3e370": () => !open(),
           "b-primary": open,
+          "opacity-60 pointer-events-none": () => !!props.disabled,
         },
       }}
     >
