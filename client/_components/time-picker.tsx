@@ -154,9 +154,9 @@ export function TimePicker(props: {
       s={{
         base: {
           [props.compact
-            ? "bg-transparent text-3 round-6px b-1px px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0 mob:(text-4 px-6px py-3px) des:(text-3 px-5px py-2.5px)"
-            : "bg-transparent text-2 round-8px b-1px px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)"]: true,
-          "b-#3f3f46": () => !open(),
+            ? "bg-transparent text-3 round-6px b-2 px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0 mob:(text-4 px-6px py-3px) des:(text-3 px-5px py-2.5px)"
+            : "bg-transparent text-2 round-8px b-2 px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)"]: true,
+          "b-#e3e3e370": () => !open(),
           "b-primary": open,
         },
       }}
@@ -175,7 +175,7 @@ function panelOffsetY(): number {
 
 function PickerColumn(props: {
   values: () => readonly string[];
-  selected: ReturnType<typeof state<string>>;
+  selected: () => string;
   onPick: (v: string) => void;
 }) {
   return (

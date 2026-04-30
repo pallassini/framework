@@ -1,6 +1,7 @@
 import { For, server, state } from "client";
 import Menu from "../../_components/menu";
 import { TimePicker } from "../../../_components/time-picker";
+import Popmenu from "../../../_components/popmenu";
 
 export default function Calendar() {
   return (
@@ -24,7 +25,7 @@ export default function Calendar() {
   );
 }
 // ───────────────────────────────────────────────────────────────────────────────
-// DAY
+// DAYS
 // ───────────────────────────────────────────────────────────────────────────────
 function Days() {
   return (
@@ -41,14 +42,16 @@ function Days() {
             { label: "Domenica", key: "sunday" },
           ]}
         >
-          {(d) => {
+            {(d) => {
             const closed = () => {
               const v = opening();
               if (!Array.isArray(v)) return false;
               return !v.some((o) => o?.dayOfWeek === d.key);
             };
+            const hover = state(false);
             return (
               <div
+                hover={hover}
                 s={{
                   base: {
                     "relative w-100% minh-25 round-round mb-3 text-background shadow(primary, blur-18, spread--6, x-0, y-10, opacity-0.72)  bg-gradient(0deg, var(--primary) 0%, var(--primary)20%, transparent 70%) px-1px pb-2px": true,
@@ -77,7 +80,22 @@ function Days() {
                   </div>
 
                   <div s="relative col p-4">
-                    <t s="text-5 font-6 text-#fff">{d.label}</t>
+                    <div s="row">
+                      <t s="text-5 font-6 text-#fff">{d.label}</t>
+                      {/* MENU */}
+                      <div
+                        s={{
+                          base: {
+                            "right": true,
+                            "opacity-100": () => hover() && !closed(),
+                            "opacity-0 pointer-events-none": () => !hover() || closed(),
+                          },
+                        }}
+                      >
+                        <DayMenu day={d.key} />
+                      </div>
+                    </div>
+                    {/* OPENINGS */}
                     <show when={() => !closed()}>
                       <Openings day={d.key} />
                     </show>
@@ -98,7 +116,7 @@ function Days() {
                 </div>
               </div>
             );
-          }}
+            }}
         </For>
       </div>
     </>
@@ -122,24 +140,24 @@ function Openings({ day }: { day: string }) {
 
   return (
     <>
-      <div s="mt-6 gap-3 col">
-        <For each={rows}>
-          {(o, i) =>
-            (() => {
-              const list = rows();
-              const prev = i > 0 ? list[i - 1] : undefined;
-              const next = i < list.length - 1 ? list[i + 1] : undefined;
-              return (
-                <div s="row gap-1 text-6 text-#fff children-center">
+      <div s="mt-6 gap-3 col centerx children-centerx">
+          <For each={rows}>
+            {(o, i) =>
+              (() => {
+                const list = rows();
+                const prev = i > 0 ? list[i - 1] : undefined;
+                const next = i < list.length - 1 ? list[i + 1] : undefined;
+                return (
+                  <div s="row gap-1 text-6 center text-#fff children-center b-2 b-#e3e3e370  round-10px">
                   <TimePicker
                     value={o.startTime}
                     min={prev ? toHM(prev.endTime) : undefined}
-                    max={subStep(minTime(o.endTime, next?.startTime))}
+                    max={minTime(o.endTime, next?.startTime)}
                     onChange={(v) => {
                       const nextStart = String(v);
                       if (prev && toMinutes(nextStart) < toMinutes(prev.endTime)) return;
-                      if (next && toMinutes(nextStart) >= toMinutes(next.startTime)) return;
-                      if (toMinutes(nextStart) >= toMinutes(o.endTime)) return;
+                      if (next && toMinutes(nextStart) > toMinutes(next.startTime)) return;
+                      if (toMinutes(nextStart) > toMinutes(o.endTime)) return;
                       void (async () => {
                         const snap = applyLocal(o.id, { startTime: nextStart });
                         await server.user.opening
@@ -154,12 +172,12 @@ function Openings({ day }: { day: string }) {
                   <icon name="minus" size="3" />
                   <TimePicker
                     value={o.endTime}
-                    min={addStep(o.startTime)}
-                    max={next ? subStep(next.startTime) : undefined}
+                    min={o.startTime}
+                    max={next ? next.startTime : undefined}
                     onChange={(v) => {
                       const nextEnd = String(v);
-                      if (toMinutes(nextEnd) <= toMinutes(o.startTime)) return;
-                      if (next && toMinutes(nextEnd) >= toMinutes(next.startTime)) return;
+                      if (toMinutes(nextEnd) < toMinutes(o.startTime)) return;
+                      if (next && toMinutes(nextEnd) > toMinutes(next.startTime)) return;
                       void (async () => {
                         const snap = applyLocal(o.id, { endTime: nextEnd });
                         await server.user.opening
@@ -171,11 +189,11 @@ function Openings({ day }: { day: string }) {
                       })();
                     }}
                   />
-                </div>
-              );
-            })()
-          }
-        </For>
+                  </div>
+                );
+              })()
+            }
+          </For>
       </div>
     </>
   );
@@ -186,22 +204,6 @@ function minTime(a: string, b?: string): string {
   return toMinutes(a) <= toMinutes(b) ? a : b;
 }
 
-function addStep(v: string): string {
-  const total = toMinutes(v) + 5;
-  const clamped = Math.min(total, 23 * 60 + 55);
-  const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
-  const mm = String(clamped % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function subStep(v: string): string {
-  const total = toMinutes(v) - 5;
-  const clamped = Math.max(total, 0);
-  const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
-  const mm = String(clamped % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
 function toMinutes(v: string): number {
   const [h = "00", m = "00"] = (v ?? "").split(":");
   return Number(h) * 60 + Number(m);
@@ -210,4 +212,74 @@ function toMinutes(v: string): number {
 function toHM(v: string): string {
   const [h = "00", m = "00"] = (v ?? "").split(":");
   return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+}
+
+function withSeconds(v: string): string {
+  const [h = "00", m = "00"] = (v ?? "").split(":");
+  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}:00`;
+}
+
+function addMinutes(v: string, delta: number): string {
+  const total = toMinutes(v) + delta;
+  const clamped = Math.max(0, Math.min(total, 23 * 60 + 55));
+  const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+  const mm = String(clamped % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function DayMenu({ day }: { day: string }) {
+  const nextSlot = () => {
+    const data = opening();
+    const list = (Array.isArray(data) ? data : [])
+      .filter((o) => o?.dayOfWeek === day)
+      .sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+    if (list.length === 0) return { startTime: "09:00:00", endTime: "10:00:00" };
+    const last = list[list.length - 1]!;
+    return {
+      startTime: withSeconds(toHM(String(last.startTime))),
+      endTime: withSeconds(addMinutes(String(last.startTime), 60)),
+    };
+  };
+  return (
+    <>
+      <Popmenu
+        mode="light"
+        direction="bottom"
+        collapsedS="p-1"
+        collapsed={() => <icon name="dotsVertical" size="6" stroke="3" s="p-0" />}
+        extended={() => (
+          <div s="col gap-2 p-2">
+            <icon
+              name="plus"
+              size="5"
+              stroke="3"
+              s="p-0"
+              click={async () => {
+                const slot = nextSlot();
+                try {
+                  const created = await server.user.opening.create({
+                    dayOfWeek: day,
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                  });
+                  const current = opening();
+                  if (!Array.isArray(current)) return;
+                  const createdRows = Array.isArray(created)
+                    ? created
+                    : created && typeof created === "object" && "rows" in created
+                      ? ((created as { rows?: unknown }).rows ?? [])
+                      : [];
+                  if (Array.isArray(createdRows) && createdRows.length > 0) {
+                    opening([...current, ...(createdRows as any[])] as any);
+                  }
+                } catch {
+                  // noop: nessun optimistic update locale da rollbackare.
+                }
+              }}
+            />
+          </div>
+        )}
+      />
+    </>
+  );
 }
