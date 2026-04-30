@@ -1,4 +1,4 @@
-import { For, Form, resolveFieldBinding, server, state, v } from "client";
+import { For, Form, mob, resolveFieldBinding, server, state, v } from "client";
 import {
   addDaysIsoLocal,
   isValidIsoDate,
@@ -401,21 +401,47 @@ export default function Closures() {
                     {/* NOTE */}
                     <div
                       key={`closure-note:${rowId ?? `${closureInstant(c.startAt).valueOf()}-${closureInstant(c.endAt).valueOf()}`}`}
-                      s="w-100% px-2 py-4 mob:(flex-1 min-w-0 px-1 py-2)"
+                      s="w-100% px-2 py-4 mob:(flex-1 col children-center min-h-0 min-w-0 self-stretch px-1 py-2)"
                     >
-                      <Input
-                        mode="none"
-                        type="string"
-                        defaultValue={c.note ?? ""}
-                        size={6}
-                        blur={(txt) => {
-                          if (!rowId) return;
-                          const rb = cloneClosureList();
-                          patchClosure(rowId, { note: txt });
-                          void commitClosureRow(rowId, rb);
-                        }}
-                        s="w-100% h-100% text-5 row center b-2 b-#1d1d1d p-2 round-8px mob:(text-3 font-5 p-1.5 row center)"
-                      />
+                      <show when={() => !mob()}>
+                        <Input
+                          mode="none"
+                          type="string"
+                          defaultValue={c.note ?? ""}
+                          size={6}
+                          blur={(txt) => {
+                            if (!rowId) return;
+                            const rb = cloneClosureList();
+                            patchClosure(rowId, { note: txt });
+                            void commitClosureRow(rowId, rb);
+                          }}
+                          s="w-100% h-100% text-5 row center b-2 b-#1d1d1d p-2 round-8px"
+                        />
+                      </show>
+                      <show when={mob}>
+                        <textarea
+                          rows={2}
+                          spellcheck={false}
+                          defaultValue={c.note ?? ""}
+                          style={{
+                            resize: "none",
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            lineHeight: "1.35",
+                            boxSizing: "border-box",
+                            textAlign: "center",
+                          }}
+                          s="w-100% max-w-100% min-h-0 min-w-0 text-3 font-5 p-1.5 round-8px b-2 b-#1d1d1d text-#fff bg-transparent"
+                          blur={(ev) => {
+                            const ta = ev.currentTarget as HTMLTextAreaElement;
+                            if (!rowId) return;
+                            const txt = ta.value;
+                            const rb = cloneClosureList();
+                            patchClosure(rowId, { note: txt });
+                            void commitClosureRow(rowId, rb);
+                          }}
+                        />
+                      </show>
                     </div>
                     {/* START */}
                     <div s="row gap-2 br-2 bl-2 b-error children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0) w-100%">
