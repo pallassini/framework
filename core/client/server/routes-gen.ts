@@ -15,7 +15,7 @@ import { create as user_closures_create, get as user_closures_get, remove as use
 import { update as user_update } from "../../../server/routes/user/index";
 import { create as user_item_create, get as user_item_get, remove as user_item_remove, update as user_item_update } from "../../../server/routes/user/item";
 import { create as user_itemCategory_create, get as user_itemCategory_get, remove as user_itemCategory_remove, update as user_itemCategory_update } from "../../../server/routes/user/itemCategory";
-import { create as user_opening_create, get as user_opening_get, remove as user_opening_remove, update as user_opening_update } from "../../../server/routes/user/opening";
+import { create as user_opening_create, get as user_opening_get, prova as user_opening_prova, remove as user_opening_remove, update as user_opening_update } from "../../../server/routes/user/opening";
 import { create as user_resource_create, get as user_resource_get, remove as user_resource_remove, update as user_resource_update } from "../../../server/routes/user/resource";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
@@ -58,6 +58,7 @@ export type ServerRoutes = {
 	"user.itemCategory.update": InferRoute<typeof user_itemCategory_update>;
 	"user.opening.create": InferRoute<typeof user_opening_create>;
 	"user.opening.get": InferRoute<typeof user_opening_get>;
+	"user.opening.prova": InferRoute<typeof user_opening_prova>;
 	"user.opening.remove": InferRoute<typeof user_opening_remove>;
 	"user.opening.update": InferRoute<typeof user_opening_update>;
 	"user.resource.create": InferRoute<typeof user_resource_create>;

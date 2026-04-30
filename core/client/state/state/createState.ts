@@ -14,7 +14,9 @@ export type CreateStateFn = {
 	<T>(initial: PromiseLike<T>): AutoSignal<T | undefined>;
 	<R>(initial: () => Promise<R>): AutoSignal<R | undefined>;
 	/** Solo tipo: `fn` è un metodo RPC marcato; non viene chiamato. */
-	<F extends (...args: never[]) => Promise<unknown>>(ref: F): AutoSignal<Awaited<ReturnType<F>>>;
+	<F extends (...args: unknown[]) => Promise<unknown>, _RefOverloadTag = never>(
+		ref: F,
+	): AutoSignal<Awaited<ReturnType<F>>>;
 	<U extends Record<string, unknown>>(shape: U): StateMap<U>;
 	/** Funzione sincrona → segnale derivato (legge altri signal in `compute`). */
 	<R>(compute: () => R): Signal<R>;

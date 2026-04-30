@@ -1,4 +1,4 @@
-import { For, state, watch } from "client";
+import { For, state } from "client";
 
 /**
  * Picker orario custom:
@@ -10,6 +10,10 @@ import { For, state, watch } from "client";
 export function TimePicker(props: {
   value: string;
   onChange: (value: string) => Promise<unknown> | unknown;
+  /** Estremo minimo selezionabile (formato HH:MM o HH:MM:SS). */
+  min?: string;
+  /** Estremo massimo selezionabile (formato HH:MM o HH:MM:SS). */
+  max?: string;
   /** Id stabile opzionale (non più necessario ma mantenuto per compat). */
   panelId?: string;
   /** Trigger più compatto (es. riga orari su mobile). */
@@ -21,12 +25,28 @@ export function TimePicker(props: {
   const hour = state(initH);
   const minute = state(initM);
   const open = state(false);
+  const bounds = () => parseRange(props.min, props.max);
+  const allowedTimes = () => {
+    const [minM, maxM] = bounds();
+    return ALL_TIMES.filter((t) => {
+      const m = toMinutes(t);
+      return m >= minM && m <= maxM;
+    });
+  };
+  const allowedHours = () => {
+    const hs = new Set(allowedTimes().map((t) => t.slice(0, 2)));
+    return HOURS.filter((h) => hs.has(h));
+  };
+  const allowedMinutes = () => {
+    const h = hour();
+    return allowedTimes()
+      .filter((t) => t.startsWith(`${h}:`))
+      .map((t) => t.slice(3, 5));
+  };
 
   let triggerEl: HTMLElement | null = null;
   let panelRoot: HTMLDivElement | null = null;
   let backdrop: HTMLDivElement | null = null;
-  let stopPosWatch: (() => void) | null = null;
-  let onWinScrollOrResize: (() => void) | null = null;
 
   const commit = (): void => {
     void props.onChange(`${hour()}:${minute()}:00`);
@@ -35,8 +55,8 @@ export function TimePicker(props: {
   const placePanel = (): void => {
     if (!triggerEl || !panelRoot) return;
     const r = triggerEl.getBoundingClientRect();
-    const top = r.bottom + 6;
-    const left = r.left + r.width / 2;
+    const top = r.bottom + panelOffsetY() + window.scrollY;
+    const left = r.left + r.width / 2 + window.scrollX;
     panelRoot.style.top = `${top}px`;
     panelRoot.style.left = `${left}px`;
   };
@@ -47,7 +67,7 @@ export function TimePicker(props: {
    */
   const panelShellStyle = (top: number, left: number): string =>
     [
-      "position:fixed",
+      "position:absolute",
       `top:${top}px`,
       `left:${left}px`,
       "transform:translateX(-50%)",
@@ -59,13 +79,6 @@ export function TimePicker(props: {
     ].join(";");
 
   const destroyPanel = (): void => {
-    stopPosWatch?.();
-    stopPosWatch = null;
-    if (onWinScrollOrResize) {
-      window.removeEventListener("scroll", onWinScrollOrResize, true);
-      window.removeEventListener("resize", onWinScrollOrResize);
-      onWinScrollOrResize = null;
-    }
     backdrop?.remove();
     panelRoot?.remove();
     backdrop = null;
@@ -82,8 +95,8 @@ export function TimePicker(props: {
   const buildPanel = (): void => {
     if (!triggerEl) return;
     const r = triggerEl.getBoundingClientRect();
-    const top = r.bottom + 6;
-    const left = r.left + r.width / 2;
+    const top = r.bottom + panelOffsetY() + window.scrollY;
+    const left = r.left + r.width / 2 + window.scrollX;
 
     backdrop = document.createElement("div");
     backdrop.style.cssText =
@@ -98,12 +111,12 @@ export function TimePicker(props: {
     const inner = (
       <div
         style={{ transition: "none" }}
-        s={{ base: "row bg-background b-1px b-#2a2a2a round-10px overflow-hidden" }}
+        s={{ base: "row bg-background b-1px b-#2a2a2a round-10px overflow-hidden mob:(scale-115)" }}
       >
-        <PickerColumn values={HOURS} selected={hour} onPick={(v) => hour(v)} />
+        <PickerColumn values={allowedHours} selected={hour} onPick={(v) => hour(v)} />
         <div style={{ width: "1px", alignSelf: "stretch" }} s="bg-#2a2a2a" />
         <PickerColumn
-          values={MINUTES}
+          values={allowedMinutes}
           selected={minute}
           onPick={(v) => {
             minute(v);
@@ -115,13 +128,6 @@ export function TimePicker(props: {
     panelRoot.appendChild(inner);
 
     placePanel();
-    stopPosWatch = watch(() => {
-      void open();
-      placePanel();
-    });
-    onWinScrollOrResize = (): void => placePanel();
-    window.addEventListener("scroll", onWinScrollOrResize, true);
-    window.addEventListener("resize", onWinScrollOrResize);
   };
 
   const onToggle = (ev: Event): void => {
@@ -148,8 +154,8 @@ export function TimePicker(props: {
       s={{
         base: {
           [props.compact
-            ? "bg-transparent text-3 round-6px b-1px px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0"
-            : "bg-transparent text-2 round-8px b-1px px-8px py-4px cursor-pointer row children-centery gapx-1px"]: true,
+            ? "bg-transparent text-3 round-6px b-1px px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0 mob:(text-4 px-6px py-3px) des:(text-3 px-5px py-2.5px)"
+            : "bg-transparent text-2 round-8px b-1px px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)"]: true,
           "b-#3f3f46": () => !open(),
           "b-primary": open,
         },
@@ -162,8 +168,13 @@ export function TimePicker(props: {
   );
 }
 
+function panelOffsetY(): number {
+  if (typeof window === "undefined") return 6;
+  return window.innerWidth <= 768 ? 16 : 6;
+}
+
 function PickerColumn(props: {
-  values: readonly string[];
+  values: () => readonly string[];
   selected: ReturnType<typeof state<string>>;
   onPick: (v: string) => void;
 }) {
@@ -184,7 +195,7 @@ function PickerColumn(props: {
             click={() => props.onPick(v)}
             s={{
               base: {
-                "text-2 px-0.7vw py-0.2vh cursor-pointer centerx font-6": true,
+                "text-2 px-0.7vw py-0.2vh cursor-pointer centerx font-6 mob:(text-3 py-0.35vh px-1.2vw) des:(text-2.5 py-0.25vh px-0.9vw)": true,
                 "bg-primary text-background": () => props.selected() === v,
                 "hover:(bg-#2a2a2a)": () => props.selected() !== v,
               },
@@ -201,10 +212,23 @@ function PickerColumn(props: {
 
 const HOURS: readonly string[] = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTES: readonly string[] = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+const ALL_TIMES: readonly string[] = HOURS.flatMap((h) => MINUTES.map((m) => `${h}:${m}`));
 
 function splitHM(v: string): [string, string] {
   const [h = "00", m = "00"] = (v ?? "").split(":");
   return [h.padStart(2, "0"), m.padStart(2, "0")];
+}
+
+function toMinutes(v: string): number {
+  const [h, m] = splitHM(v);
+  return Number(h) * 60 + Number(m);
+}
+
+function parseRange(min?: string, max?: string): [number, number] {
+  const minM = min ? toMinutes(min) : 0;
+  const maxM = max ? toMinutes(max) : 23 * 60 + 55;
+  if (minM > maxM) return [maxM, maxM];
+  return [minM, maxM];
 }
 
 const SCROLL_HIDE_CLASS = "fw-time-picker-scroll";

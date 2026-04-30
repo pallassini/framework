@@ -33,7 +33,9 @@ export type { Middleware, Next } from "./logic/types";
 export type { RateLimitOpts, ConcurrencyOpts, ConcurrencySameClientOpts, SizeLimitOpts } from "./logic/opts";
 export type {
 	RouteAutoConfig,
+	RouteAutoInput,
 	RouteAutoOp,
+	RouteAutoOutput,
 	RouteAutoSpec,
 	RouteAuth,
 	RouteInputConfig,

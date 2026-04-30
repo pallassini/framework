@@ -1,5 +1,5 @@
 import type { InputSchema } from "../../../client/validator/properties/defs";
-import type { DbTable, User } from "db";
+import type { Db, DbTable, User } from "db";
 import type { CorsRule } from "../cors";
 import type { ServerContext } from "../../routes/context";
 import type { ConcurrencyOpts, RateLimitOpts, SizeLimitOpts } from "./opts";
@@ -10,6 +10,11 @@ export type RouteAutoOp = "create" | "update" | "delete" | "remove" | "get";
 
 /** Stringhe `tabella.operazione` tipizzate sui nomi tabella del progetto (autocomplete in IDE). */
 export type RouteAutoSpec = `${DbTable}.${RouteAutoOp}`;
+type RouteAutoTable<S extends RouteAutoSpec> = S extends `${infer T}.${RouteAutoOp}` ? T & DbTable : never;
+type RouteAutoOpFromSpec<S extends RouteAutoSpec> = S extends `${DbTable}.${infer O}` ? O & RouteAutoOp : never;
+type RouteAutoRow<S extends RouteAutoSpec> = Awaited<
+	ReturnType<Db["tables"][RouteAutoTable<S>]["find"]>
+>[number];
 
 export function timeoutMs(timeout: number | { ms: number } | undefined): number | undefined {
 	if (timeout == null) return undefined;
@@ -55,8 +60,26 @@ export type RouteNoInputConfig<O> = RouteOpts & {
 };
 
 /** Route generata da `auto` (senza `input` / `run` nel sorgente). */
-export type RouteAutoConfig = RouteOpts & {
-	auto: RouteAutoSpec;
+export type RouteAutoConfig<S extends RouteAutoSpec = RouteAutoSpec> = RouteOpts & {
+	auto: S;
 	input?: never;
 	run?: never;
 };
+
+export type RouteAutoInput<S extends RouteAutoSpec> = RouteAutoOpFromSpec<S> extends "get"
+	? { where?: Record<string, unknown> } | undefined
+	: RouteAutoOpFromSpec<S> extends "delete" | "remove"
+		? { id: string }
+		: RouteAutoOpFromSpec<S> extends "create"
+			? Record<string, unknown> | readonly Record<string, unknown>[]
+			: Record<string, unknown>;
+
+export type RouteAutoOutput<S extends RouteAutoSpec> = RouteAutoOpFromSpec<S> extends "get"
+	? RouteAutoRow<S>[]
+	: RouteAutoOpFromSpec<S> extends "create"
+		? { rows: RouteAutoRow<S>[] }
+		: RouteAutoOpFromSpec<S> extends "update"
+			? { row: RouteAutoRow<S> }
+			: RouteAutoOpFromSpec<S> extends "delete" | "remove"
+				? { ok: true }
+				: unknown;

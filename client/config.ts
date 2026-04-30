@@ -1,4 +1,4 @@
-import { device } from "client";
+import { device } from "../core/client/style/viewport";
 import { buildBaseScaleMap } from "../core/client/style/properties/utils/base-scale-rem";
 import { v } from "../core/client/validator";
 

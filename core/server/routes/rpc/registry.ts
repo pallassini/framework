@@ -4,6 +4,9 @@ import {
 	routeMw,
 	type ConcurrencyOpts,
 	type Middleware,
+	type RouteAutoInput,
+	type RouteAutoOutput,
+	type RouteAutoSpec,
 	type RateLimitOpts,
 	type RouteAutoConfig,
 	type RouteAuth,
@@ -154,7 +157,9 @@ function sNoInput<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O> 
 
 export function s<I, O>(def: RouteInputConfig<I, O>): ServerRouteDescTyped<I, O>;
 export function s<O>(def: RouteNoInputConfig<O>): ServerRouteDescTyped<void, O>;
-export function s(def: RouteAutoConfig): ServerRouteDescTyped<unknown, unknown>;
+export function s<S extends RouteAutoSpec>(
+	def: RouteAutoConfig<S>,
+): ServerRouteDescTyped<RouteAutoInput<S>, RouteAutoOutput<S>>;
 export function s(
 	def: RouteNoInputConfig<unknown> | RouteInputConfig<unknown, unknown> | RouteAutoConfig,
 ): ServerRouteDescTyped<unknown, unknown> {
