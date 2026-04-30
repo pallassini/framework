@@ -123,7 +123,7 @@ export function DatePicker(
     max?: string | (() => string | undefined);
   },
 ) {
-  const { size = 3, s: sProp, placeholder } = props;
+  const { size = 3, s: sProp, placeholder, disabled } = props;
 
   const c = useInputCommon<string>({
     size,
@@ -146,6 +146,24 @@ export function DatePicker(
   const noneMode = isNoneInputMode(props.mode ?? c.formStyle()?.mode);
   const readDate = (): string => c.read() ?? "";
   const open = state(false);
+
+  let shellWrapEl: HTMLElement | null = null;
+  const syncShellPseudoFocus = (): void => {
+    const el = shellWrapEl;
+    if (!(el instanceof HTMLElement)) return;
+    if (open()) {
+      el.setAttribute("data-fw-shell-pseudo-focus-within", "");
+    } else {
+      el.removeAttribute("data-fw-shell-pseudo-focus-within");
+    }
+    el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  };
+
+  watch(() => {
+    void open();
+    syncShellPseudoFocus();
+  });
+
   const n0 = new Date();
   const viewYear = state(n0.getFullYear());
   const viewMonth0 = state(n0.getMonth());
@@ -341,6 +359,13 @@ export function DatePicker(
     close();
   };
 
+  /** Il trigger interno può essere smontato quando il `<For>` del calendario re-renderizza; il guscio con `ref` resta stabile per `fixed` + viewport. */
+  const anchorForPanel = (): HTMLElement | null => {
+    if (shellWrapEl?.isConnected) return shellWrapEl;
+    if (triggerEl?.isConnected) return triggerEl;
+    return null;
+  };
+
   const shiftMonth = (delta: number): void => {
     let m = viewMonth0() + delta;
     let y = viewYear();
@@ -357,8 +382,10 @@ export function DatePicker(
   };
 
   const placePanel = (): void => {
-    if (!triggerEl || !panelRoot) return;
-    const r = triggerEl.getBoundingClientRect();
+    const anchor = anchorForPanel();
+    if (!anchor || !panelRoot) return;
+    const r = anchor.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
     panelRoot.style.top = `${r.bottom + PANEL_GAP_Y}px`;
     panelRoot.style.left = `${r.left + r.width / 2}px`;
   };
@@ -376,8 +403,10 @@ export function DatePicker(
     ].join(";");
 
   const buildPanel = (): void => {
-    if (!triggerEl) return;
-    const r = triggerEl.getBoundingClientRect();
+    const anchor = anchorForPanel();
+    if (!anchor) return;
+    const r = anchor.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
     const top = r.bottom + PANEL_GAP_Y;
     const left = r.left + r.width / 2;
 
@@ -501,7 +530,15 @@ export function DatePicker(
   const onOpen = (ev: Event): void => {
     if (props.disabled) return;
     ev.stopPropagation();
-    triggerEl = (ev.currentTarget ?? ev.target) as HTMLElement;
+    const el = (ev.currentTarget ?? ev.target) as HTMLElement;
+    triggerEl = el;
+    if (!disabled) {
+      try {
+        el.focus({ preventScroll: true });
+      } catch {
+        /* SSR / motori restrittivi */
+      }
+    }
     if (props.field) {
       triggerEl.setAttribute("data-fw-form", props.field.formId);
       triggerEl.setAttribute("data-fw-field", props.field.field);
@@ -527,9 +564,17 @@ export function DatePicker(
   const showText = readDate() !== "" && isValidIsoDate(readDate());
 
   return (
-    <div style={wrapInlineStyle as any} s={sProp as any}>
+    <div
+      style={wrapInlineStyle as any}
+      s={sProp as any}
+      ref={(el) => {
+        shellWrapEl = (el as HTMLElement) ?? null;
+        syncShellPseudoFocus();
+      }}
+    >
       <div
         click={onOpen}
+        tabIndex={disabled ? -1 : 0}
         style={triggerInnerStyle as any}
         ref={(el) => {
           if (el && props.field) {

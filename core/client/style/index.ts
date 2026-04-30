@@ -161,6 +161,13 @@ function attachOverlays(el: El, resolved: ResolvedStyle): void {
 
 	const readFocusWithin = (): boolean => {
 		if (!focUse) return false;
+		/** Portali (Date/Time picker): attributo impostato dal componente mentre il pannello è aperto. */
+		if (
+			el instanceof HTMLElement &&
+			el.hasAttribute("data-fw-shell-pseudo-focus-within")
+		) {
+			return true;
+		}
 		return typeof el.matches === "function" && (el as Element).matches(":focus-within");
 	};
 
@@ -189,13 +196,10 @@ function attachOverlays(el: El, resolved: ResolvedStyle): void {
 
 	if (focR && focUse) {
 		const onFocusIn = (): void => {
-			applyComposed(readPointerHover(), true);
+			applyComposed(readPointerHover(), readFocusWithin());
 		};
-		const onFocusOut = (e: Event): void => {
-			const rt = (e as FocusEvent).relatedTarget as Node | null;
-			if (rt == null || !(e.currentTarget as Element).contains(rt)) {
-				applyComposed(readPointerHover(), false);
-			}
+		const onFocusOut = (): void => {
+			applyComposed(readPointerHover(), readFocusWithin());
 		};
 		el.addEventListener("focusin", onFocusIn);
 		el.addEventListener("focusout", onFocusOut);

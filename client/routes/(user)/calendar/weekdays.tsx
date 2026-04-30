@@ -1,5 +1,4 @@
 import { device, For, server, state, watch } from "client";
-import Menu from "../../_components/menu";
 import { TimePicker } from "../../../_components/time-picker";
 import Popmenu from "../../../_components/popmenu";
 
@@ -109,12 +108,57 @@ function Days() {
                       <div
                         s={{
                           base: {
-                            "text-5 px-6 py-4 round-30px bg-gradient(circle, #b807078a 0%,#b80707c2 50%, #e00303 100%) font-6 centerx  text-#fff row mt-15 des:(w-5.5 h-4.5) mob:(w-5.5 h-4.5) px-1.5 py-1.5": true,
+                            "text-5 px-6 py-4 round-30px font-6 centerx row mt-15 des:(w-5.5 h-4.5) mob:(w-5.5 h-4.5) px-1.5 py-1.5 overflow-hidden shrink-0": true,
+                            "bg-gradient(circle, #b807078a 0%, #b80707c2 50%, #e00303 100%) text-#fff":
+                              () => activatingClosedDay() !== d.key,
+                            "bg-primary text-background shadow(primary, blur-18, spread--6, x-0, y-8, opacity-0.45)":
+                              () => activatingClosedDay() === d.key,
+                            "cursor-pointer": () => activatingClosedDay() == null,
+                            "pointer-events-none opacity-70": () =>
+                              activatingClosedDay() != null && activatingClosedDay() !== d.key,
                           },
+                          transition:
+                            activatingClosedDay() === d.key
+                              ? {
+                                  property: ["background-color", "box-shadow", "color"],
+                                  duration: TOGGLE_SLIDE_MS,
+                                  ease: "cubic-bezier(0.25, 0.9, 0.35, 1)",
+                                }
+                              : undefined,
+                        }}
+                        click={(e: Event) => {
+                          e.stopPropagation();
+                          if (activatingClosedDay() != null) return;
+                          activatingClosedDay(d.key);
                         }}
                       >
-                        <div s="row">
-                          <div s="w-1.95 h-100% round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)"></div>
+                        <div s="row w-100% h-100% min-h-0">
+                          <div
+                            s={{
+                              base:
+                                "w-1.95 h-100% shrink-0 round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)",
+                              ...(activatingClosedDay() === d.key
+                                ? {
+                                    animate: [
+                                      {
+                                        x: [0, "3.52rem"],
+                                        duration: TOGGLE_SLIDE_MS,
+                                        ease: "out",
+                                        fill: "forwards",
+                                        onEnd: () => {
+                                          const dk = d.key;
+                                          if (activatingClosedDay() !== dk) return;
+                                          void (async () => {
+                                            await createFirstOpeningForDay(dk);
+                                            activatingClosedDay(null);
+                                          })();
+                                        },
+                                      },
+                                    ],
+                                  }
+                                : {}),
+                            }}
+                          />
                         </div>
                       </div>
                     </show>
@@ -129,6 +173,39 @@ function Days() {
   );
 }
 const opening = state(server.user.opening.get);
+/** Giorno in animazione toggle “chiudi/apri”: prima della `create`. */
+const activatingClosedDay = state<string | null>(null);
+
+/** Durata corsa thumb (ms); la `create` parte in `animate.onEnd`. */
+const TOGGLE_SLIDE_MS = 260;
+/** Stessa fascia iniziale di `DayMenu` → `nextSlot()` con lista vuota. */
+function firstOpeningSlotForEmptyDay(): { startTime: string; endTime: string } {
+  return { startTime: "09:00:00", endTime: "10:00:00" };
+}
+
+async function createFirstOpeningForDay(day: string): Promise<void> {
+  const slot = firstOpeningSlotForEmptyDay();
+  try {
+    const created = await server.user.opening.create({
+      dayOfWeek: day,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    });
+    const current = opening();
+    if (!Array.isArray(current)) return;
+    const createdRows = Array.isArray(created)
+      ? created
+      : created && typeof created === "object" && "rows" in created
+        ? ((created as { rows?: unknown }).rows ?? [])
+        : [];
+    if (Array.isArray(createdRows) && createdRows.length > 0) {
+      opening([...current, ...(createdRows as any[])] as any);
+    }
+  } catch {
+    /* errore RPC: giorno resta chiuso */
+  }
+}
+
 /** Marca la riga fascia: il listener globale chiude delete mode solo se il tap non cade qui. */
 const CAL_TIME_FRAME_ATTR = "data-fw-calendar-timeframe";
 

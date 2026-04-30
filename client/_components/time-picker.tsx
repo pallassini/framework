@@ -70,6 +70,24 @@ export function TimePicker(
   const hour = state(initH);
   const minute = state(initM);
   const open = state(false);
+  /** Pannello in portale: `focus:(…)` sul guscio deve restare attivo come `:focus-within`. */
+  let shellWrapEl: HTMLElement | null = null;
+  const syncShellPseudoFocus = (): void => {
+    const shell = shellWrapEl;
+    if (!(shell instanceof HTMLElement)) return;
+    if (open()) {
+      shell.setAttribute("data-fw-shell-pseudo-focus-within", "");
+    } else {
+      shell.removeAttribute("data-fw-shell-pseudo-focus-within");
+    }
+    shell.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  };
+
+  watch(() => {
+    void open();
+    syncShellPseudoFocus();
+  });
+
   /** Sessione picker: non committare se era vuoto e l’utente chiude senza aver toccato ore/minuti. */
   const sessionTouched = state(false);
   let hadValueWhenOpened = false;
@@ -207,6 +225,13 @@ export function TimePicker(
     ev.stopPropagation();
     const el = (ev.currentTarget ?? ev.target) as HTMLElement;
     triggerEl = el;
+    if (!props.disabled) {
+      try {
+        el.focus({ preventScroll: true });
+      } catch {
+        /* */
+      }
+    }
     if (open()) {
       close();
       return;
@@ -357,12 +382,20 @@ export function TimePicker(
   const showDigits = hasTimeValue() || open();
 
   return (
-    <div style={wrapInlineStyle as any} s={props.s as any}>
+    <div
+      style={wrapInlineStyle as any}
+      s={props.s as any}
+      ref={(el) => {
+        shellWrapEl = (el as HTMLElement) ?? null;
+        syncShellPseudoFocus();
+      }}
+    >
       {useChrome && props.placeholder && !noneMode ? (
         <div style={labelStyle as any}>{props.placeholder}</div>
       ) : null}
       <div
         click={onToggle}
+        tabIndex={props.disabled ? -1 : 0}
         style={triggerInnerStyle as any}
         s={{
           base: {
