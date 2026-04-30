@@ -1,32 +1,92 @@
-import { For, state } from "client";
+import { For, state, watch } from "client";
+import type { FieldBinding } from "../../core/client/form/form";
+import type { InputPropsBase, InputSize } from "./input/index";
+import { useInputCommon } from "./input/common";
+import {
+  formModeShellScopeVars,
+  inputCutoutBackground,
+  isNoneInputMode,
+  mapColorToken,
+  optionalFieldMutedColor,
+} from "./input/presets";
 
 /**
- * Picker orario custom:
- * - Trigger con padding comodo e `tabular-nums` (cifre a larghezza uguale → HH:MM non “balla”).
- * - Dropdown **portato in `document.body`** (fuori da ogni stacking/overflow del genitore),
- *   `position: fixed`, coordinate dal `getBoundingClientRect()` del trigger.
- * - Posizione sincronizzata tramite `watch` (si riposiziona anche su scroll/resize).
+ * Picker orario: dropdown in `document.body`. Con `field` e/o `placeholder` usa il guscio
+ * come `<Input>` (label floating centrata sul bordo superiore). Senza → solo trigger compatto (legacy).
  */
-export function TimePicker(props: {
-  value: string;
-  onChange: (value: string) => Promise<unknown> | unknown;
-  disabled?: boolean;
-  /** Estremo minimo selezionabile (formato HH:MM o HH:MM:SS). */
-  min?: string;
-  /** Estremo massimo selezionabile (formato HH:MM o HH:MM:SS). */
-  max?: string;
-  /** Id stabile opzionale (non più necessario ma mantenuto per compat). */
-  panelId?: string;
-  /** Trigger più compatto (es. riga orari su mobile). */
-  compact?: boolean;
-}) {
+export function TimePicker(
+  props: InputPropsBase & {
+    /** Valore `HH:MM` o `HH:MM:SS`. Omesso / `""` → niente valore finché non si sceglie dall’UI. */
+    value?: string | (() => string | undefined);
+    onChange?: (value: string) => Promise<unknown> | unknown;
+    field?: FieldBinding;
+    error?: string | undefined | (() => string | undefined);
+    disabled?: boolean;
+    min?: string | (() => string | undefined);
+    max?: string | (() => string | undefined);
+    panelId?: string;
+    compact?: boolean;
+    size?: InputSize;
+  },
+) {
   void props.panelId;
 
-  const [initH, initM] = splitHM(props.value);
+  const size = props.size ?? 3;
+  const useChrome = !!(props.field || (props.placeholder != null && props.placeholder !== ""));
+
+  const c = useInputCommon<string>({
+    size,
+    field: props.field,
+    error: props.error,
+    bg: props.bg,
+    mode: props.mode,
+    accentColor: props.accentColor,
+    focusColor: props.focusColor,
+    restingColor: props.restingColor,
+    showFocusShadow: props.showFocusShadow,
+    readExternal: () => {
+      const v = props.value;
+      return (typeof v === "function" ? v() : v) ?? "";
+    },
+    toString: (v) => v ?? "",
+    fromString: (s) => s,
+  });
+
+  const noneMode = isNoneInputMode(props.mode ?? c.formStyle()?.mode);
+
+  const readTime = (): string => c.read() ?? "";
+
+  const hasTimeValue = (): boolean => {
+    const s = readTime().trim();
+    return s.length >= 5 && /^([01]\d|2[0-3]):[0-5]\d/.test(s);
+  };
+
+  const seedFromRead = (): [string, string] => {
+    const s = readTime();
+    return splitHM(hasTimeValue() ? s : "00:00:00");
+  };
+
+  const [initH, initM] = seedFromRead();
   const hour = state(initH);
   const minute = state(initM);
   const open = state(false);
-  const bounds = () => parseRange(props.min, props.max);
+  /** Sessione picker: non committare se era vuoto e l’utente chiude senza aver toccato ore/minuti. */
+  const sessionTouched = state(false);
+  let hadValueWhenOpened = false;
+
+  watch(() => {
+    const [h, m] = seedFromRead();
+    hour(h);
+    minute(m);
+  });
+
+  const readBound = (v: string | (() => string | undefined) | undefined): string | undefined => {
+    if (v == null) return undefined;
+    const x = typeof v === "function" ? v() : v;
+    return x && x.length >= 5 ? x : undefined;
+  };
+
+  const bounds = () => parseRange(readBound(props.min), readBound(props.max));
   const allowedTimes = () => {
     const [minM, maxM] = bounds();
     return ALL_TIMES.filter((t) => {
@@ -49,8 +109,14 @@ export function TimePicker(props: {
   let panelRoot: HTMLDivElement | null = null;
   let backdrop: HTMLDivElement | null = null;
 
+  const pushValue = (iso: string): void => {
+    if (props.field) c.write(iso);
+    void props.onChange?.(iso);
+  };
+
   const commit = (): void => {
-    void props.onChange(`${hour()}:${minute()}:00`);
+    const iso = `${hour()}:${minute()}:00`;
+    pushValue(iso);
   };
 
   const placePanel = (): void => {
@@ -62,10 +128,6 @@ export function TimePicker(props: {
     panelRoot.style.left = `${left}px`;
   };
 
-  /**
-   * Sopra il portale Popmenu (`--fw-z-popmenu-portal`), altrimenti il dropdown resta “sotto” il menu.
-   * Backdrop +1, pannello +2 rispetto al portal.
-   */
   const panelShellStyle = (top: number, left: number): string =>
     [
       "position:absolute",
@@ -89,7 +151,8 @@ export function TimePicker(props: {
   const close = (): void => {
     if (!open()) return;
     open(false);
-    commit();
+    c.focused(false);
+    if (sessionTouched() || hadValueWhenOpened) commit();
     destroyPanel();
   };
 
@@ -114,13 +177,21 @@ export function TimePicker(props: {
         style={{ transition: "none" }}
         s={{ base: "row bg-background b-1px b-#2a2a2a round-10px overflow-hidden mob:(scale-115)" }}
       >
-        <PickerColumn values={allowedHours} selected={hour} onPick={(v) => hour(v)} />
+        <PickerColumn
+          values={allowedHours}
+          selected={hour}
+          onPick={(v) => {
+            hour(v);
+            sessionTouched(true);
+          }}
+        />
         <div style={{ width: "1px", alignSelf: "stretch" }} s="bg-#2a2a2a" />
         <PickerColumn
           values={allowedMinutes}
           selected={minute}
           onPick={(v) => {
             minute(v);
+            sessionTouched(true);
             close();
           }}
         />
@@ -140,40 +211,193 @@ export function TimePicker(props: {
       close();
       return;
     }
+    c.focused(true);
+    hadValueWhenOpened = hasTimeValue();
+    sessionTouched(false);
+    const [h, m] = seedFromRead();
+    hour(h);
+    minute(m);
     open(true);
     buildPanel();
   };
 
-  return (
-    <div
-      click={onToggle}
-      style={{
+  const isFloating = (): boolean => open() || hasTimeValue() || c.focused();
+
+  const labelStyle = (): Record<string, string> => {
+    if (!useChrome || noneMode || !props.placeholder) return { display: "none" };
+    const floating = isFloating();
+    const err = c.hasError();
+    const foc = c.focused() || open();
+    const hv = hasTimeValue();
+    const met = c.m();
+    const cut = inputCutoutBackground(c.resolvedBg());
+    const pal = c.palette();
+    const optAtRest =
+      c.isOptional() && !foc && !hv && !err && props.restingColor === undefined;
+    const color = err
+      ? "var(--error)"
+      : optAtRest
+        ? optionalFieldMutedColor()
+        : foc || hv
+          ? pal.accent
+          : pal.labelResting;
+    const scale = floating ? 1 : 1.12;
+    return {
+      position: "absolute",
+      left: "50%",
+      top: floating ? "0" : "50%",
+      transform: `translate(-50%, -50%) scale(${scale})`,
+      transformOrigin: "center center",
+      paddingLeft: "0.5rem",
+      paddingRight: "0.5rem",
+      fontSize: met.labelFloating,
+      fontWeight: floating ? "600" : "500",
+      letterSpacing: floating ? "0.02em" : "0",
+      color,
+      background: floating ? cut : "transparent",
+      pointerEvents: "none",
+      whiteSpace: "nowrap",
+      lineHeight: "1",
+      transition:
+        "top 260ms cubic-bezier(0.2, 0.8, 0.2, 1), " +
+        "transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), " +
+        "font-weight 200ms ease, " +
+        "color 220ms ease, " +
+        "background-color 200ms ease",
+    };
+  };
+
+  const wrapInlineStyle = (): Record<string, string> => {
+    if (!useChrome || noneMode) {
+      return {
+        position: "relative",
+        display: "inline-flex",
+        maxWidth: "100%",
+        alignItems: "stretch",
+      };
+    }
+    const err = c.hasError();
+    const foc = c.focused() || open();
+    const met = c.m();
+    const pal = c.palette();
+    const fs = c.formStyle();
+    const hasRestingOverride =
+      props.restingColor !== undefined || fs?.restingColor !== undefined;
+    const optAtRest =
+      c.isOptional() && !foc && !hasTimeValue() && !err && !hasRestingOverride;
+    const borderColor = err
+      ? "var(--error)"
+      : foc
+        ? mapColorToken(props.focusColor ?? fs?.focusColor) ?? pal.accent
+        : optAtRest
+          ? optionalFieldMutedColor()
+          : pal.restingBorder;
+    const showShadow =
+      props.showFocusShadow === true ||
+      (props.showFocusShadow === undefined && fs?.showFocusShadow === true);
+    const ring =
+      showShadow && foc && !err ? `0 0 5px 0 ${pal.accent}` : "0 0 0 0 rgba(0,0,0,0)";
+    const bwRaw = props.borderWidth ?? fs?.borderWidth ?? 2;
+    const bw = typeof bwRaw === "number" ? `${bwRaw}px` : bwRaw;
+    const roundRaw = props.round ?? fs?.round;
+    const radius =
+      roundRaw !== undefined
+        ? typeof roundRaw === "number"
+          ? `${roundRaw}px`
+          : roundRaw
+        : `var(--inputRound, var(--round, ${met.radius}))`;
+    return {
+      position: "relative",
+      display: "inline-flex",
+      width: useChrome ? "100%" : "auto",
+      maxWidth: "100%",
+      alignItems: "stretch",
+      border: `${bw} solid ${borderColor}`,
+      borderRadius: radius,
+      background: "transparent",
+      boxShadow: ring,
+      transition:
+        "box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms ease",
+      ...formModeShellScopeVars(props.mode ?? c.formStyle()?.mode),
+    };
+  };
+
+  const triggerTokenChrome = props.compact
+    ? "bg-transparent text-3 round-6px b-2 px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0 mob:(text-4 px-6px py-3px) des:(text-3 px-5px py-2.5px)"
+    : "bg-transparent text-2 round-8px b-2 px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)";
+
+  /** `mode="none"`: niente bordo/padding/token tipografia sul trigger (tutto dal `s` sul guscio). */
+  const triggerTokenBare = props.compact
+    ? "bg-transparent round-6px cursor-pointer row children-centery gapx-1px min-w-0 p-0 leading-none"
+    : "bg-transparent round-8px cursor-pointer row children-centery gapx-1px p-0 leading-none";
+
+  const triggerInnerStyle = (): Record<string, string> => {
+    const met = c.m();
+    if (useChrome && !noneMode) {
+      return {
         fontVariantNumeric: "tabular-nums",
         boxSizing: "border-box",
-        display: "inline-flex",
+        display: "flex",
+        flex: "1",
+        minWidth: "0",
+        alignItems: "center",
+        justifyContent: "center",
         touchAction: "manipulation",
-      }}
-      s={{
-        base: {
-          [props.compact
-            ? "bg-transparent text-3 round-6px b-2 px-4px py-2px cursor-pointer row children-centery gapx-1px min-w-0 mob:(text-4 px-6px py-3px) des:(text-3 px-5px py-2.5px)"
-            : "bg-transparent text-2 round-8px b-2 px-8px py-4px cursor-pointer row children-centery gapx-1px mob:(text-4 px-10px py-5px) des:(text-3 px-9px py-4.5px)"]: true,
-          "b-#e3e3e370": () => !open(),
-          "b-primary": open,
-          "opacity-60 pointer-events-none": () => !!props.disabled,
-        },
-      }}
-    >
-      <t>{hour}</t>
-      <t s="opacity-50">:</t>
-      <t>{minute}</t>
+        padding: `${met.padY} ${met.padX}`,
+      };
+    }
+    return {
+      fontVariantNumeric: "tabular-nums",
+      boxSizing: "border-box",
+      display: "inline-flex",
+      touchAction: "manipulation",
+    };
+  };
+
+  const showDigits = hasTimeValue() || open();
+
+  return (
+    <div style={wrapInlineStyle as any} s={props.s as any}>
+      {useChrome && props.placeholder && !noneMode ? (
+        <div style={labelStyle as any}>{props.placeholder}</div>
+      ) : null}
+      <div
+        click={onToggle}
+        style={triggerInnerStyle as any}
+        s={{
+          base: {
+            [triggerTokenBare]: () => noneMode,
+            [triggerTokenChrome]: () => !noneMode,
+            "b-transparent": () => useChrome && !noneMode,
+            "b-#e3e3e370": () =>
+              !noneMode && !open() && (!useChrome || noneMode),
+            "b-primary": () => !noneMode && open(),
+            "opacity-60 pointer-events-none": () => !!props.disabled,
+          },
+        }}
+      >
+        {showDigits ? (
+          <>
+            <t>{hour}</t>
+            <t s="opacity-50">:</t>
+            <t>{minute}</t>
+          </>
+        ) : useChrome && props.placeholder ? (
+          <t s="opacity-0 tabular-nums pointer-events-none">00:00</t>
+        ) : (
+          <>
+            <t>{hour}</t>
+            <t s="opacity-50">:</t>
+            <t>{minute}</t>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 function panelOffsetY(): number {
-  if (typeof window === "undefined") return 6;
-  return window.innerWidth <= 768 ? 16 : 6;
+  return typeof window === "undefined" ? 6 : window.innerWidth <= 768 ? 16 : 6;
 }
 
 function PickerColumn(props: {

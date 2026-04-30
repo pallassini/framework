@@ -6,20 +6,8 @@ import Popmenu from "../../../_components/popmenu";
 export default function Weekdays() {
   return (
     <>
-      <div s="des:(row)">
-        <div s="des:(sticky h-100)">
-          <Menu />
-        </div>
-
-        <div s="col centerx children-centerx w-100% des:(-ml-19) mob:(mb-30)">
-          <div s=" des:(w-80 mt-20 gap-6 col) mob:(col w-100% mt-20 gap-6 px-1) ">
-            <div s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-1 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)">
-              {/* HEADER */}
-
-              <Days />
-            </div>
-          </div>
-        </div>
+      <div s="b-animated(single, #fff, blur-2, power-5, spread-4, dur-15) bg-background b-1 b-#191919 relative w-100% round-round col centerx px-12 py-6 mob:(px-2 py-4)">
+        <Days />
       </div>
     </>
   );
@@ -97,7 +85,8 @@ function Days() {
                           base: {
                             right: true,
                             "opacity-100": () => (hover() && !closed()) || device() === "mob",
-                            "opacity-0 pointer-events-none": () => (!hover() || closed()) && device() !== "mob",
+                            "opacity-0 pointer-events-none": () =>
+                              (!hover() || closed()) && device() !== "mob",
                           },
                         }}
                       >
@@ -280,7 +269,7 @@ function Openings(p: {
   );
 }
 
-function minTime(a: string, b?: string): string { 
+function minTime(a: string, b?: string): string {
   if (!b) return a;
   return toMinutes(a) <= toMinutes(b) ? a : b;
 }

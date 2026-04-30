@@ -10,6 +10,8 @@ import type { InlineStyleValue } from "../../../core/client/runtime/tag/props/st
 import { resolveFieldBinding, type FieldBinding, type FormStyle } from "../../../core/client/form/form";
 import type { FieldTypeDesc } from "../../../core/client/validator/field-meta";
 import InputSelect, { type InputSelectOption, type InputSelectProps } from "./inputSelect";
+import { DatePicker } from "../date-picker";
+import { TimePicker } from "../time-picker";
 
 export type { InputSelectOption, InputSelectPanelDirection } from "./inputSelect";
 
@@ -19,8 +21,9 @@ export type { InputMode } from "./presets";
  * Tipi supportati dal componente `Input` generico.
  * Ogni tipo ha la sua UI dedicata in un file separato (`inputString.tsx`, `inputNumber.tsx`, …).
  * Il tipo di default è `"string"`.
+ * `date` / `time` si inferiscono da `v.date()` / `v.time()` sul `field`.
  */
-export type InputType = "string" | "number" | "password" | "select";
+export type InputType = "string" | "number" | "password" | "select" | "date" | "time";
 
 /**
  * `size` numerico da 1 a 10 (coerente col resto del framework: `text-N`, `p-N`, `round-Npx`).
@@ -112,6 +115,31 @@ export type InputPropsBase = {
   focusout?: FwInputProps["focusout"];
 };
 
+/** Props `<Input type="date" />` (o `field` con `v.date()`). */
+export type InputDateProps = InputPropsBase & {
+  field?: FieldBinding;
+  error?: string | undefined | (() => string | undefined);
+  value?: string | (() => string | undefined);
+  input?: (value: string) => void;
+  change?: (value: string) => void;
+  blur?: (value: string) => void;
+  /** `YYYY-MM-DD` o getter reattivo (es. vincolo da altro campo). */
+  min?: string | (() => string | undefined);
+  max?: string | (() => string | undefined);
+};
+
+/** Props `<Input type="time" />` (o `field` con `v.time()`). */
+export type InputTimeProps = InputPropsBase & {
+  field?: FieldBinding;
+  error?: string | undefined | (() => string | undefined);
+  value?: string | (() => string | undefined);
+  onChange?: (value: string) => Promise<unknown> | unknown;
+  min?: string | (() => string | undefined);
+  max?: string | (() => string | undefined);
+  compact?: boolean;
+  panelId?: string;
+};
+
 /**
  * Unione discriminata: in base a `type`, TypeScript sa quali prop extra sono ammesse
  * (es. `min` e `max` sono disponibili solo quando `type="number"`).
@@ -120,7 +148,9 @@ export type InputProps =
   | ({ type?: "string" } & InputStringProps)
   | ({ type: "password" } & InputStringProps)
   | ({ type: "number" } & InputNumberProps)
-  | ({ type: "select" } & InputSelectProps);
+  | ({ type: "select" } & InputSelectProps)
+  | ({ type?: "date" } & InputDateProps)
+  | ({ type?: "time" } & InputTimeProps);
 
 function inferTypeFromField(field: FieldBinding | undefined): InputType | undefined {
   if (!field) return undefined;
@@ -130,10 +160,17 @@ function inferTypeFromField(field: FieldBinding | undefined): InputType | undefi
     if (meta?.kind === "password") return "password";
     if (meta?.kind === "string") return "string";
     if (meta?.kind === "enum" || meta?.kind === "fk" || meta?.kind === "select") return "select";
+    if (meta?.kind === "date") return "date";
+    if (meta?.kind === "time") return "time";
   } catch {
     // In fallback manteniamo il default storico.
   }
   return undefined;
+}
+
+function stripInputType(p: InputProps): Record<string, unknown> {
+  const { type: _t, ...rest } = p as InputProps & { type?: unknown };
+  return rest;
 }
 
 function selectOptionsFromFieldMeta(field: FieldBinding | undefined): readonly InputSelectOption[] {
@@ -217,6 +254,12 @@ export default function Input(props: InputProps) {
       </case>
       <case when="select">
         <InputSelect {...(selectMerged as InputSelectProps)} />
+      </case>
+      <case when="date">
+        <DatePicker {...(stripInputType(merged) as InputDateProps)} />
+      </case>
+      <case when="time">
+        <TimePicker {...(stripInputType(merged) as InputTimeProps)} />
       </case>
     </switch>
   );

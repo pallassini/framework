@@ -18,6 +18,7 @@ export const openingHours = table({
 // ───────────────────────────────────────────────────────────────────────────────
 export const closures = table({
   resourceId: v.fk("resources").optional(),
+  note: v.string().optional(),
   itemId: v.fk("items").optional(),
   startAt: v.datetime(),
   endAt: v.datetime(),
