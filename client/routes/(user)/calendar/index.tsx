@@ -54,7 +54,7 @@ function Days() {
                 hover={hover}
                 s={{
                   base: {
-                    "relative w-100% minh-25 round-round mb-3 text-background shadow(primary, blur-18, spread--6, x-0, y-10, opacity-0.72)  bg-gradient(0deg, var(--primary) 0%, var(--primary)20%, transparent 70%) px-1px pb-2px": true,
+                    "relative w-100% h-25 overflow-hidden  round-round mb-3 text-background shadow(primary, blur-18, spread--6, x-0, y-10, opacity-0.72)  bg-gradient(0deg, var(--primary) 0%, var(--primary)20%, transparent 70%) px-1px pb-2px": true,
                     "shadow(error, blur-18, spread--6, x-0, y-10, opacity-0.72) bg-gradient(0deg, var(--error) 0%, transparent 70%)":
                       closed,
                   },
@@ -63,7 +63,7 @@ function Days() {
                 <div
                   s={{
                     base: {
-                      "relative w-100% minh-25 round-round   text-background bg-background": true,
+                      "relative w-100% h-24.8 round-round   text-background bg-background": true,
                       "": closed,
                     },
                   }}
@@ -79,7 +79,7 @@ function Days() {
                     />
                   </div>
 
-                  <div s="relative col p-4">
+                  <div s="relative col p-4 mob:(p-2)">
                     <div s="row">
                       <t s="text-5 font-6 text-#fff">{d.label}</t>
                       {/* MENU */}
@@ -140,7 +140,7 @@ function Openings({ day }: { day: string }) {
 
   return (
     <>
-      <div s="mt-6 gap-3 col centerx children-centerx">
+      <div s="mt-6 gap-3 col overflow-hidden scrolly h-20 pb-7">
           <For each={rows}>
             {(o, i) =>
               (() => {
@@ -148,7 +148,7 @@ function Openings({ day }: { day: string }) {
                 const prev = i > 0 ? list[i - 1] : undefined;
                 const next = i < list.length - 1 ? list[i + 1] : undefined;
                 return (
-                  <div s="row gap-1 text-6 center text-#fff children-center b-2 b-#e3e3e370  round-10px">
+                  <div s="row gap-1 text-6 centerx text-#fff children-center b-2 b-#e3e3e370  round-10px">
                   <TimePicker
                     value={o.startTime}
                     min={prev ? toHM(prev.endTime) : undefined}
