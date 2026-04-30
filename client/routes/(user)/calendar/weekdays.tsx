@@ -1,4 +1,4 @@
-import { For, server, state, watch } from "client";
+import { device, For, server, state, watch } from "client";
 import Menu from "../../_components/menu";
 import { TimePicker } from "../../../_components/time-picker";
 import Popmenu from "../../../_components/popmenu";
@@ -96,8 +96,8 @@ function Days() {
                         s={{
                           base: {
                             right: true,
-                            "opacity-100": () => hover() && !closed(),
-                            "opacity-0 pointer-events-none": () => !hover() || closed(),
+                            "opacity-100": () => (hover() && !closed()) || device() === "mob",
+                            "opacity-0 pointer-events-none": () => (!hover() || closed()) && device() !== "mob",
                           },
                         }}
                       >
@@ -330,7 +330,7 @@ function DayMenu(p: {
     <>
       <Popmenu
         mode="light"
-        direction="bottom"
+        direction="bottom-left"
         collapsedS="p-1"
         closePulse={() => closePulse()}
         collapsed={() => <icon name="dotsVertical" size="6" stroke="3" s="p-0" />}
@@ -363,7 +363,7 @@ function DayMenu(p: {
               }}
             >
               <icon name="plus" size="5" stroke="3" s="p-0" />
-              <t>Crea fascia oraria</t>
+              <t>Crea fascia </t>
             </div>
             {/* DELETE OPENING */}
             <div
@@ -381,7 +381,7 @@ function DayMenu(p: {
               }}
             >
               <icon name="trash" size="5" stroke="3" s="" />
-              <t>Elimina fascia oraria</t>
+              <t>Elimina fascia</t>
             </div>
           </div>
         )}
