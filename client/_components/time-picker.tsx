@@ -27,9 +27,16 @@ export function TimePicker(
     panelId?: string;
     compact?: boolean;
     size?: InputSize;
+    /**
+     * Con `mode="none"` il guscio è di default `inline-flex` (compatto).
+     * Imposta `true` quando il picker deve riempire tutta la cella (larghezza/altezza stretch).
+     */
+    fillCell?: boolean;
   },
 ) {
   void props.panelId;
+
+  const fillCell = props.fillCell ?? false;
 
   const size = props.size ?? 3;
   const useChrome = !!(props.field || (props.placeholder != null && props.placeholder !== ""));
@@ -292,8 +299,23 @@ export function TimePicker(
     };
   };
 
+  const shellHandlesToggle = noneMode && fillCell;
+
   const wrapInlineStyle = (): Record<string, string> => {
     if (!useChrome || noneMode) {
+      if (noneMode && fillCell) {
+        return {
+          position: "relative",
+          display: "flex",
+          flex: "1 1 0%",
+          minHeight: "0",
+          minWidth: "0",
+          width: "100%",
+          maxWidth: "100%",
+          alignItems: "stretch",
+          cursor: props.disabled ? "not-allowed" : "pointer",
+        };
+      }
       return {
         position: "relative",
         display: "inline-flex",
@@ -353,7 +375,9 @@ export function TimePicker(
 
   /** `mode="none"`: niente bordo/padding/token tipografia sul trigger (tutto dal `s` sul guscio). */
   const triggerTokenBare = props.compact
-    ? "bg-transparent round-6px cursor-pointer row children-centery gapx-1px min-w-0 p-0 leading-none"
+    ? fillCell
+      ? "bg-transparent round-6px cursor-pointer row children-center gapx-1px min-w-0 p-0 leading-none"
+      : "bg-transparent round-6px cursor-pointer row children-centery gapx-1px min-w-0 p-0 leading-none"
     : "bg-transparent round-8px cursor-pointer row children-centery gapx-1px p-0 leading-none";
 
   const triggerInnerStyle = (): Record<string, string> => {
@@ -369,6 +393,20 @@ export function TimePicker(
         justifyContent: "center",
         touchAction: "manipulation",
         padding: `${met.padY} ${met.padX}`,
+      };
+    }
+    if (noneMode && fillCell) {
+      return {
+        fontVariantNumeric: "tabular-nums",
+        boxSizing: "border-box",
+        display: "flex",
+        flex: "1 1 0%",
+        minWidth: "0",
+        minHeight: "0",
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        touchAction: "manipulation",
       };
     }
     return {
@@ -389,13 +427,25 @@ export function TimePicker(
         shellWrapEl = (el as HTMLElement) ?? null;
         syncShellPseudoFocus();
       }}
+      click={shellHandlesToggle ? onToggle : undefined}
+      tabIndex={shellHandlesToggle ? (props.disabled ? -1 : 0) : undefined}
+      keydown={
+        shellHandlesToggle
+          ? (e: KeyboardEvent) => {
+              if (props.disabled) return;
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              onToggle(e);
+            }
+          : undefined
+      }
     >
       {useChrome && props.placeholder && !noneMode ? (
         <div style={labelStyle as any}>{props.placeholder}</div>
       ) : null}
       <div
-        click={onToggle}
-        tabIndex={props.disabled ? -1 : 0}
+        click={shellHandlesToggle ? undefined : onToggle}
+        tabIndex={shellHandlesToggle ? -1 : props.disabled ? -1 : 0}
         style={triggerInnerStyle as any}
         s={{
           base: {
@@ -406,6 +456,7 @@ export function TimePicker(
               !noneMode && !open() && (!useChrome || noneMode),
             "b-primary": () => !noneMode && open(),
             "opacity-60 pointer-events-none": () => !!props.disabled,
+            "pointer-events-none": () => shellHandlesToggle && !props.disabled,
           },
         }}
       >

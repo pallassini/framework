@@ -189,7 +189,8 @@ export function DatePicker(
   /** Larghezza minima in `ch`: a vuoto il trigger non ha testo in flusso → senza questo la label/placeholder esce dal box. */
   const shellMinWidthCh = (): number => {
     const ph = placeholder?.length ?? 0;
-    const dateSlot = 12; // `it-IT` tipo `31/12/2024`
+    /** Desktop: più respiro; mobile: campo più stretto (il testo viene dal token `text-*` sulla shell). */
+    const dateSlot = mob() ? 9 : 12;
     return Math.max(dateSlot, ph + 2);
   };
 
@@ -252,10 +253,14 @@ export function DatePicker(
     if (noneMode) {
       return {
         position: "relative",
-        display: "inline-block",
-        width: "100%",
+        display: "block",
+        /** Blocco stretto sulla data così il testo è centrato e non resta vuoto enorme solo a destra (o bilaterale col `width:100%`). */
+        width: "fit-content",
         maxWidth: "100%",
         minWidth: minW,
+        marginInline: "auto",
+        /** In colonne flex (`mob:`) `align-items: stretch` allunga la largh.; così si resta compatti centrati nella cella. */
+        alignSelf: "center",
       };
     }
     const err = c.hasError();

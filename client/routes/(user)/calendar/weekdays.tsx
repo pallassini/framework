@@ -59,9 +59,15 @@ function Days() {
                 <div
                   s={{
                     base: {
-                      "relative w-100% h-24.8 round-round   text-background bg-background": true,
+                      "relative col w-100% h-24.8 min-h-0 overflow-hidden round-round text-background bg-background pb-2": true,
                       "": closed,
                     },
+                  }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    boxSizing: "border-box",
+                    minHeight: 0,
                   }}
                 >
                   <div s=" round-16.5px " show={closed}>
@@ -75,41 +81,60 @@ function Days() {
                     />
                   </div>
 
-                  <div s="relative col p-4 mob:(p-2)">
-                    <div s="row">
-                      <t s="text-5 font-6 text-#fff">{d.label}</t>
-                      {/* MENU */}
-                      <div
-                        s={{
-                          base: {
-                            right: true,
-                            "opacity-100": () =>
-                              !closed() && (hover() || device() === "mob"),
-                            "opacity-0 pointer-events-none": () =>
-                              closed() || (!hover() && device() !== "mob"),
-                          },
-                        }}
-                      >
-                        <DayMenu
+                  <div
+                    s="relative w-100% min-h-0 overflow-hidden pt-3 px-2 mob:(pt-2 px-1.5)"
+                    style={{
+                      flex: "1 1 0%",
+                      minHeight: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <div
+                      s="col min-h-0 min-w-0 w-100%"
+                      style={{
+                        flex: "1 1 0%",
+                        minHeight: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div s="relative row w-100% left items-centery min-h-7 mb-1 shrink-0 pr-10">
+                        <t s="text-4 font-6 text-#fff">{d.label}</t>
+                        <div
+                          s={{
+                            base: {
+                              "absolute top-0 right-0 row children-center": true,
+                              "opacity-100": () =>
+                                !closed() && (hover() || device() === "mob"),
+                              "opacity-0 pointer-events-none": () =>
+                                closed() || (!hover() && device() !== "mob"),
+                            },
+                          }}
+                        >
+                          <DayMenu
+                            day={d.key}
+                            deleteMode={() => isDeleteMode(d.key)}
+                            setDeleteMode={(on) => setDeleteMode(d.key, on)}
+                          />
+                        </div>
+                      </div>
+                      {/* OPENINGS */}
+                      <show when={() => !closed()}>
+                        <Openings
                           day={d.key}
                           deleteMode={() => isDeleteMode(d.key)}
                           setDeleteMode={(on) => setDeleteMode(d.key, on)}
                         />
-                      </div>
-                    </div>
-                    {/* OPENINGS */}
-                    <show when={() => !closed()}>
-                      <Openings
-                        day={d.key}
-                        deleteMode={() => isDeleteMode(d.key)}
-                        setDeleteMode={(on) => setDeleteMode(d.key, on)}
-                      />
-                    </show>
-                    <show when={closed}>
-                      <div
-                        s={{
-                          base: {
-                            "text-5 px-6 py-4 round-30px font-6 centerx row mt-15 des:(w-5.5 h-4.5) mob:(w-5.5 h-4.5) px-1.5 py-1.5 overflow-hidden shrink-0": true,
+                      </show>
+                      <show when={closed}>
+                        <div
+                          s={{
+                            base: {
+                              "text-5 px-6 py-4 round-30px font-6 centerx row mt-10 des:(w-5.5 h-4.5) mob:(w-5.5 h-4.5) px-1.5 py-1.5 overflow-hidden shrink-0": true,
                             "bg-gradient(circle, #b807078a 0%, #b80707c2 50%, #e00303 100%) text-#fff":
                               () => activatingClosedDay() !== d.key,
                             "bg-primary text-background shadow(primary, blur-18, spread--6, x-0, y-8, opacity-0.45)":
@@ -117,52 +142,53 @@ function Days() {
                             "cursor-pointer": () => activatingClosedDay() == null,
                             "pointer-events-none opacity-70": () =>
                               activatingClosedDay() != null && activatingClosedDay() !== d.key,
-                          },
-                          transition:
-                            activatingClosedDay() === d.key
-                              ? {
-                                  property: ["background-color", "box-shadow", "color"],
-                                  duration: TOGGLE_SLIDE_MS,
-                                  ease: "cubic-bezier(0.25, 0.9, 0.35, 1)",
-                                }
-                              : undefined,
-                        }}
-                        click={(e: Event) => {
-                          e.stopPropagation();
-                          if (activatingClosedDay() != null) return;
-                          activatingClosedDay(d.key);
-                        }}
-                      >
-                        <div s="row w-100% h-100% min-h-0">
-                          <div
-                            s={{
-                              base:
-                                "w-1.95 h-100% shrink-0 round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)",
-                              ...(activatingClosedDay() === d.key
+                            },
+                            transition:
+                              activatingClosedDay() === d.key
                                 ? {
-                                    animate: [
-                                      {
-                                        x: [0, "3.52rem"],
-                                        duration: TOGGLE_SLIDE_MS,
-                                        ease: "out",
-                                        fill: "forwards",
-                                        onEnd: () => {
-                                          const dk = d.key;
-                                          if (activatingClosedDay() !== dk) return;
-                                          void (async () => {
-                                            await createFirstOpeningForDay(dk);
-                                            activatingClosedDay(null);
-                                          })();
-                                        },
-                                      },
-                                    ],
+                                    property: ["background-color", "box-shadow", "color"],
+                                    duration: TOGGLE_SLIDE_MS,
+                                    ease: "cubic-bezier(0.25, 0.9, 0.35, 1)",
                                   }
-                                : {}),
-                            }}
-                          />
+                                : undefined,
+                          }}
+                          click={(e: Event) => {
+                            e.stopPropagation();
+                            if (activatingClosedDay() != null) return;
+                            activatingClosedDay(d.key);
+                          }}
+                        >
+                          <div s="row w-100% h-100% min-h-0">
+                            <div
+                              s={{
+                                base:
+                                  "w-1.95 h-100% shrink-0 round-circle bg-#fff shadow(#000000, blur-20, spread-2, x-4, y-8, opacity-0.92)",
+                                ...(activatingClosedDay() === d.key
+                                  ? {
+                                      animate: [
+                                        {
+                                          x: [0, "3.52rem"],
+                                          duration: TOGGLE_SLIDE_MS,
+                                          ease: "out",
+                                          fill: "forwards",
+                                          onEnd: () => {
+                                            const dk = d.key;
+                                            if (activatingClosedDay() !== dk) return;
+                                            void (async () => {
+                                              await createFirstOpeningForDay(dk);
+                                              activatingClosedDay(null);
+                                            })();
+                                          },
+                                        },
+                                      ],
+                                    }
+                                  : {}),
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </show>
+                      </show>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -242,9 +268,41 @@ function Openings(p: {
     return prev;
   };
 
+  /** Stesso bordo su tutti i lati per entrambe le celle → hover/focus primary anche sul lato tra Inizio e Fine. */
+  const timePickShell =
+    "flex-1 basis-0 min-w-0 min-h-10 self-stretch box-border b-2 b-#2a2a2a py-2 px-2 round-none text-3 font-6 text-#fff row children-center hover:(b-primary) focus:(b-primary)";
+
   return (
-    <>
-      <div s="mt-6 gap-3 col overflow-hidden scrolly h-20 pb-7">
+    <div
+      s="col min-h-0 min-w-0 w-100% des:(w-88% centerx) round-6px mt-3 overflow-hidden b-1 b-#2a2a2a bg-background"
+      style={{
+        flex: "1 1 0%",
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
+      <div s="row w-100% min-w-0 shrink-0 bg-primary children-centerx py-1 bb-1 b-#2a2a2a">
+        <div s="w-50% min-w-0 row children-center py-1 px-2 roundtl-6px">
+          <t s="text-3 font-6 text-background">Inizio</t>
+        </div>
+        <div s="w-50% min-w-0 row children-center py-1 px-2 roundtr-6px">
+          <t s="text-3 font-6 text-background">Fine</t>
+        </div>
+      </div>
+
+      <div
+        s="min-h-0 min-w-0 w-100% scrolly"
+        style={{
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         <For each={rows}>
           {(o, i) =>
             (() => {
@@ -253,6 +311,7 @@ function Openings(p: {
               const next = i < list.length - 1 ? list[i + 1] : undefined;
               const shakeDurationMs = 280 + (i % 5) * 35;
               const shakeDelayMs = (i % 7) * 45;
+              const isLast = i >= list.length - 1;
               return (
                 <div
                   {...{ [CAL_TIME_FRAME_ATTR]: p.day }}
@@ -270,10 +329,9 @@ function Openings(p: {
                   }
                   s={{
                     base: {
-                      "relative row gap-1 text-6 centerx text-#fff children-center b-2 round-10px": true,
-                      "b-#e3e3e370": () => !p.deleteMode(),
-                      "b-error bg-gradient(circle, #4c1010 0%, #2b0b0b 100%)": p.deleteMode,
-                      "cursor-pointer": p.deleteMode,
+                      "row w-100% min-w-0 shrink-0 items-stretch children-centerx min-h-10": true,
+                      "bb-1 b-#2a2a2a": !isLast,
+                      "b-error bg-gradient(circle, #4c1010 0%, #2b0b0b 100%) cursor-pointer": p.deleteMode,
                     },
                   }}
                   click={async (e: Event) => {
@@ -296,6 +354,10 @@ function Openings(p: {
                   }}
                 >
                   <TimePicker
+                    fillCell
+                    mode="none"
+                    compact
+                    size={4}
                     value={o.startTime}
                     disabled={p.deleteMode()}
                     min={prev ? toHM(prev.endTime) : undefined}
@@ -315,9 +377,13 @@ function Openings(p: {
                           .catch(() => {});
                       })();
                     }}
+                    s={timePickShell}
                   />
-                  <icon name="minus" size="3" />
                   <TimePicker
+                    fillCell
+                    mode="none"
+                    compact
+                    size={4}
                     value={o.endTime}
                     disabled={p.deleteMode()}
                     min={o.startTime}
@@ -336,6 +402,7 @@ function Openings(p: {
                           .catch(() => {});
                       })();
                     }}
+                    s={timePickShell}
                   />
                 </div>
               );
@@ -343,7 +410,7 @@ function Openings(p: {
           }
         </For>
       </div>
-    </>
+    </div>
   );
 }
 

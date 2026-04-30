@@ -254,9 +254,25 @@ export default function Closures() {
       .catch(() => {});
   };
 
+  const removeClosureRow = async (rowId: string): Promise<void> => {
+    if (!rowId || String(rowId).startsWith("__local:")) return;
+    const prevSnap = closures();
+    if (!Array.isArray(prevSnap)) return;
+    const prevArr = [...(prevSnap as ClosureRow[])];
+    closures(
+      sortClosureRows(prevArr.filter((r) => String(r.id) !== String(rowId))) as any,
+    );
+    await server.user.closures
+      .remove(
+        { id: String(rowId) },
+        { onError: () => closures(prevSnap as any) },
+      )
+      .catch(() => {});
+  };
+
   return (
     <>
-      <div s="b-4 col b-error round-round des:(w-40) mob:(w-98%) centerx mb-30 children-center bg-background pt-2">
+      <div s="b-4 col b-error round-round des:(w-80) mob:(w-98%) centerx mb-30 children-center bg-background pt-2">
         {/* HEADER */}
         <div s="row w-100% center children-center relative mb-4">
           <t s="text-6 font-6 text-#fff row center">Chiusure</t>
@@ -362,18 +378,26 @@ export default function Closures() {
           <div s="row w-100%">
             <div s="text-5 font-6 text-#fff bg-error w-100% p-4 roundtl-15px">Motivazione</div>
             <div s="text-5 font-6 text-#fff bg-error w-100% p-4">Inizio</div>
-            <div s="text-5 font-6 text-#fff bg-error w-100% p-4 roundtr-15px">Fine</div>
+            <div s="text-5 font-6 text-#fff bg-error w-100% p-4">Fine</div>
+            <div s="shrink-0 bg-error px-3 py-4  roundtr-15px" />
           </div>
 
           <For each={sortedClosuresVisible}>
-            {(c) =>
+            {(c, i) =>
               (() => {
                 const rowId = c.id;
                 const rowSnapshot = (): ClosureRow | undefined =>
                   rowId ? findClosureRow(rowId) : undefined;
 
                 return (
-                  <div s="row w-100%">
+                  <div
+                    s={{
+                      base: {
+                        "row w-100% min-h-0 min-w-0 items-stretch self-stretch": true,
+                        "bb-1 bb-error": () => i < sortedClosuresVisible().length - 1,
+                      },
+                    }}
+                  >
                     {/* NOTE */}
                     <div
                       key={`closure-note:${rowId ?? `${closureInstant(c.startAt).valueOf()}-${closureInstant(c.endAt).valueOf()}`}`}
@@ -394,7 +418,7 @@ export default function Closures() {
                       />
                     </div>
                     {/* START */}
-                    <div s="row gap-2 br-2 bl-2 b-error children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0)">
+                    <div s="row gap-2 br-2 bl-2 b-error children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0) w-100%">
                       <Input
                         mode="none"
                         type="date"
@@ -413,7 +437,7 @@ export default function Closures() {
                           });
                         }}
                         blur={() => rowId && void commitClosureRow(rowId)}
-                        s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-100% min-w-0 px-1 py-1.5 text-3 font-4)"
+                        s="b-2 b-#1d1d1d py-3 px-3 round-10px text-5 font-6 text-#fff hover:(b-error) focus:(b-error) mob:(max-w-full self-center shrink-0 min-w-0 b-1 py-1 px-1 round-6px text-3 font-4)"
                       />
                       <div s="w-100% min-w-0 mob:(row justify-center children-centery)">
                         <Input
@@ -435,12 +459,12 @@ export default function Closures() {
                             });
                             void commitClosureRow(rowId);
                           }}
-                          s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 px-2 py-1.5 text-3 font-4 row center)"
+                          s="b-2 b-#1d1d1d py-2 px-4 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 py-1.5 px-3 text-3 font-4 row center)"
                         />
                       </div>
                     </div>
                     {/* END */}
-                    <div s="row gap-2 children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0)">
+                    <div s="row gap-2 children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0) w-100%">
                       <Input
                         mode="none"
                         type="date"
@@ -457,7 +481,7 @@ export default function Closures() {
                           });
                         }}
                         blur={() => rowId && void commitClosureRow(rowId)}
-                        s="b-2 b-#1d1d1d hover:(b-error) focus:(b-error) p-2 round-8px text-4 font-5 text-#fff mob:(w-100% min-w-0 px-1 py-1.5 text-3 font-4)"
+                        s="b-2 b-#1d1d1d hover:(b-error) focus:(b-error) py-3 px-3 round-10px text-5 font-6 text-#fff mob:(max-w-full self-center shrink-0 min-w-0 b-1 py-1 px-1 round-6px text-3 font-4)"
                       />
                       <div s="w-100% min-w-0 mob:(row justify-center children-centery)">
                         <Input
@@ -479,9 +503,12 @@ export default function Closures() {
                             });
                             void commitClosureRow(rowId);
                           }}
-                          s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 px-2 py-1.5 text-3 font-4 row center)"
+                          s="b-2 b-#1d1d1d py-2 px-4 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 py-1.5 px-3 text-3 font-4 row center)"
                         />
                       </div>
+                    </div>
+                    <div s=" bl-1 bl-#ffffff30 row center children-center px-2 py-5 mob:(px-1 py-8)">
+                      <ClosureDeletePopmenu rowId={rowId} onRemove={removeClosureRow} />
                     </div>
                   </div>
                 );
@@ -491,5 +518,55 @@ export default function Closures() {
         </div>
       </div>
     </>
+  );
+}
+
+function ClosureDeletePopmenu(p: {
+  rowId?: string;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const closePulse = state(false);
+
+  const ready = (): boolean =>
+    !!(p.rowId && !String(p.rowId).startsWith("__local:"));
+
+  return (
+    <Popmenu
+      mode="light"
+      direction="bottom-left"
+      collapsedS={false}
+      closePulse={() => closePulse()}
+      collapsed={() => (
+        <div
+          s={{
+            base: {
+              "bg-error row center children-center p-2 round-10px": true,
+              "opacity-35 pointer-events-none": () => !ready(),
+            },
+          }}
+        >
+          <icon name="trash" size="6" stroke={3} s="text-#fff p-0" />
+        </div>
+      )}
+      extended={() =>
+        ready() ? (
+          <div
+            s="bg-error px-5 py-2.5 row center cursor-pointer round-10px"
+            click={() => {
+              const id = p.rowId!;
+              closePulse(true);
+              setTimeout(() => closePulse(false), 50);
+              void p.onRemove(id);
+            }}
+          >
+            <t s="text-4 font-6 text-#fff">Delete</t>
+          </div>
+        ) : (
+          <div s="bg-error px-5 py-2.5 round-10px">
+            <t s="text-4 font-6 text-#fff opacity-50 pointer-events-none">Delete</t>
+          </div>
+        )
+      }
+    />
   );
 }
