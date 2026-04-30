@@ -1,4 +1,4 @@
-import { For, state, watch } from "client";
+import { For, mob, state, watch } from "client";
 import type { FieldBinding } from "../../core/client/form/form";
 import type { InputPropsBase } from "./input/index";
 import { useInputCommon } from "./input/common";
@@ -390,17 +390,19 @@ export function DatePicker(
     panelRoot.style.left = `${r.left + r.width / 2}px`;
   };
 
-  const panelShellStyle = (top: number, left: number): string =>
-    [
+  const panelShellStyle = (top: number, left: number): string => {
+    const minW = mob() ? "min(89vw,264px)" : "min(92vw,280px)";
+    return [
       "position:fixed",
       `top:${top}px`,
       `left:${left}px`,
       "transform:translateX(-50%)",
       "z-index:calc(var(--fw-z-popmenu-portal, 2147483646) + 2)",
-      "min-width:min(92vw,280px)",
+      `min-width:${minW}`,
       "box-shadow:0 10px 30px rgba(0,0,0,0.55)",
       "transition:none",
     ].join(";");
+  };
 
   const buildPanel = (): void => {
     const anchor = anchorForPanel();
@@ -423,7 +425,7 @@ export function DatePicker(
     const shell = (
       <div
         s={{
-          base: "col bg-background b-1px b-#2a2a2a round-12px overflow-hidden p-2 gap-2 mob:(scale-115)",
+          base: "col bg-background b-1px b-#2a2a2a round-12px overflow-hidden p-2 gap-2 mob:(origin-top scale-92 p-2 gap-2)",
         }}
       >
         <div
@@ -489,7 +491,7 @@ export function DatePicker(
                   }}
                   s={{
                     base: {
-                      "text-2 font-6 py-2 round-8px": true,
+                      "text-2 font-6 py-2 round-8px mob:(py-1)": true,
                       "text-#8a8a8a pointer-events-none": () => !inMonth,
                       "cursor-pointer hover:(bg-#2a2a2a)": () => selectable,
                       "opacity-28 pointer-events-none": () => inMonth && !boundsOk,

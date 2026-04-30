@@ -413,6 +413,8 @@ export default function Popmenu(props: PopmenuProps) {
   /** Root del Popmenu: aperto → spostata in `#fw-popmenu-portal` + `position:fixed` ancorata al placeholder. */
   let wrapEl: HTMLDivElement | null = null;
   let layoutPlaceholder: HTMLDivElement | null = null;
+  /** Cleanup listener `visualViewport` (viewport mobile Safari/Chrome vs layout). */
+  let detachVisualViewportPin: (() => void) | undefined;
   /**
    * `true` mentre il wrap è fisicamente nel portal (anche durante la transizione di chiusura).
    * Serve per decidere `position: fixed` vs `relative` nel `wrapStyle`: commutare durante la chiusura
@@ -435,7 +437,25 @@ export default function Popmenu(props: PopmenuProps) {
     syncWrapPin();
   };
 
+  /**
+   * Barra UI che ridimensiona il “visual viewport” su mobile: senza questo il `fixed` agganciato
+   * col pin del placeholder resta sfasato verticalmente vs il trigger (extended “troppo in alto”).
+   */
+  function attachVisualViewportPin(onPin: () => void): (() => void) | undefined {
+    if (typeof window === "undefined" || window.visualViewport == null) return undefined;
+    const vv = window.visualViewport;
+    onPin();
+    vv.addEventListener("resize", onPin);
+    vv.addEventListener("scroll", onPin);
+    return () => {
+      vv.removeEventListener("resize", onPin);
+      vv.removeEventListener("scroll", onPin);
+    };
+  }
+
   const teardownPortal = () => {
+    detachVisualViewportPin?.();
+    detachVisualViewportPin = undefined;
     window.removeEventListener("scroll", onScrollOrResizePin, true);
     window.removeEventListener("resize", onScrollOrResizePin);
     const wrap = wrapEl;
@@ -596,6 +616,10 @@ export default function Popmenu(props: PopmenuProps) {
 
       let disposerSize: (() => void) | null = null;
       watch.onCleanup(() => {
+        detachVisualViewportPin?.();
+        detachVisualViewportPin = undefined;
+        window.removeEventListener("scroll", onScrollOrResizePin, true);
+        window.removeEventListener("resize", onScrollOrResizePin);
         disposerSize?.();
         disposerSize = null;
         /**
@@ -640,8 +664,13 @@ export default function Popmenu(props: PopmenuProps) {
         syncWrapPin();
       });
 
+      detachVisualViewportPin?.();
+      detachVisualViewportPin = attachVisualViewportPin(syncWrapPin);
+
       window.addEventListener("scroll", onScrollOrResizePin, true);
       window.addEventListener("resize", onScrollOrResizePin);
+      syncWrapPin();
+      requestAnimationFrame(syncWrapPin);
     },
     { watch: [() => open()] },
   );

@@ -256,7 +256,7 @@ export default function Closures() {
 
   return (
     <>
-      <div s="b-4 col b-error round-round des:(w-40) mob:(w-90%) centerx mb-30 children-center bg-background pt-2">
+      <div s="b-4 col b-error round-round des:(w-40) mob:(w-98%) centerx mb-30 children-center bg-background pt-2">
         {/* HEADER */}
         <div s="row w-100% center children-center relative mb-4">
           <t s="text-6 font-6 text-#fff row center">Chiusure</t>
@@ -377,7 +377,7 @@ export default function Closures() {
                     {/* NOTE */}
                     <div
                       key={`closure-note:${rowId ?? `${closureInstant(c.startAt).valueOf()}-${closureInstant(c.endAt).valueOf()}`}`}
-                      s=" w-100% px-2 py-4"
+                      s="w-100% px-2 py-4 mob:(flex-1 min-w-0 px-1 py-2)"
                     >
                       <Input
                         mode="none"
@@ -390,11 +390,11 @@ export default function Closures() {
                           patchClosure(rowId, { note: txt });
                           void commitClosureRow(rowId, rb);
                         }}
-                        s="w-100% h-100% text-5 row center b-2 b-#1d1d1d p-2 round-8px"
+                        s="w-100% h-100% text-5 row center b-2 b-#1d1d1d p-2 round-8px mob:(text-3 font-5 p-1.5 row center)"
                       />
                     </div>
                     {/* START */}
-                    <div s="row gap-2 br-2 bl-2 b-error children-center p-4">
+                    <div s="row gap-2 br-2 bl-2 b-error children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0)">
                       <Input
                         mode="none"
                         type="date"
@@ -413,32 +413,34 @@ export default function Closures() {
                           });
                         }}
                         blur={() => rowId && void commitClosureRow(rowId)}
-                        s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error)"
+                        s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-100% min-w-0 px-1 py-1.5 text-3 font-4)"
                       />
-                      <Input
-                        mode="none"
-                        type="time"
-                        value={() =>
-                          closureSplitInstant(rowSnapshot()?.startAt ?? c.startAt).time
-                        }
-                        max={() => rowStartTimeMax(rowSnapshot() ?? c) ?? undefined}
-                        disabled={!rowId}
-                        onChange={(iso) => {
-                          if (!rowId) return;
-                          const r = rowSnapshot() ?? c;
-                          patchClosure(rowId, {
-                            startAt: localDateTime(
-                              closureSplitInstant(r.startAt).date,
-                              iso ?? "",
-                            ),
-                          });
-                          void commitClosureRow(rowId);
-                        }}
-                        s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error)"
-                      />
+                      <div s="w-100% min-w-0 mob:(row justify-center children-centery)">
+                        <Input
+                          mode="none"
+                          type="time"
+                          value={() =>
+                            closureSplitInstant(rowSnapshot()?.startAt ?? c.startAt).time
+                          }
+                          max={() => rowStartTimeMax(rowSnapshot() ?? c) ?? undefined}
+                          disabled={!rowId}
+                          onChange={(iso) => {
+                            if (!rowId) return;
+                            const r = rowSnapshot() ?? c;
+                            patchClosure(rowId, {
+                              startAt: localDateTime(
+                                closureSplitInstant(r.startAt).date,
+                                iso ?? "",
+                              ),
+                            });
+                            void commitClosureRow(rowId);
+                          }}
+                          s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 px-2 py-1.5 text-3 font-4 row center)"
+                        />
+                      </div>
                     </div>
                     {/* END */}
-                    <div s="row gap-2 children-center p-4">
+                    <div s="row gap-2 children-center p-4 mob:(col shrink-0 p-1.5 gap-1 w-auto min-w-0)">
                       <Input
                         mode="none"
                         type="date"
@@ -455,29 +457,31 @@ export default function Closures() {
                           });
                         }}
                         blur={() => rowId && void commitClosureRow(rowId)}
-                        s="b-2 b-#1d1d1d hover:(b-error) focus:(b-error) p-2 round-8px text-4 font-5 text-#fff"
+                        s="b-2 b-#1d1d1d hover:(b-error) focus:(b-error) p-2 round-8px text-4 font-5 text-#fff mob:(w-100% min-w-0 px-1 py-1.5 text-3 font-4)"
                       />
-                      <Input
-                        mode="none"
-                        type="time"
-                        value={() =>
-                          closureSplitInstant(rowSnapshot()?.endAt ?? c.endAt).time
-                        }
-                        min={() => rowEndTimeMinForRow(rowSnapshot() ?? c) ?? undefined}
-                        disabled={!rowId}
-                        onChange={(iso) => {
-                          if (!rowId) return;
-                          const r = rowSnapshot() ?? c;
-                          patchClosure(rowId, {
-                            endAt: localDateTime(
-                              closureSplitInstant(r.endAt).date,
-                              iso ?? "",
-                            ),
-                          });
-                          void commitClosureRow(rowId);
-                        }}
-                        s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error)"
-                      />
+                      <div s="w-100% min-w-0 mob:(row justify-center children-centery)">
+                        <Input
+                          mode="none"
+                          type="time"
+                          value={() =>
+                            closureSplitInstant(rowSnapshot()?.endAt ?? c.endAt).time
+                          }
+                          min={() => rowEndTimeMinForRow(rowSnapshot() ?? c) ?? undefined}
+                          disabled={!rowId}
+                          onChange={(iso) => {
+                            if (!rowId) return;
+                            const r = rowSnapshot() ?? c;
+                            patchClosure(rowId, {
+                              endAt: localDateTime(
+                                closureSplitInstant(r.endAt).date,
+                                iso ?? "",
+                              ),
+                            });
+                            void commitClosureRow(rowId);
+                          }}
+                          s="b-2 b-#1d1d1d p-2 round-8px text-4 font-5 text-#fff hover:(b-error) focus:(b-error) mob:(w-auto min-w-0 px-2 py-1.5 text-3 font-4 row center)"
+                        />
+                      </div>
                     </div>
                   </div>
                 );

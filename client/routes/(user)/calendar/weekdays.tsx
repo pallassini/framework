@@ -83,9 +83,10 @@ function Days() {
                         s={{
                           base: {
                             right: true,
-                            "opacity-100": () => (hover() && !closed()) || device() === "mob",
+                            "opacity-100": () =>
+                              !closed() && (hover() || device() === "mob"),
                             "opacity-0 pointer-events-none": () =>
-                              (!hover() || closed()) && device() !== "mob",
+                              closed() || (!hover() && device() !== "mob"),
                           },
                         }}
                       >
