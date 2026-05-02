@@ -376,7 +376,7 @@ export function TimePicker(
   /** `mode="none"`: niente bordo/padding/token tipografia sul trigger (tutto dal `s` sul guscio). */
   const triggerTokenBare = props.compact
     ? fillCell
-      ? "bg-transparent round-6px cursor-pointer row children-center gapx-1px min-w-0 p-0 leading-none"
+      ? "bg-transparent round-6px cursor-pointer row children-center gapx-0 min-w-0 p-0 leading-none"
       : "bg-transparent round-6px cursor-pointer row children-centery gapx-1px min-w-0 p-0 leading-none"
     : "bg-transparent round-8px cursor-pointer row children-centery gapx-1px p-0 leading-none";
 

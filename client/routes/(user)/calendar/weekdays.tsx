@@ -268,17 +268,37 @@ function Openings(p: {
     return prev;
   };
 
-  /** Hover/focus primary; ultima riga: angoli bassi stondate (bl / br). */
+  const removeOpeningById = async (e: Event, id: string): Promise<void> => {
+    e.stopPropagation();
+    const key = String(id);
+    const prevData = opening();
+    if (Array.isArray(prevData)) {
+      opening(prevData.filter((r) => r != null && String(r?.id) !== key) as any);
+    }
+    await server.user.opening
+      .remove(
+        { id: key },
+        {
+          onError: () => Array.isArray(prevData) && opening(prevData as any),
+        },
+      )
+      .catch(() => {});
+    const remaining = rows().filter((r) => String(r.id) !== key);
+    if (remaining.length === 0) p.setDeleteMode(false);
+  };
+
+  /** Hover/focus primary; padding orizzontale ridotto sul guscio (l’altezza resta comoda). */
   const timePickShellBase =
-    "flex-1 basis-0 min-w-0 min-h-10 self-stretch box-border b-2 b-#2a2a2a py-2 px-2 text-3 font-6 text-#fff row children-center hover:(b-primary) focus:(b-primary)";
-  const timePickShell = (last: boolean, side: "start" | "end"): string =>
-    last
-      ? `${timePickShellBase} ${side === "start" ? "roundbl-6px" : "roundbr-6px"}`
-      : `${timePickShellBase} round-none`;
+    "flex-1 basis-0 min-w-0 min-h-10 self-stretch box-border b-2 b-#2a2a2a py-2 px-0 font-6 text-#fff row children-center hover:(b-primary) focus:(b-primary) text-3 des:(text-2)";
+  const timePickShell = (last: boolean, side: "start" | "end"): string => {
+    if (!last) return `${timePickShellBase} round-none`;
+    if (side === "start") return `${timePickShellBase} roundbl-6px`;
+    return `${timePickShellBase} roundbr-6px`;
+  };
 
   return (
     <div
-      s="col min-h-0 min-w-0 w-100% des:(w-88% centerx) mt-3 bg-background round-6px overflow-hidden"
+      s="col min-h-0 min-w-0 w-100% mt-3 centerx children-centerx"
       style={{
         flex: "1 1 0%",
         minHeight: 0,
@@ -288,132 +308,179 @@ function Openings(p: {
         boxSizing: "border-box",
       }}
     >
-      <div s="row w-100% min-w-0 shrink-0 bg-primary children-centerx py-1 bb-1 b-#2a2a2a roundt-6px overflow-hidden">
-        <div s="w-50% min-w-0 row children-center py-1 px-2 ">
-          <t s="text-3 font-6 text-background">Inizio</t>
-        </div>
-        <div s="w-50% min-w-0 row children-center py-1 px-2">
-          <t s="text-3 font-6 text-background">Fine</t>
-        </div>
-      </div>
+      <div s="row flex-1 min-h-0 w-100% min-w-0 items-stretch mob:(gap-2) des:(gap-2 self-center w-fit max-w-full) centerx children-centerx">
+        <div
+          s="w-100% des:(w-66% shrink-0) flex col bg-background overflow-hidden round-6px self-stretch"
+          style={{
+            minHeight: 0,
+            minWidth: 0,
+            overflow: "hidden",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            s={{
+              base: {
+                "row w-100% min-w-0 shrink-0 children-centerx py-1 des:(py-0.75) bb-1 b-#2a2a2a roundt-6px overflow-hidden": true,
+                "bg-primary": () => !p.deleteMode(),
+                "bg-error": () => p.deleteMode(),
+              },
+            }}
+          >
+            <div s="flex-1 min-w-0 w-50% row children-center py-1 px-1 br-1 b-#2a2a2a">
+              <t
+                s={{
+                  base: {
+                    "text-3 des:(text-2) font-6": true,
+                    "text-background": () => !p.deleteMode(),
+                    "text-#fff": () => p.deleteMode(),
+                  },
+                }}
+              >
+                Inizio
+              </t>
+            </div>
+            <div s="flex-1 min-w-0 w-50% row children-center py-1 px-1">
+              <t
+                s={{
+                  base: {
+                    "text-3 des:(text-2) font-6": true,
+                    "text-background": () => !p.deleteMode(),
+                    "text-#fff": () => p.deleteMode(),
+                  },
+                }}
+              >
+                Fine
+              </t>
+            </div>
+          </div>
 
-      <div
-        s="min-h-0 min-w-0 w-100% scrolly"
-        style={{
-          flex: "1 1 0%",
-          minHeight: 0,
-          overflowY: "auto",
-          overscrollBehavior: "contain",
-          WebkitOverflowScrolling: "touch",
-          boxSizing: "border-box",
-        }}
-      >
-        <For each={rows}>
-          {(o, i) =>
-            (() => {
-              const list = rows();
-              const prev = i > 0 ? list[i - 1] : undefined;
-              const next = i < list.length - 1 ? list[i + 1] : undefined;
-              const shakeDurationMs = 280 + (i % 5) * 35;
-              const shakeDelayMs = (i % 7) * 45;
-              const isLast = i >= list.length - 1;
+          <div
+            s="min-h-0 min-w-0 w-100% scrolly flex-1"
+            style={{
+              flex: "1 1 0%",
+              minHeight: 0,
+              overflowY: "auto",
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+              boxSizing: "border-box",
+            }}
+          >
+            <For each={rows}>
+              {(o, i) => {
+                const list = rows();
+                const prev = i > 0 ? list[i - 1] : undefined;
+                const next = i < list.length - 1 ? list[i + 1] : undefined;
+                const isLast = i >= list.length - 1;
+                const deleting = p.deleteMode();
+
+                return (
+                  <div
+                    {...{ [CAL_TIME_FRAME_ATTR]: p.day }}
+                    s={{
+                      base: {
+                        "row w-100% min-w-0 shrink-0 items-stretch children-centerx min-h-10": true,
+                        "bb-1 b-#2a2a2a": !isLast,
+                      },
+                    }}
+                  >
+                    <TimePicker
+                      fillCell
+                      mode="none"
+                      compact
+                      size={device() === "des" ? 3 : 4}
+                      value={o.startTime}
+                      disabled={deleting}
+                      min={prev ? toHM(prev.endTime) : undefined}
+                      max={minTime(o.endTime, next?.startTime)}
+                      onChange={(v) => {
+                        const nextStart = String(v);
+                        if (prev && toMinutes(nextStart) < toMinutes(prev.endTime)) return;
+                        if (next && toMinutes(nextStart) > toMinutes(next.startTime)) return;
+                        if (toMinutes(nextStart) > toMinutes(o.endTime)) return;
+                        void (async () => {
+                          const snap = applyLocal(o.id, { startTime: nextStart });
+                          await server.user.opening
+                            .update(
+                              { id: o.id, startTime: nextStart },
+                              { onError: () => localPatch(snap) },
+                            )
+                            .catch(() => {});
+                        })();
+                      }}
+                      s={() => timePickShell(isLast, "start")}
+                    />
+                    <TimePicker
+                      fillCell
+                      mode="none"
+                      compact
+                      size={device() === "des" ? 3 : 4}
+                      value={o.endTime}
+                      disabled={deleting}
+                      min={o.startTime}
+                      max={next ? next.startTime : undefined}
+                      onChange={(v) => {
+                        const nextEnd = String(v);
+                        if (toMinutes(nextEnd) < toMinutes(o.startTime)) return;
+                        if (next && toMinutes(nextEnd) > toMinutes(next.startTime)) return;
+                        void (async () => {
+                          const snap = applyLocal(o.id, { endTime: nextEnd });
+                          await server.user.opening
+                            .update(
+                              { id: o.id, endTime: nextEnd },
+                              { onError: () => localPatch(snap) },
+                            )
+                            .catch(() => {});
+                        })();
+                      }}
+                      s={() => timePickShell(isLast, "end")}
+                    />
+                  </div>
+                );
+              }}
+            </For>
+          </div>
+        </div>
+
+        <div
+          {...{ [CAL_TIME_FRAME_ATTR]: p.day }}
+          show={() => p.deleteMode()}
+          style={{ minWidth: "2.75rem" }}
+          s="col shrink-0 self-stretch relative z-10"
+        >
+          <div
+            s="shrink-0 w-100% row center items-center min-h-10 mob:(py-1) des:(py-0.75)"
+            aria-hidden
+          />
+          <For each={rows}>
+            {(o, i) => {
+              const isLast = i >= rows().length - 1;
               return (
                 <div
-                  {...{ [CAL_TIME_FRAME_ATTR]: p.day }}
-                  style={
-                    p.deleteMode()
-                      ? {
-                          animationName: "fw-timeframe-wobble",
-                          animationDuration: `${shakeDurationMs}ms`,
-                          animationTimingFunction: "ease-in-out",
-                          animationIterationCount: "infinite",
-                          animationDelay: `-${shakeDelayMs}ms`,
-                          transformOrigin: "50% 50%",
-                        }
-                      : {}
-                  }
                   s={{
                     base: {
-                      "row w-100% min-w-0 shrink-0 items-stretch children-centerx min-h-10": true,
+                      "shrink-0 w-100% min-h-10 row center items-center box-border": true,
                       "bb-1 b-#2a2a2a": !isLast,
-                      "b-error bg-gradient(circle, #4c1010 0%, #2b0b0b 100%) cursor-pointer": p.deleteMode,
                     },
                   }}
-                  click={async (e: Event) => {
-                    if (!p.deleteMode()) return;
-                    e.stopPropagation();
-                    const prevData = opening();
-                    if (Array.isArray(prevData)) {
-                      opening(prevData.filter((r) => r?.id !== o.id) as any);
-                    }
-                    await server.user.opening
-                      .remove(
-                        { id: o.id },
-                        {
-                          onError: () => Array.isArray(prevData) && opening(prevData as any),
-                        },
-                      )
-                      .catch(() => {});
-                    const remaining = rows().filter((r) => r.id !== o.id);
-                    if (remaining.length === 0) p.setDeleteMode(false);
-                  }}
                 >
-                  <TimePicker
-                    fillCell
-                    mode="none"
-                    compact
-                    size={4}
-                    value={o.startTime}
-                    disabled={p.deleteMode()}
-                    min={prev ? toHM(prev.endTime) : undefined}
-                    max={minTime(o.endTime, next?.startTime)}
-                    onChange={(v) => {
-                      const nextStart = String(v);
-                      if (prev && toMinutes(nextStart) < toMinutes(prev.endTime)) return;
-                      if (next && toMinutes(nextStart) > toMinutes(next.startTime)) return;
-                      if (toMinutes(nextStart) > toMinutes(o.endTime)) return;
-                      void (async () => {
-                        const snap = applyLocal(o.id, { startTime: nextStart });
-                        await server.user.opening
-                          .update(
-                            { id: o.id, startTime: nextStart },
-                            { onError: () => localPatch(snap) },
-                          )
-                          .catch(() => {});
-                      })();
+                  <div
+                    s="p-1 bg-error round-6px row center cursor-pointer shrink-0"
+                    click={(e: Event) => {
+                      const id = o.id;
+                      if (id == null) return;
+                      void removeOpeningById(e, String(id));
                     }}
-                    s={() => timePickShell(isLast, "start")}
-                  />
-                  <TimePicker
-                    fillCell
-                    mode="none"
-                    compact
-                    size={4}
-                    value={o.endTime}
-                    disabled={p.deleteMode()}
-                    min={o.startTime}
-                    max={next ? next.startTime : undefined}
-                    onChange={(v) => {
-                      const nextEnd = String(v);
-                      if (toMinutes(nextEnd) < toMinutes(o.startTime)) return;
-                      if (next && toMinutes(nextEnd) > toMinutes(next.startTime)) return;
-                      void (async () => {
-                        const snap = applyLocal(o.id, { endTime: nextEnd });
-                        await server.user.opening
-                          .update(
-                            { id: o.id, endTime: nextEnd },
-                            { onError: () => localPatch(snap) },
-                          )
-                          .catch(() => {});
-                      })();
-                    }}
-                    s={() => timePickShell(isLast, "end")}
-                  />
+                  >
+                    <icon name="trash" size={5} stroke={3} s="text-#fff p-0 shrink-0" />
+                  </div>
                 </div>
               );
-            })()
-          }
-        </For>
+            }}
+          </For>
+        </div>
       </div>
     </div>
   );
@@ -510,7 +577,7 @@ function DayMenu(p: {
                 base: {
                   "row gap-1 center children-center text-4 font-6 round-10px px-4 py-2 cursor-pointer": true,
                   "text-error hover:(bg-#bababa)": () => !p.deleteMode(),
-                  "bg-error text-#fff": p.deleteMode,
+                  "bg-error text-#fff": () => p.deleteMode(),
                 },
               }}
               click={() => {
@@ -527,21 +594,4 @@ function DayMenu(p: {
       />
     </>
   );
-}
-
-const TF_SHAKE_STYLE_ID = "fw-timeframe-shake-style";
-if (typeof document !== "undefined" && !document.getElementById(TF_SHAKE_STYLE_ID)) {
-  const el = document.createElement("style");
-  el.id = TF_SHAKE_STYLE_ID;
-  el.textContent = `
-  @keyframes fw-timeframe-wobble {
-    0% { transform: translate3d(0, 0, 0) rotate(0deg); }
-    20% { transform: translate3d(-1.2px, -0.4px, 0) rotate(-0.9deg); }
-    40% { transform: translate3d(1.3px, 0.3px, 0) rotate(0.8deg); }
-    60% { transform: translate3d(-0.8px, 0.5px, 0) rotate(-0.6deg); }
-    80% { transform: translate3d(1px, -0.2px, 0) rotate(0.7deg); }
-    100% { transform: translate3d(0, 0, 0) rotate(0deg); }
-  }
-  `;
-  document.head.appendChild(el);
 }
