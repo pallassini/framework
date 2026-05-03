@@ -124,6 +124,7 @@ function Categories({ type }: { type: "space" | "person" }) {
 }
 
 function CategoryMenu({ category, type }: { category: any; type: "space" | "person" }) {
+  const hoverDelete = state(false);
   return (
     <Popmenu
       direction="bottom-left"
@@ -145,7 +146,13 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
             </div>
             {/* DELETE RESOURCE */}
             <div
-              s="row gap-1 centery children-centery hover:(bg-error text-background) round-10px p-2"
+              hover={hoverDelete}
+              s={{
+                base: {
+                  "row gap-1 centery children-centery text-error p-2 round-10px": true,
+                  "bg-error text-background": hoverDelete,
+                },
+              }}
               click={() => {
                 categories.update({
                   id: category.id,
@@ -153,8 +160,8 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                 });
               }}
             >
-              <icon name="trash" size={4} stroke={3} s="text-error" />
-              <t s="text-3 font-6 text-error">Elimina Gruppo</t>
+              <icon name="trash" size={4} stroke={3} s="" />
+              <t s="text-3 font-6">Elimina Gruppo</t>
             </div>
           </div>
         </>

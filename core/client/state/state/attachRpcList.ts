@@ -2,10 +2,44 @@ import { RPC_PATH_DOTS } from "../../../desktop/rpc-ref";
 import { rpcInvoke, type RpcCallbacks } from "../../server/server";
 import type { AutoSignal } from "./signal";
 
+/** Elemento lista se `T` è `readonly E[]` / `E[]` (eventuale `| undefined` sul valore signal). */
+export type RpcListElement<T> = NonNullable<T> extends ReadonlyArray<infer E> ? E : never;
+
+/** Argomento `create`: sottoinsieme della riga senza `id` (insert RPC). */
+export type RpcListCreateInput<T> = [RpcListElement<T>] extends [never]
+	? Record<string, unknown>
+	: Partial<Omit<RpcListElement<T>, "id">>;
+
+/** Valore PATCH: `Date` ammette anche stringa ISO come in JSON. */
+export type RpcListWireField<V> = V extends Date
+	? V | string
+	: V extends Date | null
+		? V | string
+		: V extends Date | undefined
+			? V | string
+			: V extends Date | null | undefined
+				? V | string
+				: V;
+
+/** Argomento `update`: campi della riga + `id`; chiavi sconosciute → errore su object literal. */
+export type RpcListUpdateInput<T> = [RpcListElement<T>] extends [never]
+	? Readonly<{ id: string } & Record<string, unknown>>
+	: Partial<{
+			[K in keyof RpcListElement<T>]: RpcListWireField<RpcListElement<T>[K]>;
+		}> & {
+			id: RpcListElement<T> extends { id: infer I } ? I : string;
+		};
+
+export type RpcListId<T> = [RpcListElement<T>] extends [never]
+	? string
+	: RpcListElement<T> extends { id: infer I }
+		? I
+		: string;
+
 export type RpcListBound<T> = AutoSignal<T> & {
-	create(input: Record<string, unknown>, opts?: RpcCallbacks<unknown>): void;
-	update(patch: Record<string, unknown> & { id: string }, opts?: RpcCallbacks<unknown>): void;
-	remove(inp: string | { id: string }, opts?: RpcCallbacks<unknown>): void;
+	create(input: RpcListCreateInput<T>, opts?: RpcCallbacks<unknown>): void;
+	update(patch: RpcListUpdateInput<T>, opts?: RpcCallbacks<unknown>): void;
+	remove(inp: RpcListId<T> | { id: RpcListId<T> }, opts?: RpcCallbacks<unknown>): void;
 	refetch(): void;
 };
 
