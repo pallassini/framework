@@ -46,7 +46,7 @@ type RouteOpts = {
 /**
  * Shorthand CRUD: `auto: "tabella.operazione"` con `operazione` ∈ create | update | delete | remove | get.
  * Imposta `input` e `run` in automatico (scope `userId` se la tabella ha `userId` e l’auth non è solo `"admin"`).
- * Per `*.get`: input opzionale `{ where?: Record }` unito al vincolo tenant (`userId` non sovrascrivibile).
+ * Per `*.get`: payload `{ where?: … }` e/o campi di filtro sul root (uniti), sempre col vincolo tenant (`userId` non sovrascrivibile).
  */
 export type RouteInputConfig<I, O> = RouteOpts & {
 	input: InputSchema<I>;
@@ -67,7 +67,7 @@ export type RouteAutoConfig<S extends RouteAutoSpec = RouteAutoSpec> = RouteOpts
 };
 
 export type RouteAutoInput<S extends RouteAutoSpec> = RouteAutoOpFromSpec<S> extends "get"
-	? { where?: Record<string, unknown> } | undefined
+	? Record<string, unknown> | undefined
 	: RouteAutoOpFromSpec<S> extends "delete" | "remove"
 		? { id: string }
 		: RouteAutoOpFromSpec<S> extends "create"

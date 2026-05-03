@@ -13,7 +13,7 @@ const resourceShared = {
 export const resources = table({
   name: v.string(),
   ...resourceShared,
-  groupId: v.fk("resourceCategories").optional(),
+  categoryId: v.fk("resourceCategories"),
   userId: "users",
 });
 

@@ -8,8 +8,14 @@ function isScalar(value: unknown): value is DbScalar {
 	return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
+/** `filter === null` include proprietà assente (`undefined`) o `null` sul record (campi opzionali / soft-delete). */
+function eqScalarMatch(rowVal: unknown, filterVal: unknown): boolean {
+	if (filterVal === null) return rowVal == null;
+	return rowVal === filterVal;
+}
+
 function matchOps(value: unknown, ops: WhereOps<unknown>): boolean {
-	if (ops.$eq !== undefined && value !== ops.$eq) return false;
+	if (ops.$eq !== undefined && !eqScalarMatch(value, ops.$eq)) return false;
 	if (ops.$ne !== undefined && value === ops.$ne) return false;
 	if (ops.$in && !ops.$in.includes(value)) return false;
 	if (ops.$nin && ops.$nin.includes(value)) return false;
@@ -54,7 +60,7 @@ export function matchWhere<T extends DbRow>(row: T, where: Where<T> | undefined)
 			if (!matchOps(value, raw as WhereOps<unknown>)) return false;
 			continue;
 		}
-		if (value !== raw) return false;
+		if (!eqScalarMatch(value, raw)) return false;
 	}
 	return true;
 }

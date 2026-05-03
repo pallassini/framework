@@ -39,7 +39,7 @@ function stripUserId<T extends { userId?: string }>(patch: T): Omit<T, "userId">
 	return rest;
 }
 
-/** Input opzionale per `*.get`: filtri extra in `find` (il tenant `userId` non è sovrascrivibile). */
+/** Input opzionale per `*.get`: `where` oppure campi diretti (unione in `find`). */
 const AUTO_GET_INPUT: InputSchema<{ where?: Record<string, unknown> }> = {
 	parse(raw) {
 		if (raw === undefined || raw === null) return {};
@@ -47,11 +47,20 @@ const AUTO_GET_INPUT: InputSchema<{ where?: Record<string, unknown> }> = {
 			throw new ValidationError("expected object");
 		}
 		const o = raw as Record<string, unknown>;
-		if (o.where === undefined) return {};
-		if (typeof o.where !== "object" || o.where === null || Array.isArray(o.where)) {
-			throw new ValidationError("where: expected object");
+		let base: Record<string, unknown> = {};
+		if (o.where !== undefined) {
+			if (typeof o.where !== "object" || o.where === null || Array.isArray(o.where)) {
+				throw new ValidationError("where: expected object");
+			}
+			base = { ...(o.where as Record<string, unknown>) };
 		}
-		return { where: { ...(o.where as Record<string, unknown>) } };
+		const merged: Record<string, unknown> = { ...base };
+		for (const [k, v] of Object.entries(o)) {
+			if (k === "where") continue;
+			if (v !== undefined) merged[k] = v;
+		}
+		if (Object.keys(merged).length === 0) return {};
+		return { where: merged };
 	},
 };
 
