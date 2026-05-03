@@ -122,6 +122,11 @@ const RESERVED_STRING_KEYS = new Set<string>([
 	"catch",
 	"finally",
 	"constructor",
+	/** `state(rpcGet)` attacca metodi sul target; il proxy altrimenti li confonde con chiavi sui dati. */
+	"create",
+	"update",
+	"remove",
+	"refetch",
 ]);
 
 function autoDeriveProxy<T>(sig: Signal<T>): Signal<T> {

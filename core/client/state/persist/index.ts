@@ -31,7 +31,7 @@ function createPersistStateImpl(
 		return createState() as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
-		return createState(shapeOrValue) as Signal<unknown>;
+		return createState(shapeOrValue) as unknown as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue)) {
 		const s = buildStore(shapeOrValue as Record<string, unknown>);
@@ -54,7 +54,7 @@ export function createPersistState(
 		return createState() as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
-		return createState(shapeOrValue) as Signal<unknown>;
+		return createState(shapeOrValue) as unknown as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue as object)) {
 		const shape = shapeOrValue as Record<string, unknown>;
@@ -66,8 +66,10 @@ export function createPersistState(
 		}
 		const fn = ((other?: unknown, o?: PersistStateOptions) =>
 			createPersistStateImpl(other, o)) as CreatePersistStateFn;
-		return withCallableStore(fn, store as Record<string, unknown>) as StateMap<Record<string, unknown>> &
-			CreatePersistStateFn;
+		return withCallableStore(
+			fn as (...args: unknown[]) => unknown,
+			store as Record<string, unknown>,
+		) as StateMap<Record<string, unknown>> & CreatePersistStateFn;
 	}
 	return persistScalar(shapeOrValue, options) as Signal<unknown>;
 }

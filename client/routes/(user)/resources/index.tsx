@@ -68,33 +68,11 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
               s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
               click={() => {
                 closer();
-                const tempId = `__o:${crypto.randomUUID()}`;
-                const c = categories();
-                categories([
-                  ...(Array.isArray(c) ? c : []),
-                  { id: tempId, name: "Nuovo Gruppo", type, capacity: 1 },
-                ] as any);
-                server.user.resourceCategory.create(
-                  { name: "Nuovo Gruppo", type, capacity: 1 },
-                  {
-                    onSuccess: (res) => {
-                      const row = res.rows?.[0];
-                      if (!row) return;
-                      const cur = categories();
-                      const list = Array.isArray(cur) ? [...cur] : [];
-                      categories(
-                        list.map((cat) =>
-                          String(cat.id) === tempId ? { ...cat, ...row } : cat,
-                        ) as any,
-                      );
-                    },
-                    onError: () => categories(c),
-                  },
-                );
+                categories.create({ name: "Nuovo Gruppo", type, capacity: 1 });
               }}
             >
-              <icon name="plus" size={6} stroke={3} s="text-background" />
-              <t s="text-5 font-6">Crea Gruppo</t>
+              <icon name="plus" size={4} stroke={3} s="text-background" />
+              <t s="text-3 font-6">Crea Gruppo</t>
             </div>
           </div>
         </>
@@ -107,7 +85,9 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
 // CATEGORIES
 // ───────────────────────────────────────────────────────────────────────────────
 
-const categories = state(() => server.user.resourceCategory.get({ deletedAt: null }));
+const categories = state(server.user.resourceCategory.get, {
+  getInput: { deletedAt: null },
+});
 function Categories({ type }: { type: "space" | "person" }) {
   return (
     <>
@@ -126,7 +106,7 @@ function Categories({ type }: { type: "space" | "person" }) {
                     defaultValue={r.name}
                     blur={(value: string) => {
                       if (!value) return;
-                      server.user.resourceCategory.update({ id: r.id, name: value });
+                      categories.update({ id: r.id, name: value });
                     }}
                   />
                   <div s={() => (hover() || device() == "mob" ? "opacity-100 right" : "opacity-0")}>
@@ -156,51 +136,25 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
             <div
               s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
               click={() => {
-                const tempId = `__o:${crypto.randomUUID()}`;
                 const name = "Nuovo " + (type === "space" ? "Spazio" : "Persona");
-                const prevRes = resources();
-                resources([
-                  ...(Array.isArray(prevRes) ? prevRes : ([] as any)),
-                  { id: tempId, name, type, categoryId: category.id },
-                ] as any);
-                server.user.resource.create(
-                  { name, type, categoryId: category.id },
-                  {
-                    onSuccess: (res) => {
-                      const row = res.rows?.[0];
-                      if (!row) return;
-                      const cur = resources();
-                      const list = Array.isArray(cur) ? [...cur] : [];
-                      resources(
-                        list.map((r) =>
-                          String(r.id) === tempId ? { ...r, ...row } : r,
-                        ) as any,
-                      );
-                    },
-                    onError: () => resources(prevRes as any),
-                  },
-                );
+                resources.create({ name, type, categoryId: category.id });
               }}
             >
-              <icon name="plus" size={6} stroke={3} s="text-background" />
-              <t s="text-5 font-6">Crea {type === "space" ? "Spazio" : "Persona"}</t>
+              <icon name="plus" size={4} stroke={3} s="text-background" />
+              <t s="text-3 font-6">Crea {type === "space" ? "Spazio" : "Persona"}</t>
             </div>
             {/* DELETE RESOURCE */}
             <div
-              s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
+              s="row gap-1 centery children-centery hover:(bg-error text-background) round-10px p-2"
               click={() => {
-                const prev = categories();
-                const list = Array.isArray(prev) ? [...prev] : [];
-                categories(list.filter((c) => String(c.id) !== String(category.id)) as any);
-                void server.user.resourceCategory.update(
-                  { id: category.id, deletedAt: new Date().toISOString() },
-                  {
-                    onError: () => categories(prev),
-                  },
-                );
+                categories.update({
+                  id: category.id,
+                  deletedAt: new Date().toISOString(),
+                });
               }}
             >
-              <icon name="trash" size={6} stroke={3} s="text-background" />
+              <icon name="trash" size={4} stroke={3} s="text-error" />
+              <t s="text-3 font-6 text-error">Elimina Gruppo</t>
             </div>
           </div>
         </>
@@ -229,7 +183,7 @@ function Resources({ category }: { category: any }) {
                     defaultValue={r.name}
                     blur={(value: string) => {
                       if (!value) return;
-                      server.user.resource.update({ id: r.id, name: value });
+                      resources.update({ id: r.id, name: value });
                     }}
                   />
                 </div>

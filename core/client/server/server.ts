@@ -1,6 +1,6 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
 import { getAuthHeaders } from "../auth/headers";
-import { markRpcRun } from "../../desktop/rpc-ref";
+import { markRpcRun, RPC_PATH_DOTS } from "../../desktop/rpc-ref";
 
 export type RpcSettledResult<O> =
 	| { readonly ok: true; readonly data: O }
@@ -48,6 +48,16 @@ export function extractRpcArgs(first: unknown, second: unknown): {
 		return { input: undefined, opts: first };
 	}
 	return { input: first };
+}
+
+/** Invoca una route RPC per path puntato (`user.resource.update`). */
+export async function rpcInvoke(
+	pathDots: string,
+	first?: unknown,
+	second?: RpcCallbacks<unknown>,
+): Promise<unknown> {
+	const { input, opts } = extractRpcArgs(first, second);
+	return rpcFetch(pathDots, input, opts);
 }
 
 async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallbacks<O>): Promise<O> {
@@ -99,10 +109,15 @@ async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallback
 }
 
 function createLink(parts: string[]): unknown {
+	const pathDots = parts.join(".");
 	const run = markRpcRun(async (first?: unknown, second?: unknown) => {
-		const pathDots = parts.join(".");
 		const { input, opts } = extractRpcArgs(first, second);
 		return rpcFetch(pathDots, input, opts);
+	});
+	Object.defineProperty(run, RPC_PATH_DOTS, {
+		value: pathDots,
+		enumerable: false,
+		configurable: true,
 	});
 	return new Proxy(run, {
 		get(_target, seg: string | symbol, receiver) {

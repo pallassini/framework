@@ -20,7 +20,7 @@ function createSessionStateImpl(shapeOrValue: unknown, opts?: SessionStateOption
 		return createState() as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
-		return createState(shapeOrValue) as Signal<unknown>;
+		return createState(shapeOrValue) as unknown as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue)) {
 		const s = buildStore(shapeOrValue as Record<string, unknown>);
@@ -43,7 +43,7 @@ export function createSessionState(
 		return createState() as Signal<unknown>;
 	}
 	if (isRpcRunRef(shapeOrValue)) {
-		return createState(shapeOrValue) as Signal<unknown>;
+		return createState(shapeOrValue) as unknown as Signal<unknown>;
 	}
 	if (isPlainObject(shapeOrValue as object)) {
 		const shape = shapeOrValue as Record<string, unknown>;
@@ -54,7 +54,10 @@ export function createSessionState(
 			bindManagedStore(store as Record<string, unknown>, shape, "session");
 		}
 		const fn = ((other?: unknown, o?: SessionStateOptions) => createSessionStateImpl(other, o)) as CreateSessionStateFn;
-		return withCallableStore(fn, store as Record<string, unknown>) as StateMap<Record<string, unknown>> & CreateSessionStateFn;
+		return withCallableStore(
+			fn as (...args: unknown[]) => unknown,
+			store as Record<string, unknown>,
+		) as StateMap<Record<string, unknown>> & CreateSessionStateFn;
 	}
 	return createState(shapeOrValue) as Signal<unknown>;
 }
