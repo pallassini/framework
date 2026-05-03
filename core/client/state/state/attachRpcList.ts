@@ -10,25 +10,30 @@ export type RpcListCreateInput<T> = [RpcListElement<T>] extends [never]
 	? Record<string, unknown>
 	: Partial<Omit<RpcListElement<T>, "id">>;
 
-/** Valore PATCH: `Date` ammette anche stringa ISO come in JSON. */
-export type RpcListWireField<V> = V extends Date
-	? V | string
-	: V extends Date | null
-		? V | string
-		: V extends Date | undefined
-			? V | string
-			: V extends Date | null | undefined
-				? V | string
-				: V;
+/**
+ * Valore PATCH: se la colonna include `Date` (anche insieme a `string` da JSON), ammetti ISO string e
+ * `null` per azzerare (es. `deletedAt`); altrimenti lascia `V`.
+ */
+export type RpcListWireField<V> = [Extract<V, Date>] extends [never]
+	? V
+	: Exclude<V, Date> | Date | string | null;
 
-/** Argomento `update`: campi della riga + `id`; chiavi sconosciute → errore su object literal. */
-export type RpcListUpdateInput<T> = [RpcListElement<T>] extends [never]
+/** Update per riga: `id` + patch campi. */
+export type RpcListUpdateByIdInput<T> = [RpcListElement<T>] extends [never]
 	? Readonly<{ id: string } & Record<string, unknown>>
 	: Partial<{
 			[K in keyof RpcListElement<T>]: RpcListWireField<RpcListElement<T>[K]>;
 		}> & {
 			id: RpcListElement<T> extends { id: infer I } ? I : string;
 		};
+
+/** Update batch lato lista: match shallow su `where`, merge di `set` (stesso RPC `*.update` auto). */
+export type RpcListUpdateWhereInput = {
+	readonly where: Readonly<Record<string, unknown>>;
+	readonly set: Readonly<Record<string, unknown>>;
+};
+
+export type RpcListUpdateInput<T> = RpcListUpdateByIdInput<T> | RpcListUpdateWhereInput;
 
 export type RpcListId<T> = [RpcListElement<T>] extends [never]
 	? string
@@ -44,6 +49,13 @@ export type RpcListBound<T> = AutoSignal<T> & {
 };
 
 type Row = Record<string, unknown> & { id?: string };
+
+function rowMatchesWhere(r: Row, where: Readonly<Record<string, unknown>>): boolean {
+	for (const [key, val] of Object.entries(where)) {
+		if (r[key] != val) return false;
+	}
+	return true;
+}
 
 function readRows(sig: () => unknown): Row[] {
 	const v = sig();
@@ -99,14 +111,56 @@ export function attachRpcListMethods(
 	Object.defineProperty(sig, "update", {
 		enumerable: false,
 		configurable: true,
-		value(patch: Record<string, unknown> & { id: string }, opts?: RpcCallbacks<{ row: Row }>) {
-			const { id } = patch;
+		value(patch: Record<string, unknown>, opts?: RpcCallbacks<unknown>) {
 			const prev = readList();
-			const softArchive = "deletedAt" in patch && patch.deletedAt != null;
-			const next = softArchive
-				? prev.filter((r) => String(r.id) !== String(id))
-				: prev.map((r) => (String(r.id) === String(id) ? { ...r, ...patch } : r));
-			sig(next as never);
+
+			if (
+				"where" in patch &&
+				"set" in patch &&
+				typeof patch.where === "object" &&
+				patch.where !== null &&
+				!Array.isArray(patch.where) &&
+				typeof patch.set === "object" &&
+				patch.set !== null &&
+				!Array.isArray(patch.set)
+			) {
+				const where = patch.where as Readonly<Record<string, unknown>>;
+				const set = patch.set as Readonly<Record<string, unknown>>;
+				const next = prev.map((r) => (rowMatchesWhere(r, where) ? { ...r, ...set } : r));
+				sig(next as never);
+				void rpcInvoke(
+					`${base}.update`,
+					{ where, set },
+					{
+						...opts,
+						onSuccess: (res) => {
+							const rows = (res as { rows?: Row[] })?.rows;
+							if (rows && rows.length > 0) {
+								const cur = readList();
+								const m = new Map(cur.map((r) => [String(r.id), r]));
+								for (const row of rows) {
+									const id = String(row.id);
+									m.set(id, { ...m.get(id), ...row });
+								}
+								sig([...m.values()] as never);
+							}
+							opts?.onSuccess?.(res);
+						},
+						onError: (e) => {
+							sig(prev as never);
+							opts?.onError?.(e);
+						},
+						onSettled: opts?.onSettled,
+						onRateLimit: opts?.onRateLimit,
+					} as RpcCallbacks<unknown>,
+				);
+				return;
+			}
+
+			const { id, ..._rest } = patch as { id: string };
+			/** Anche soft-delete (`deletedAt`): merge in lista così filtri UI (live vs cestino) e `onSuccess` restano coerenti. */
+			const nextById = prev.map((r) => (String(r.id) === String(id) ? { ...r, ...patch } : r));
+			sig(nextById as never);
 			void rpcInvoke(`${base}.update`, patch, {
 				...opts,
 				onSuccess: (res) => {

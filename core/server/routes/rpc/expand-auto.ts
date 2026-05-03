@@ -126,9 +126,48 @@ export function expandAutoRoute(
 	}
 
 	if (op === "update") {
-		const input = acc.partial({ with: { id: v.string() }, min: 1 }) as RouteInputConfig<unknown, unknown>["input"];
-		const run = async (inp: unknown, ctx: ServerContext) => {
-			const cleaned = stripUserId(inp as { id: string; userId?: string });
+		const patchById = acc.partial({ with: { id: v.string() }, min: 1 });
+		/** Filtri batch: niente `id` / `userId` / timestamps nel payload (tenant su `userId` come in GET). */
+		const batchWhere = acc.partial({ omit: ["userId"], min: 1 });
+		const batchSet = acc.partial({ omit: ["userId"], min: 1 });
+
+		type AutoUpdateIn =
+			| { mode: "batch"; where: Record<string, unknown>; set: Record<string, unknown> }
+			| { mode: "byId"; body: Record<string, unknown> };
+
+		const input: InputSchema<AutoUpdateIn> = {
+			parse(raw: unknown): AutoUpdateIn {
+				if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+					const o = raw as Record<string, unknown>;
+					if (
+						"where" in o &&
+						"set" in o &&
+						typeof o.where === "object" &&
+						o.where !== null &&
+						!Array.isArray(o.where) &&
+						typeof o.set === "object" &&
+						o.set !== null &&
+						!Array.isArray(o.set)
+					) {
+						return {
+							mode: "batch",
+							where: batchWhere.parse(o.where) as Record<string, unknown>,
+							set: batchSet.parse(o.set) as Record<string, unknown>,
+						};
+					}
+				}
+				return { mode: "byId", body: patchById.parse(raw) as Record<string, unknown> };
+			},
+		};
+
+		const run = async (inp: AutoUpdateIn, ctx: ServerContext) => {
+			if (inp.mode === "batch") {
+				const where = mergeAutoGetWhere(tenant, ctx, { where: inp.where });
+				const set = stripUserId(inp.set as { userId?: string });
+				const res = await acc.update({ where, set });
+				return { count: res.count, rows: res.rows };
+			}
+			const cleaned = stripUserId(inp.body as { id: string; userId?: string });
 			const { id, ...patch } = cleaned;
 			const where = tenant ? { id, userId: ctx.user!.id } : { id };
 			const res = await acc.update({ where, set: patch });

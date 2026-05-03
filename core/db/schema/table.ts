@@ -105,7 +105,8 @@ function injectTimestamps(shape: Record<string, InputSchema<unknown>>): Record<s
 	const out = { ...shape };
 	if (!("createdAt" in out)) out.createdAt = v.datetime().optional();
 	if (!("updatedAt" in out)) out.updatedAt = v.datetime().optional();
-	if (!("deletedAt" in out)) out.deletedAt = v.datetime().optional();
+	/** `null` in PATCH (JSON) azzera il soft-delete; `undefined` omesso dal wire. `nullable` deve avvolgere `optional`, così `null` non passa mai al parser `datetime`. */
+	if (!("deletedAt" in out)) out.deletedAt = v.nullable(v.datetime().optional());
 	return out;
 }
 
