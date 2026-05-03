@@ -430,8 +430,17 @@ export default function Popmenu(props: PopmenuProps) {
   const wrapPinLeft = state(0);
   const wrapPinTop = state(0);
 
+  /**
+   * Se il placeholder non è più nel documento (es. riga eliminata mentre il menu è in chiusura nel portal),
+   * `getBoundingClientRect()` può dare (0,0) e la shell “salta” in alto a sinistra: smontiamo subito il portal.
+   */
   const syncWrapPin = () => {
     if (!layoutPlaceholder) return;
+    if (!layoutPlaceholder.isConnected) {
+      cancelPendingTeardown();
+      teardownPortal();
+      return;
+    }
     const r = layoutPlaceholder.getBoundingClientRect();
     wrapPinLeft(r.left);
     wrapPinTop(r.top);
@@ -666,6 +675,11 @@ export default function Popmenu(props: PopmenuProps) {
 
       disposerSize = watch(() => {
         if (!layoutPlaceholder) return;
+        if (!layoutPlaceholder.isConnected) {
+          cancelPendingTeardown();
+          teardownPortal();
+          return;
+        }
         layoutPlaceholder.style.width = `${cw()}px`;
         layoutPlaceholder.style.height = `${ch()}px`;
         syncWrapPin();

@@ -83,10 +83,10 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
                 </div>
                 {/* BIN */}
                 <div
-                  s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
+                  s="row gap-1 centery children-centery hover:(bg-error text-background)  text-error  round-10px p-2"
                   click={() => binOpen(true)}
                 >
-                  <icon name="trash" size={4} stroke={3} s="text-background" />
+                  <icon name="trash" size={4} stroke={3} s="" />
                   <t s="text-3 font-6">
                     Cestino ({bin()?.filter((b) => b.type === type)?.length ?? 0})
                   </t>
@@ -94,17 +94,20 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
               </div>
             </case>
             <case when={binOpen}>
-              <div s="col p-4">
-                <div s="row">
+              <div s="col ">
+                <div s="row children-centery gap-1 bg-secondary text-#fff p-4">
                   <icon name="trash" size={4} stroke={3} s="text-background" />
                   <t s="text-5 font-6">Cestino</t>
+                  <t s="text-3 font-6 text-error right round-10px p-1 ">Svuota</t>
                 </div>
-                <div s="col gap-2 mt-2">
+                <div s="col gap-2 mt-2 p-4">
                   <For each={() => bin()?.filter((b) => b.type === type)}>
                     {(b) => (
-                      <div s="p-2 round-10px hover:(bg-error) children-centery">
+                      <div s="p-2 round-10px hover:(bg-error) children-centery row gap-1">
                         <icon name="category" size={4} stroke={3} s="text-background" />
                         <t s="text-3 font-6">{b.name}</t>
+                        <icon name="plus" size={4} stroke={3} s="text-background" />
+                        <icon name="trash" size={4} stroke={3} s="text-background" />
                       </div>
                     )}
                   </For>
