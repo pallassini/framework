@@ -1,5 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { writeCatalogJsonToDisk } from "./write-catalog-json-to-disk";
 
 export type IndexDef = {
 	name: string;
@@ -84,8 +83,7 @@ export function defineSchema<const T extends Record<string, TableSchemaInput>>(d
 			return JSON.stringify(catalog, null, 2);
 		},
 		writeCatalogSync(dir: string) {
-			mkdirSync(dir, { recursive: true });
-			writeFileSync(join(dir, "catalog.json"), `${JSON.stringify(catalog)}\n`);
+			writeCatalogJsonToDisk(dir, catalog);
 		},
 	};
 }

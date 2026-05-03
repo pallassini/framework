@@ -51,13 +51,14 @@ function readRows(sig: () => unknown): Row[] {
 }
 
 /**
- * Su `state(rpcGetRef)` / `state(rpcGetRef, { getInput })`: aggiunge `.create`, `.update`, `.remove`, `.refetch`
+ * Su `state(rpcGetRef)` / `state(rpcGetRef, …)` con **gli stessi argomenti** di `rpcGetRef(…)`:
+ * aggiunge `.create`, `.update`, `.remove`, `.refetch`
  * (solo se il ref è un `*.get`). Ottimistico + merge id da `create` / `row` da `update`.
  */
 export function attachRpcListMethods(
 	sig: AutoSignal<unknown>,
 	runRef: (...args: unknown[]) => Promise<unknown>,
-	getInput?: Record<string, unknown>,
+	getCallArgs?: Record<string, unknown>,
 ): void {
 	const pathDots = Reflect.get(runRef as object, RPC_PATH_DOTS) as string | undefined;
 	if (!pathDots?.endsWith(".get")) return;
@@ -153,7 +154,9 @@ export function attachRpcListMethods(
 		configurable: true,
 		value() {
 			const p =
-				getInput !== undefined ? Promise.resolve(runRef(getInput)) : Promise.resolve(runRef());
+				getCallArgs !== undefined
+					? Promise.resolve(runRef(getCallArgs))
+					: Promise.resolve(runRef());
 			void p.then((v) => sig(v as never));
 		},
 	});

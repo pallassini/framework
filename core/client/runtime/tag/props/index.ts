@@ -46,7 +46,9 @@ export type SharedProps = ClientEvents & {
 	/**
 	 * Visibilità reattiva: `Signal`, funzione `() => …`, booleano.
 	 * Su `<t>` / `<div>` senza `fallback`: smonta/monta **l’elemento** nel DOM (come la prop `show` su `<img>`).
-	 * La comparsa/scomparsa rispetta `transition-duration` dell’elemento (es. `var(--duration)` da `base-reset`).
+	 * La comparsa/scomparsa rispetta `transition-duration` dell’elemento (es. `var(--duration)` da `base-reset`);
+	 * se l’elemento non ha durata propria, viene usata quella di `:root` (spesso ~300ms), **non** `duration-0` su `s` da solo.
+	 * **Nessuna transizione:** `show={{ when: cond, instant: true }}` (mount/unmount immediati).
 	 * HTML: `opacity` + `max-width` + `max-height` (stessa durata, assi sincroni); SVG: solo `opacity`. Con `prefers-reduced-motion: reduce` è istantaneo.
 	 * Con `fallback`: solo i **figli** vengono scambiati (`when` vero → `children`, falso → `fallback`).
 	 * I branch viewport sono signal: usa `mob()`, `show={!mob()}`, `show={() => device() === "mob"}`, ecc. (`!mob` da solo è sempre falso: `mob` è una funzione).

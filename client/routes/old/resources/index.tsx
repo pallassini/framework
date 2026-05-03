@@ -32,7 +32,7 @@ export default function Resources() {
   );
   const refresh = () => resources(server.user.resource.get());
   const openings = state(server.user.opening.get);
-  const refreshOpenings = () => openings(server.user.opening.get({}));
+  const refreshOpenings = () => openings(server.user.opening.get());
   return (
     <>
       <div s="des:(row)">

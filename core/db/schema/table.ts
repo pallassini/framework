@@ -1,5 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { v } from "../../client/validator";
 import {
 	FIELD_OPTIONAL,
@@ -447,7 +445,6 @@ export function bundleTables(tables: readonly FwTable<unknown>[]): {
 	fwTables: readonly FwTable<unknown>[];
 	toJSON(): string;
 	toJSONPretty(): string;
-	writeCatalogSync(dir: string): void;
 } {
 	const names = new Set<string>();
 	for (const t of tables) {
@@ -481,10 +478,6 @@ export function bundleTables(tables: readonly FwTable<unknown>[]): {
 		},
 		toJSONPretty(): string {
 			return JSON.stringify(catalog, null, 2);
-		},
-		writeCatalogSync(dir: string) {
-			mkdirSync(dir, { recursive: true });
-			writeFileSync(join(dir, "catalog.json"), `${JSON.stringify(catalog)}\n`);
 		},
 	};
 }

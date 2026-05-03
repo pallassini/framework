@@ -15,6 +15,8 @@ import { pathToFileURL } from "node:url";
 import { collectModuleSchemas, collectModuleTableOrder, collectModuleTables } from "../../db/collect";
 import { FWDB_DEFAULT_DATA_REL_PATH } from "../../db/core/customDb";
 import { bundleTables } from "../../db/schema/table";
+import type { CatalogJson } from "../../db/schema/defineSchema";
+import { writeCatalogJsonToDisk } from "../../db/schema/write-catalog-json-to-disk";
 import {
 	REMOTE_ADMIN_RPC_PATH,
 	REMOTE_ADMIN_WAL_PATH,
@@ -45,7 +47,7 @@ function relPath(p: string): string {
 	}
 }
 
-type MergedCatalog = { toJSON: () => string; writeCatalogSync: (dir: string) => void };
+type MergedCatalog = { catalog: CatalogJson; toJSON: () => string; writeCatalogSync?: (dir: string) => void };
 
 function parseFlags(argv: readonly string[]): { positional: string[]; flags: Map<string, string | true> } {
 	const positional: string[] = [];
@@ -73,13 +75,7 @@ async function loadLocalCatalog(): Promise<{ merged: MergedCatalog; str: string;
 	const dbMod = (await import(modUrl)) as Record<string, unknown>;
 	let merged: MergedCatalog;
 	const def = dbMod.default;
-	if (
-		def != null &&
-		typeof def === "object" &&
-		"writeCatalogSync" in def &&
-		typeof (def as MergedCatalog).writeCatalogSync === "function" &&
-		"catalog" in def
-	) {
+	if (def != null && typeof def === "object" && "catalog" in def && "toJSON" in def) {
 		merged = def as unknown as MergedCatalog;
 	} else {
 		const tables = collectModuleTables(dbMod);
@@ -216,7 +212,7 @@ async function pushLocal(): Promise<void> {
 			ui.step(`primo catalog in ${relPath(dataDir)}`);
 		}
 
-		merged.writeCatalogSync(dataDir);
+		writeCatalogJsonToDisk(dataDir, merged.catalog);
 		ui.ok(`scritto → ${relPath(catPath)}`);
 		ui.muted("riavvia il server Bun per ricaricare il catalog");
 		ui.end("success");

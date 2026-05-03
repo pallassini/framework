@@ -35,6 +35,14 @@ function parseTransitionDurationMaxMs(raw: string): number {
 }
 
 /** Max `transition-duration` when multiple properties transition (comma-separated). */
+function showInstantMode(whenRef: unknown): boolean {
+	return (
+		typeof whenRef === "object" &&
+		whenRef !== null &&
+		(whenRef as { instant?: unknown }).instant === true
+	);
+}
+
 function maxTransitionDurationMs(el: El): number {
 	if (prefersReducedMotion()) return 0;
 	const raw = getComputedStyle(el).transitionDuration;
@@ -243,6 +251,7 @@ const showControllers = new WeakMap<El, ShowCtl>();
 /**
  * Prop `show`: mount/unmount nel DOM con transizione allineata a `transition` / `var(--duration)` dell’elemento
  * (vedi `base-reset.ts`). HTML: `opacity` + `max-width`; SVG: solo `opacity`.
+ * Oggetto **`{ when, instant: true }`**: nessuna transizione (evita il fallback durata da `:root` quando il nodo ha `0s`).
  *
  * `applyDomProps` può richiamare la prop più volte: **un solo controller per elemento** (WeakMap).
  */
@@ -288,7 +297,7 @@ function attachShowController(el: El, initialV: unknown): void {
 	const startEnter = (): void => {
 		cancelEnter();
 		const my = ++enterCycle;
-		const dur = maxTransitionDurationMs(el);
+		const dur = showInstantMode(whenRef.v) ? 0 : maxTransitionDurationMs(el);
 		if (dur === 0) {
 			clearAnimStyles(el);
 			dbg("enter skip dur=0");
@@ -373,7 +382,7 @@ function attachShowController(el: El, initialV: unknown): void {
 	const startLeave = (thenUnmount: () => void): void => {
 		cancelLeave();
 		const my = ++leaveCycle;
-		const dur = maxTransitionDurationMs(el);
+		const dur = showInstantMode(whenRef.v) ? 0 : maxTransitionDurationMs(el);
 		if (dur === 0) {
 			thenUnmount();
 			return;

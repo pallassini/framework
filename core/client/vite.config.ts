@@ -118,7 +118,11 @@ export default defineConfig(
 				"import.meta.env.VITE_SERVER_RPC_ORIGIN": JSON.stringify(serverRpcOrigin),
 				"import.meta.env.VITE_BOOKER_EMBED": JSON.stringify(false),
 			},
-			resolve: { tsconfigPaths: true },
+			resolve: {
+				/** Evita `core/db/index` + `node:fs` nel bundle browser per `import … from "db"`. */
+				alias: { db: path.join(root, "core/db.client.ts") },
+				tsconfigPaths: true,
+			},
 		};
 		return out;
 		// vite-plus config è più ampia di `vite.UserConfig` (lint/fmt): evita ricorsione di tipo su defineConfig.

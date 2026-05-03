@@ -1,6 +1,6 @@
 import type { ServerPath, ServerRoutes } from "./routes-gen";
 import { getAuthHeaders } from "../auth/headers";
-import { markRpcRun, RPC_PATH_DOTS } from "../../desktop/rpc-ref";
+import { isRpcRunRef, markRpcRun, RPC_PATH_DOTS } from "../../desktop/rpc-ref";
 
 export type RpcSettledResult<O> =
 	| { readonly ok: true; readonly data: O }
@@ -48,6 +48,57 @@ export function extractRpcArgs(first: unknown, second: unknown): {
 		return { input: undefined, opts: first };
 	}
 	return { input: first };
+}
+
+function isPlainRecord(x: unknown): x is Record<string, unknown> {
+	return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+/** Merge argomenti `*.get`: shallow + `where` annidato. */
+function mergeRpcGetFixed(
+	fixed: Record<string, unknown>,
+	input: unknown,
+): unknown {
+	if (input == null) {
+		return Object.keys(fixed).length > 0 ? fixed : undefined;
+	}
+	if (!isPlainRecord(input)) return input;
+	const merged: Record<string, unknown> = { ...fixed, ...input };
+	const fW = fixed.where;
+	const iW = input.where;
+	if (isPlainRecord(fW) && isPlainRecord(iW)) {
+		merged.where = { ...fW, ...iW };
+	} else if (isPlainRecord(iW)) {
+		merged.where = iW;
+	} else if (isPlainRecord(fW)) {
+		merged.where = fW;
+	}
+	return merged;
+}
+
+function bindRpcGet<F extends (...args: unknown[]) => Promise<unknown>>(
+	ref: F,
+	fixed: Record<string, unknown>,
+): (first?: unknown, second?: unknown) => Promise<unknown> {
+	if (!isRpcRunRef(ref)) {
+		throw new TypeError("bindRpcGet: atteso un ref RPC (es. server…get)");
+	}
+	const pathDots = Reflect.get(ref as object, RPC_PATH_DOTS) as string | undefined;
+	if (!pathDots?.endsWith(".get")) {
+		throw new TypeError('bindRpcGet: atteso un metodo "*.get"');
+	}
+	const inner = ref as (first?: unknown, second?: unknown) => Promise<unknown>;
+	const bound = markRpcRun(async (first?: unknown, second?: unknown) => {
+		const { input, opts } = extractRpcArgs(first, second);
+		const merged = mergeRpcGetFixed(fixed, input);
+		return inner(merged, opts as never);
+	});
+	Object.defineProperty(bound, RPC_PATH_DOTS, {
+		value: pathDots,
+		enumerable: false,
+		configurable: true,
+	});
+	return bound;
 }
 
 /** Invoca una route RPC per path puntato (`user.resource.update`). */
@@ -110,16 +161,44 @@ async function rpcFetch<O>(pathDots: string, input?: unknown, opts?: RpcCallback
 
 function createLink(parts: string[]): unknown {
 	const pathDots = parts.join(".");
-	const run = markRpcRun(async (first?: unknown, second?: unknown) => {
+	const rawGet = async (first?: unknown, second?: unknown) => {
 		const { input, opts } = extractRpcArgs(first, second);
 		return rpcFetch(pathDots, input, opts);
+	};
+	const getterCore = markRpcRun(rawGet);
+	Object.defineProperty(getterCore, RPC_PATH_DOTS, {
+		value: pathDots,
+		enumerable: false,
+		configurable: true,
 	});
+
+	const isGet = parts[parts.length - 1] === "get";
+	const run = isGet
+		? markRpcRun(function smartGet(first?: unknown, second?: unknown): unknown {
+				if (arguments.length === 0) {
+					return (getterCore as () => Promise<unknown>)();
+				}
+				if (arguments.length === 1) {
+					if (isRpcCallbacks(first)) {
+						return (getterCore as (a?: unknown, b?: unknown) => Promise<unknown>)(undefined, first);
+					}
+					if (isPlainRecord(first)) {
+						return bindRpcGet(
+							getterCore as (first?: unknown, second?: unknown) => Promise<unknown>,
+							first as Record<string, unknown>,
+						);
+					}
+				}
+				return (getterCore as (a?: unknown, b?: unknown) => Promise<unknown>)(first, second);
+			})
+		: getterCore;
+
 	Object.defineProperty(run, RPC_PATH_DOTS, {
 		value: pathDots,
 		enumerable: false,
 		configurable: true,
 	});
-	return new Proxy(run, {
+	return new Proxy(run as object, {
 		get(_target, seg: string | symbol, receiver) {
 			if (seg === "then") return undefined;
 			if (typeof seg === "string") {
@@ -132,29 +211,48 @@ function createLink(parts: string[]): unknown {
 
 type RpcCb<O> = RpcCallbacks<O>;
 
-type ApiForPath<P extends ServerPath> = [ServerRoutes[P]["in"]] extends [void]
+type RouteIn<P extends ServerPath> = ServerRoutes[P]["in"];
+type RouteOut<P extends ServerPath> = ServerRoutes[P]["out"];
+
+/**
+ * Ref restituito da `get({ … })` (`bindRpcGet` a runtime): compatibile con `state(ref)` e stesso `Out` del GET.
+ */
+type RpcGetCurriedRef<Out> = (first?: unknown, second?: unknown) => Promise<Out>;
+
+/** `*.get` con input obbligatorio (o oggetto senza `| undefined` sul tipo intero). */
+interface ApiGetWithInput<In, Out> {
+	(): Promise<Out>;
+	(opts: RpcCb<Out>): Promise<Out>;
+	(input: In): RpcGetCurriedRef<Out>;
+	(input: In, opts: RpcCb<Out>): Promise<Out>;
+}
+
+/** `*.get` con `input?` nel tipo route. */
+interface ApiGetWithOptionalInput<In, Out> {
+	(): Promise<Out>;
+	(opts: RpcCb<Out>): Promise<Out>;
+	(input: In): RpcGetCurriedRef<Out>;
+	(input?: In, opts?: RpcCb<Out>): Promise<Out>;
+}
+
+type ApiForPath<P extends ServerPath> = [RouteIn<P>] extends [void]
 	? {
-			(): Promise<ServerRoutes[P]["out"]>;
-			(opts: RpcCb<ServerRoutes[P]["out"]>): Promise<ServerRoutes[P]["out"]>;
+			(): Promise<RouteOut<P>>;
+			(opts: RpcCb<RouteOut<P>>): Promise<RouteOut<P>>;
 		}
-	: unknown extends ServerRoutes[P]["in"]
-		? {
-				(): Promise<ServerRoutes[P]["out"]>;
-				(opts: RpcCb<ServerRoutes[P]["out"]>): Promise<ServerRoutes[P]["out"]>;
-				(
-					input: ServerRoutes[P]["in"],
-					opts?: RpcCb<ServerRoutes[P]["out"]>,
-				): Promise<ServerRoutes[P]["out"]>;
-			}
-		: [Extract<ServerRoutes[P]["in"], undefined>] extends [never]
-			? (
-					input: ServerRoutes[P]["in"],
-					opts?: RpcCb<ServerRoutes[P]["out"]>,
-				) => Promise<ServerRoutes[P]["out"]>
-			: (
-					input?: ServerRoutes[P]["in"],
-					opts?: RpcCb<ServerRoutes[P]["out"]>,
-				) => Promise<ServerRoutes[P]["out"]>;
+	: P extends `${string}.get`
+		? [undefined] extends [RouteIn<P>]
+			? ApiGetWithOptionalInput<Exclude<RouteIn<P>, undefined>, RouteOut<P>>
+			: ApiGetWithInput<RouteIn<P>, RouteOut<P>>
+		: unknown extends RouteIn<P>
+			? {
+					(): Promise<RouteOut<P>>;
+					(opts: RpcCb<RouteOut<P>>): Promise<RouteOut<P>>;
+					(input: RouteIn<P>, opts?: RpcCb<RouteOut<P>>): Promise<RouteOut<P>>;
+				}
+			: [Extract<RouteIn<P>, undefined>] extends [never]
+				? (input: RouteIn<P>, opts?: RpcCb<RouteOut<P>>) => Promise<RouteOut<P>>
+				: (input?: RouteIn<P>, opts?: RpcCb<RouteOut<P>>) => Promise<RouteOut<P>>;
 
 type PathToObject<P extends string, V> = P extends `${infer K}.${infer Rest}`
 	? { readonly [key in K]: PathToObject<Rest, V> }

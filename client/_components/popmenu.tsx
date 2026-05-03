@@ -115,6 +115,8 @@ interface PopmenuProps {
   onFeedbackDismiss?: () => void;
   /** Cambia valore (numero o boolean) per chiudere menu, conferma e feedback. */
   closePulse?: () => number | boolean;
+  /** Dopo chiusura menu (invocato insieme a `open(false)` nei percorsi reali; niente `watch` su `open` per non interferire col layout). */
+  onClose?: () => void;
 }
 
 type Axis = "top" | "bottom" | "left" | "right";
@@ -322,6 +324,7 @@ export default function Popmenu(props: PopmenuProps) {
     feedback,
     onFeedbackDismiss,
     closePulse,
+    onClose,
     hoverIn,
     hoverOut,
     autofocus,
@@ -400,9 +403,11 @@ export default function Popmenu(props: PopmenuProps) {
       if (v === undefined) return;
       if (Object.is(v, lastClosePulse)) return;
       lastClosePulse = v;
+      const wasOpen = open();
       open(false);
       confirming(false);
       onFeedbackDismiss?.();
+      if (wasOpen) onClose?.();
     },
     { watch: [() => closePulse?.()] },
   );
@@ -510,6 +515,7 @@ export default function Popmenu(props: PopmenuProps) {
       confirming(true);
     } else {
       open(false);
+      onClose?.();
     }
   };
 
@@ -518,6 +524,7 @@ export default function Popmenu(props: PopmenuProps) {
     confirmOpts.onConfirm?.();
     confirming(false);
     open(false);
+    onClose?.();
   };
   const confirmCloseNo = (ev?: Event) => {
     ev?.stopPropagation();
@@ -1105,7 +1112,10 @@ export default function Popmenu(props: PopmenuProps) {
   const onMouseLeave = () => {
     pressed(false);
     /** hoverOut chiude senza conferma (sarebbe UX fastidiosa). */
-    if (hoverOut && open()) open(false);
+    if (hoverOut && open()) {
+      open(false);
+      onClose?.();
+    }
   };
 
   const feedMeasureHostStyle: Record<string, string> = {

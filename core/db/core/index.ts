@@ -26,5 +26,6 @@ export type {
 } from "./types";
 export { runTx } from "./tx";
 export type { TxApi } from "./tx";
+export { deletedAtLive, notNull } from "./soft-delete-where";
 export { applySelect, fkMapFromCatalog, parseSelect } from "./select";
 export type { FkMap, SelectNode, BatchFetcher } from "./select";

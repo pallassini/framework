@@ -25,6 +25,7 @@ import { collectModuleTables } from "./collect";
 import { dbLog } from "./dev-log";
 import type { CustomDb, TablesMap } from "./core/customDb";
 import { bundleTables, type DbBundleSchema } from "./schema/table";
+import { writeCatalogJsonToDisk } from "./schema/write-catalog-json-to-disk";
 
 export type DbDevReloadContext = {
 	core: CustomDb<TablesMap>;
@@ -489,7 +490,7 @@ export async function reloadDevDbSchema(
 	/** Fase 2 — applicazione atomica lato processo (dopo questo, TS + Zig allineati al nuovo catalog). */
 	try {
 		traceSchema("reload:fase2 writeCatalogSync", { flushId, flushIter });
-		next.writeCatalogSync(ctx.core.dataDir);
+		writeCatalogJsonToDisk(ctx.core.dataDir, next.catalog);
 		traceSchema("reload:fase2 reloadAfterCatalogWrite", { flushId, flushIter });
 		ctx.core.reloadAfterCatalogWrite(next.tableNames, next.pkByTable, next.catalog);
 		traceSchema("reload:fase2 applyBundle", { flushId, flushIter });

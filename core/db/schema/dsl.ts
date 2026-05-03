@@ -1,6 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { CatalogJson } from "./defineSchema";
+import { writeCatalogJsonToDisk } from "./write-catalog-json-to-disk";
 
 /** Campo stringa nel JSON riga (opzionale / univoco come indice Zig). */
 export type StrField = { kind: "str"; unique: boolean; optional: boolean };
@@ -65,8 +64,7 @@ export function defineDb<const T extends Record<string, Record<string, Field>>>(
 			return JSON.stringify(catalog, null, 2);
 		},
 		writeCatalogSync(dir: string) {
-			mkdirSync(dir, { recursive: true });
-			writeFileSync(join(dir, "catalog.json"), `${JSON.stringify(catalog)}\n`);
+			writeCatalogJsonToDisk(dir, catalog);
 		},
 	};
 }

@@ -33,5 +33,8 @@ export default defineConfig({
 		"import.meta.env.VITE_SERVER_RPC_ORIGIN": JSON.stringify(serverRpcOrigin),
 		"import.meta.env.VITE_BOOKER_EMBED": JSON.stringify(true),
 	},
-	resolve: { tsconfigPaths: true },
+	resolve: {
+		alias: { db: path.join(root, "core/db.client.ts") },
+		tsconfigPaths: true,
+	},
 }) as Parameters<typeof defineConfig>[0];

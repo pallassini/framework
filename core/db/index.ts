@@ -20,6 +20,7 @@ import {
 	type ServerDbUtilities,
 } from "./server/utility";
 import { bundleTables } from "./schema/table";
+import { writeCatalogJsonToDisk } from "./schema/write-catalog-json-to-disk";
 
 type AppDbExports = typeof AppDb;
 type AppDbTableKey<K> = K extends string ? (K extends "default" | `_${string}` ? never : K) : never;
@@ -68,7 +69,7 @@ if (FWDB_IS_REMOTE) {
 	dataDirResolved = resolveFwdbDataDir({
 		dataDir: process.env.FWDB_DATA?.trim() || undefined,
 	});
-	liveBundle.writeCatalogSync(dataDirResolved);
+	writeCatalogJsonToDisk(dataDirResolved, liveBundle.catalog);
 
 	localCore = new CustomDb<ServerTables>(
 		liveBundle.tableNames as readonly (keyof ServerTables & string)[],
@@ -240,7 +241,7 @@ export type {
 	WhereOps,
 	WhereValue,
 } from "./core";
-export { FWDB_DEFAULT_DATA_REL_PATH, resolveFwdbDataDir } from "./core";
+export { deletedAtLive, notNull, FWDB_DEFAULT_DATA_REL_PATH, resolveFwdbDataDir } from "./core";
 export type { DbTableNames, ServerDbUtilities } from "./server";
 export type User = ServerTables["users"];
 export type DbUser = User;
