@@ -446,9 +446,19 @@ function Openings(p: {
 
         <div
           {...{ [CAL_TIME_FRAME_ATTR]: p.day }}
-          show={() => p.deleteMode()}
-          style={{ minWidth: "2.75rem" }}
-          s="col shrink-0 self-stretch relative z-10"
+          style={() =>
+            p.deleteMode()
+              ? ({
+                  display: "flex",
+                  flexDirection: "column",
+                  flexShrink: "0",
+                  alignSelf: "stretch",
+                  position: "relative",
+                  zIndex: "10",
+                  minWidth: "2.75rem",
+                } as import("csstype").Properties)
+              : ({ display: "none" } as import("csstype").Properties)
+          }
         >
           <div
             s="shrink-0 w-100% row center items-center min-h-10 mob:(py-1) des:(py-0.75)"
