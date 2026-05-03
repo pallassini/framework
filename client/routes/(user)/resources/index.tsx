@@ -68,17 +68,27 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
               s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
               click={() => {
                 closer();
+                const tempId = `__o:${crypto.randomUUID()}`;
                 const c = categories();
                 categories([
                   ...(Array.isArray(c) ? c : []),
-                  { id: `__o:${crypto.randomUUID()}`, name: "Nuovo Gruppo", type, capacity: 1 },
+                  { id: tempId, name: "Nuovo Gruppo", type, capacity: 1 },
                 ] as any);
                 server.user.resourceCategory.create(
                   { name: "Nuovo Gruppo", type, capacity: 1 },
                   {
-                    onError: () => {
-                      categories(c);
+                    onSuccess: (res) => {
+                      const row = res.rows?.[0];
+                      if (!row) return;
+                      const cur = categories();
+                      const list = Array.isArray(cur) ? [...cur] : [];
+                      categories(
+                        list.map((cat) =>
+                          String(cat.id) === tempId ? { ...cat, ...row } : cat,
+                        ) as any,
+                      );
                     },
+                    onError: () => categories(c),
                   },
                 );
               }}
@@ -146,20 +156,30 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
             <div
               s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
               click={() => {
-                server.user.resource.create({
-                  name: "Nuovo " + (type === "space" ? "Spazio" : "Persona"),
-                  type,
-                  categoryId: category.id,
-                });
+                const tempId = `__o:${crypto.randomUUID()}`;
+                const name = "Nuovo " + (type === "space" ? "Spazio" : "Persona");
+                const prevRes = resources();
                 resources([
-                  ...(Array.isArray(resources()) ? resources() : ([] as any)),
-                  {
-                    id: `__o:${crypto.randomUUID()}`,
-                    name: "Nuovo " + (type === "space" ? "Spazio" : "Persona"),
-                    type,
-                    categoryId: category.id,
-                  },
+                  ...(Array.isArray(prevRes) ? prevRes : ([] as any)),
+                  { id: tempId, name, type, categoryId: category.id },
                 ] as any);
+                server.user.resource.create(
+                  { name, type, categoryId: category.id },
+                  {
+                    onSuccess: (res) => {
+                      const row = res.rows?.[0];
+                      if (!row) return;
+                      const cur = resources();
+                      const list = Array.isArray(cur) ? [...cur] : [];
+                      resources(
+                        list.map((r) =>
+                          String(r.id) === tempId ? { ...r, ...row } : r,
+                        ) as any,
+                      );
+                    },
+                    onError: () => resources(prevRes as any),
+                  },
+                );
               }}
             >
               <icon name="plus" size={6} stroke={3} s="text-background" />
