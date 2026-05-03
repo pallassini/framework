@@ -3,19 +3,6 @@ import Menu from "../../_components/menu";
 import Popmenu from "client/_components/popmenu";
 import Input from "client/_components/input";
 
-type ResourceCategoryRow = NonNullable<
-  Awaited<ReturnType<typeof server.user.resourceCategory.get>>
->[number];
-
-/** Input di `user.resourceCategory.get`: campi in AND sul root (uniti col `where` lato server) + `where` libero per `$eq` / `$in` / … */
-type ResourceCategoryGetArg = Partial<
-  Pick<ResourceCategoryRow, "deletedAt" | "type" | "userId" | "name" | "capacity">
-> & {
-  where?: Record<string, unknown>;
-};
-
-const activeResourceCategories: ResourceCategoryGetArg = { deletedAt: null };
-
 export default function Main() {
   return (
     <>
@@ -187,7 +174,9 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                 categories(list.filter((c) => String(c.id) !== String(category.id)) as any);
                 void server.user.resourceCategory.update(
                   { id: category.id, deletedAt: new Date().toISOString() },
-                 
+                  {
+                    onError: () => categories(prev),
+                  },
                 );
               }}
             >
