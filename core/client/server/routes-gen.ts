@@ -17,6 +17,7 @@ import { create as user_item_create, get as user_item_get, remove as user_item_r
 import { create as user_itemCategory_create, get as user_itemCategory_get, remove as user_itemCategory_remove, update as user_itemCategory_update } from "../../../server/routes/user/itemCategory";
 import { create as user_opening_create, get as user_opening_get, prova as user_opening_prova, remove as user_opening_remove, update as user_opening_update } from "../../../server/routes/user/opening";
 import { create as user_resource_create, get as user_resource_get, remove as user_resource_remove, update as user_resource_update } from "../../../server/routes/user/resource";
+import { create as user_resourceCategory_create, get as user_resourceCategory_get, remove as user_resourceCategory_remove, update as user_resourceCategory_update } from "../../../server/routes/user/resourceCategory";
 
 type InferRoute<D> = D extends { _in: infer I; _out: infer O }
 	? { in: I; out: O }
@@ -65,6 +66,10 @@ export type ServerRoutes = {
 	"user.resource.get": InferRoute<typeof user_resource_get>;
 	"user.resource.remove": InferRoute<typeof user_resource_remove>;
 	"user.resource.update": InferRoute<typeof user_resource_update>;
+	"user.resourceCategory.create": InferRoute<typeof user_resourceCategory_create>;
+	"user.resourceCategory.get": InferRoute<typeof user_resourceCategory_get>;
+	"user.resourceCategory.remove": InferRoute<typeof user_resourceCategory_remove>;
+	"user.resourceCategory.update": InferRoute<typeof user_resourceCategory_update>;
 	"user.update": InferRoute<typeof user_update>;
 };
 

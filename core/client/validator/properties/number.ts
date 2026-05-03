@@ -20,7 +20,9 @@ function mergeNumberMeta(
 
 function baseParse(raw: unknown): number {
 	if (typeof raw !== "number" || Number.isNaN(raw)) {
-		throw new ValidationError("expected number");
+		const received =
+			raw === null ? "null" : raw === undefined ? "undefined" : typeof raw;
+		throw new ValidationError(`expected number (received ${received})`);
 	}
 	return raw;
 }

@@ -4,7 +4,7 @@ import { table } from "../../core/db/schema/table";
 
 const resourceShared = {
   capacity: v.number().optional(),
-  type: v.enum(["space", "person"]).optional(),
+  type: v.enum(["space", "person"]),
 };
 
 // ───────────────────────────────────────────────────────────────────────────────
