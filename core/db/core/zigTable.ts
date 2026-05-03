@@ -55,6 +55,11 @@ export class ZigTable<T extends DbRow> {
 		private readonly engine: FwdbEnginePtr,
 		private readonly table: string,
 		private readonly pkField: string = "id",
+		/**
+		 * Dopo `fwdb_row_delete` il motore può aver mutato **altre** tabelle (cascade / setNull su FK).
+		 * La cache TS è per-tabella: senza invalidazione globale `find` su quelle tabelle resta stale.
+		 */
+		private readonly afterEngineDelete?: () => void,
 	) {}
 
 	/** `null` finché non è stato caricato almeno una volta. */
@@ -242,6 +247,7 @@ export class ZigTable<T extends DbRow> {
 			cache.delete(id);
 			ids.push(id);
 		}
+		if (ids.length > 0) this.afterEngineDelete?.();
 		return { count: ids.length, ids };
 	}
 

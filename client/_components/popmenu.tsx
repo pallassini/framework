@@ -1,4 +1,4 @@
-import { state, watch, icon } from "client";
+import { device, state, watch, icon } from "client";
 import { toNodes } from "../../core/client/runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
@@ -75,10 +75,10 @@ interface PopmenuProps {
   hover?: unknown;
   /** Se `true` (o oggetto con opzioni), chiede conferma prima di chiudere (clickout / esc). */
   confirmCollapsed?: boolean | ConfirmOptions;
-  /** Apre quando il mouse entra sulla shell. */
+  /** Apre quando il mouse entra sulla shell. Su viewport `mob`/`tab` è ignorato (solo `des`). */
   hoverIn?: boolean;
   /**
-   * Chiude quando il mouse esce dalla shell (incluso il contenuto).
+   * Chiude quando il mouse esce dalla shell (incluso il contenuto). Su `mob`/`tab` è ignorato.
    * Può essere `boolean` oppure un getter / `Signal` (`state`): viene letto ad ogni `mouseleave`.
    * Se passi `state(...)` senza questa logica, la funzione-Signal è sempre truthy e chiude sempre.
    */
@@ -1124,11 +1124,16 @@ export default function Popmenu(props: PopmenuProps) {
     pressed(true);
   };
   const onPressUp = () => pressed(false);
+  /** Su mob/tab il mouseenter/leave è inaffidabile (touch, false leave): non usare hover per aprire/chiudere. */
+  const hoverShellOk = () => device() === "des";
+
   const onMouseEnter = () => {
-    if (hoverIn) requestOpen();
+    if (!hoverShellOk() || !hoverIn) return;
+    requestOpen();
   };
   const onMouseLeave = () => {
     pressed(false);
+    if (!hoverShellOk()) return;
     /** hoverOut chiude senza conferma (sarebbe UX fastidiosa). */
     const leaveCloses =
       hoverOut === true ||

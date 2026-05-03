@@ -244,29 +244,16 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                   <icon name="plus" size={4} stroke={3} s="text-background" />
                   <t s="text-3 font-6">Crea {type === "space" ? "Spazio" : "Persona"}</t>
                 </div>
-                {/* DELETE CATEGORY */}
+                {/* RESOURCES IN ARCHIVE */}
+
                 <div
-                  s="row gap-1 centery children-centery hover:(bg-error text-background) text-error round-10px p-2"
-                  click={() => {
-                    hoverOut(false);
-                    selected("delete");
+                  show={{
+                    when:
+                      resources()?.filter(
+                        (r) => r.categoryId === category.id && r.deletedAt != null,
+                      )?.length > 0,
+                    instant: true,
                   }}
-                >
-                  <icon name="archiveRestore" size={4} stroke={3} />
-                  <t s="text-3 font-6">Archivia</t>
-                </div>
-              </div>
-              {/* RESOURCES IN ARCHIVE */}
-              <div
-                s="p-2"
-                show={{
-                  when:
-                    resources()?.filter((r) => r.categoryId === category.id && r.deletedAt != null)
-                      ?.length > 0,
-                  instant: true,
-                }}
-              >
-                <div
                   s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
                   click={() => {
                     hoverOut(false);
@@ -275,11 +262,24 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                 >
                   <icon name="archive" size={4} stroke={3} s="text-background" />
                   <t s="text-3 font-6">
-                    Archivio (
+                    Archivio {type === "space" ? "Spazi" : "Persone"} (
                     {resources()?.filter((r) => r.categoryId === category.id && r.deletedAt != null)
                       ?.length ?? 0}
                     )
                   </t>
+                </div>
+
+                {/* DELETE CATEGORY */}
+                <div s="row center bt-0.4px b-#929292 round-round m-2 "/>
+                <div
+                  s="row gap-1 centery children-centery hover:(bg-error text-background) text-error round-10px p-2"
+                  click={() => {
+                    hoverOut(false);
+                    selected("delete");
+                  }}
+                >
+                  <icon name="archiveRestore" size={4} stroke={3} />
+                  <t s="text-3 font-6">Archivia gruppo</t>
                 </div>
               </div>
             </case>
@@ -303,10 +303,10 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
             {/* RESOURCES IN ARCHIVE */}
             <case when={"resourcesDeleted"}>
               <div s="col ">
-                <div s="row centery children-centery gap-1 bg-secondary text-#fff p-4">
+                <div s="row centery children-centery gap-1 bg-secondary text-#fff p-3">
                   <div s="row p-1 children-centery gap-1">
-                    <icon name="archive" size={4} stroke={3} s="text-background" />
-                    <t s="text-5 font-6 ">Archivio</t>
+                    <icon name="archive" size={4} stroke={3} />
+                    <t s="text-4 font-6 ">Archivio</t>
                   </div>
                   <t
                     s="text-3 font-6 text-error right round-10px p-1 hover:(bg-error text-background)"
@@ -320,7 +320,7 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                     Svuota
                   </t>
                 </div>
-                <div s="col gap-2 mt-2 p-4">
+                <div s="col gap-2 mt-2 p-2">
                   <For
                     each={() =>
                       resources()?.filter(
@@ -330,7 +330,7 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                   >
                     {(b) => (
                       <div s="p-2 round-10px hover:(bg-#b7b7b7) children-centery row gap-1">
-                        <icon name="category" size={4} stroke={3} s="text-background" />
+                        <icon name={type === "space" ? "box" : "user"} size={4} stroke={3} s="text-background" />
                         <t s="text-3 font-6">{b.name}</t>
                         <div s="right row gap-2">
                           <icon
@@ -504,7 +504,9 @@ function ResorceMenu({ resource }: { resource: any }) {
                     }}
                   >
                     <icon name="archiveRestore" stroke={3} />
-                    <t s="text-3 font-6">Archivia</t>
+                    <t s="text-3 font-6">
+                      Archivia {resource.type === "space" ? "Spazio" : "Persona"}
+                    </t>
                   </div>
                 </div>
               </case>

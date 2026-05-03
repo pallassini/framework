@@ -116,8 +116,11 @@ export class CustomDb<Tables extends TablesMap> {
 		this.dataDir = dataDirOpt;
 
 		const pkMap = options?.pkByTable ?? {};
+		const bustAllRowCaches = () => {
+			for (const zt of this.tables.values()) zt.invalidateCache();
+		};
 		for (const t of tableNames) {
-			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkMap[t] ?? "id"));
+			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkMap[t] ?? "id", bustAllRowCaches));
 		}
 		if (options?.catalog) this.fkMap = fkMapFromCatalog(options.catalog);
 	}
@@ -160,8 +163,11 @@ export class CustomDb<Tables extends TablesMap> {
 		}
 		this.engine = eng;
 		this.tables.clear();
+		const bustAllRowCaches = () => {
+			for (const zt of this.tables.values()) zt.invalidateCache();
+		};
 		for (const t of tableNames) {
-			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkByTable[t] ?? "id"));
+			this.tables.set(t, new ZigTable<DbRow>(this.native, this.engine, t, pkByTable[t] ?? "id", bustAllRowCaches));
 		}
 		if (catalog) this.setCatalog(catalog);
 	}
