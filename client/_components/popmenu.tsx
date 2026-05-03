@@ -77,8 +77,12 @@ interface PopmenuProps {
   confirmCollapsed?: boolean | ConfirmOptions;
   /** Apre quando il mouse entra sulla shell. */
   hoverIn?: boolean;
-  /** Chiude quando il mouse esce dalla shell (incluso il contenuto). */
-  hoverOut?: boolean;
+  /**
+   * Chiude quando il mouse esce dalla shell (incluso il contenuto).
+   * Può essere `boolean` oppure un getter / `Signal` (`state`): viene letto ad ogni `mouseleave`.
+   * Se passi `state(...)` senza questa logica, la funzione-Signal è sempre truthy e chiude sempre.
+   */
+  hoverOut?: boolean | (() => boolean);
   /** Al primo `open=true`, mette focus sul primo input/textarea dentro l'extended. */
   autofocus?: boolean;
   /** Modalità cromatica base della shell. Default `dark` (come il vecchio `normal`). */
@@ -1126,7 +1130,10 @@ export default function Popmenu(props: PopmenuProps) {
   const onMouseLeave = () => {
     pressed(false);
     /** hoverOut chiude senza conferma (sarebbe UX fastidiosa). */
-    if (hoverOut && open()) {
+    const leaveCloses =
+      hoverOut === true ||
+      (typeof hoverOut === "function" && !!(hoverOut as () => boolean)());
+    if (leaveCloses && open()) {
       open(false);
       onClose?.();
     }

@@ -5,7 +5,7 @@ import { writeCatalogJsonToDisk } from "./write-catalog-json-to-disk";
 export type StrField = { kind: "str"; unique: boolean; optional: boolean };
 
 /** FK verso `altraTabella.id` (PK sempre `id`). */
-export type FkField = { kind: "fk"; table: string; onDelete: "restrict" | "cascade" };
+export type FkField = { kind: "fk"; table: string; onDelete: "restrict" | "cascade" | "setNull" };
 
 export type Field = StrField | FkField;
 
@@ -19,7 +19,7 @@ export const t = {
 		};
 	},
 	/** `t.fk("users")` → colonna corrente referenzia `users.id`. */
-	fk(table: string, onDelete: "restrict" | "cascade" = "cascade"): FkField {
+	fk(table: string, onDelete: "restrict" | "cascade" | "setNull" = "cascade"): FkField {
 		return { kind: "fk", table, onDelete };
 	},
 };

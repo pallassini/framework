@@ -114,15 +114,49 @@ export function expandAutoRoute(
 	}
 
 	if (op === "delete") {
-		const input = v.object({ id: v.string() });
-		const run = async (inp: { id: string }, ctx: ServerContext) => {
-			const { id } = inp;
+		type AutoDeleteIn =
+			| { mode: "where"; where: Record<string, unknown> }
+			| { mode: "byId"; id: string };
+
+		const deleteInput: InputSchema<AutoDeleteIn> = {
+			parse(raw: unknown): AutoDeleteIn {
+				if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+					const o = raw as Record<string, unknown>;
+					if ("where" in o) {
+						if (typeof o.where !== "object" || o.where === null || Array.isArray(o.where)) {
+							throw new ValidationError("where: expected object");
+						}
+						const w = o.where as Record<string, unknown>;
+						if (Object.keys(w).length === 0) {
+							throw new ValidationError("where: vuoto");
+						}
+						return { mode: "where", where: w };
+					}
+					if ("id" in o && o.id !== undefined) {
+						return { mode: "byId", id: v.string().parse(o.id) };
+					}
+				}
+				throw new ValidationError("expected { id } or { where }");
+			},
+		};
+
+		const run = async (inp: AutoDeleteIn, ctx: ServerContext) => {
+			if (inp.mode === "where") {
+				const where = mergeAutoGetWhere(tenant, ctx, {
+					where: stripUserId({ ...inp.where } as { userId?: string }),
+				});
+				const keys = Object.keys(where).filter((k) => !(tenant && k === "userId"));
+				if (keys.length === 0) error("INPUT", "where: vuoto");
+				const res = await acc.delete({ where });
+				return { ok: true as const, count: res.count };
+			}
+			const id = inp.id;
 			const where = tenant ? { id, userId: ctx.user!.id } : { id };
 			const res = await acc.delete({ where });
 			if (res.count === 0) error("NOT_FOUND", `${table} ${id}`);
 			return { ok: true as const };
 		};
-		return { ...common, input, run } as RouteInputConfig<unknown, unknown>;
+		return { ...common, input: deleteInput, run } as RouteInputConfig<unknown, unknown>;
 	}
 
 	if (op === "update") {

@@ -1,3 +1,5 @@
+import { matchWhere } from "../../../db/core/where";
+import type { DbRow } from "../../../db/core/types";
 import { RPC_PATH_DOTS } from "../../../desktop/rpc-ref";
 import { rpcInvoke, type RpcCallbacks } from "../../server/server";
 import type { AutoSignal } from "./signal";
@@ -41,20 +43,22 @@ export type RpcListId<T> = [RpcListElement<T>] extends [never]
 		? I
 		: string;
 
+export type RpcListRemoveInput<T> =
+	| RpcListId<T>
+	| { id: RpcListId<T> }
+	| { readonly where: Readonly<Record<string, unknown>> };
+
 export type RpcListBound<T> = AutoSignal<T> & {
 	create(input: RpcListCreateInput<T>, opts?: RpcCallbacks<unknown>): void;
 	update(patch: RpcListUpdateInput<T>, opts?: RpcCallbacks<unknown>): void;
-	remove(inp: RpcListId<T> | { id: RpcListId<T> }, opts?: RpcCallbacks<unknown>): void;
+	remove(inp: RpcListRemoveInput<T>, opts?: RpcCallbacks<unknown>): void;
 	refetch(): void;
 };
 
 type Row = Record<string, unknown> & { id?: string };
 
 function rowMatchesWhere(r: Row, where: Readonly<Record<string, unknown>>): boolean {
-	for (const [key, val] of Object.entries(where)) {
-		if (r[key] != val) return false;
-	}
-	return true;
+	return matchWhere(r as DbRow, where as never);
 }
 
 function readRows(sig: () => unknown): Row[] {
@@ -186,9 +190,31 @@ export function attachRpcListMethods(
 	Object.defineProperty(sig, "remove", {
 		enumerable: false,
 		configurable: true,
-		value(inp: string | { id: string }, opts?: RpcCallbacks<{ ok: true }>) {
-			const id = typeof inp === "string" ? inp : inp.id;
+		value(inp: string | Record<string, unknown>, opts?: RpcCallbacks<{ ok: true }>) {
 			const prev = readList();
+
+			if (typeof inp === "object" && inp !== null && "where" in inp) {
+				const w = (inp as { where: unknown }).where;
+				if (typeof w !== "object" || w === null || Array.isArray(w)) {
+					throw new TypeError("remove: atteso { where: object }");
+				}
+				const where = w as Readonly<Record<string, unknown>>;
+				const next = prev.filter((r) => !rowMatchesWhere(r, where));
+				sig(next as never);
+				void rpcInvoke(`${base}.remove`, { where }, {
+					...opts,
+					onError: (e) => {
+						sig(prev as never);
+						opts?.onError?.(e);
+					},
+					onSuccess: opts?.onSuccess,
+					onSettled: opts?.onSettled,
+					onRateLimit: opts?.onRateLimit,
+				} as RpcCallbacks<unknown>);
+				return;
+			}
+
+			const id = typeof inp === "string" ? inp : (inp as { id: string }).id;
 			sig(prev.filter((r) => String(r.id) !== String(id)) as never);
 			void rpcInvoke(`${base}.remove`, { id }, {
 				...opts,

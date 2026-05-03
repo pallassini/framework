@@ -115,7 +115,14 @@ function fkFromShape(shape: Record<string, InputSchema<unknown>>): TableMeta["fk
 	for (const [col, sch] of Object.entries(shape)) {
 		if (typeof sch !== "object" || sch === null || !(REF in sch)) continue;
 		const m = Reflect.get(sch, REF) as RefMeta;
-		fk[col] = { ref: m.table, onDelete: m.onDelete };
+		const optional = FIELD_OPTIONAL in sch && Reflect.get(sch, FIELD_OPTIONAL) === true;
+		/**
+		 * Su `.remove` del record **padre** (delete fisico Zig): FK opzionale → `setNull` sulla riga figlia;
+		 * FK obbligatoria (default) → `cascade` = **eliminazione fisica** delle righe figlie, non soft-delete.
+		 * `restrict` solo se dichiarato esplicitamente con `v.fk(..., { onDelete: "restrict" })`.
+		 */
+		const onDelete = optional ? ("setNull" as const) : m.onDelete;
+		fk[col] = { ref: m.table, onDelete };
 	}
 	return Object.keys(fk).length ? fk : undefined;
 }
@@ -151,7 +158,7 @@ function mergeTableMeta(
  */
 export function ref(
 	table: FwTable<unknown>,
-	opts?: { onDelete?: "restrict" | "cascade" },
+	opts?: { onDelete?: "restrict" | "cascade" | "setNull" },
 ): InputSchema<string> {
 	return fk(table.name, opts);
 }
@@ -183,7 +190,7 @@ export type FwTable<R = unknown> = {
 	/** `ref(this)` — valore = id di questa tabella (per `authorId: users.id` quando `users` è già un `FwTable`). */
 	readonly id: InputSchema<string>;
 	/** `ref(this, opts)` se serve `onDelete` sul lato figlio. */
-	readonly ref: (opts?: { onDelete?: "restrict" | "cascade" }) => InputSchema<string>;
+	readonly ref: (opts?: { onDelete?: "restrict" | "cascade" | "setNull" }) => InputSchema<string>;
 };
 
 /** Chiavi colonna dallo shape, se la tabella è definita con `table("name", { ... })`. */
@@ -233,7 +240,7 @@ export type TableMeta = {
 	/** Colonne con indice univoco Zig (es. `email`). */
 	unique?: readonly string[];
 	/** FK: colonna → tabella referenziata (sempre `.id`). */
-	fk?: Record<string, { ref: string; onDelete?: "restrict" | "cascade" }>;
+	fk?: Record<string, { ref: string; onDelete?: "restrict" | "cascade" | "setNull" }>;
 };
 
 function catalogRowForTable(name: string, meta: TableMeta): CatalogJson["tables"][string] {
@@ -329,7 +336,7 @@ function attachFkHelpers<R>(def: FwTable<R>): FwTable<R> {
 		configurable: true,
 	});
 	Object.defineProperty(def, "ref", {
-		value: (opts?: { onDelete?: "restrict" | "cascade" }) => ref(self, opts),
+		value: (opts?: { onDelete?: "restrict" | "cascade" | "setNull" }) => ref(self, opts),
 		enumerable: true,
 		configurable: true,
 	});

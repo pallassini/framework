@@ -9,7 +9,7 @@ export type IndexDef = {
 export type FkDef = {
 	columns: [string, ...string[]];
 	references: { table: string; columns: [string, ...string[]] };
-	onDelete?: "restrict" | "cascade";
+	onDelete?: "restrict" | "cascade" | "setNull";
 };
 
 export type TableSchemaInput = {

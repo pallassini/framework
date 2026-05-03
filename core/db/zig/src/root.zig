@@ -1,11 +1,12 @@
 //! fwdb — tabelle con PK + JSON, catalog (indici, FK), WAL + snapshot.
+//! `fwdb_row_delete`: restrict; poi setNull su FK `onDelete: setNull`; poi cascade (**delete fisico** ricorsivo); infine delete padre.
 //! C ABI per Bun. Codici: 5=fk, 6=unique, 7=catalog, 8=restrict, 9=internal.
 
 const std = @import("std");
 
 const WalOp = enum(u8) { put = 1, del = 2 };
 
-const OnDelete = enum { restrict, cascade };
+const OnDelete = enum { restrict, cascade, set_null };
 
 const FkDef = struct {
 	col: []u8,
@@ -448,6 +449,39 @@ fn ingestDelete(e: *Engine, tname: []const u8, pk: []const u8, skip_wal: bool) !
 	if (!skip_wal) try appendWal(e, .del, tname, pk, null);
 }
 
+fn jsonPatchNullField(al: std.mem.Allocator, field: []const u8) ![]u8 {
+	return std.fmt.allocPrint(al, "{{\"{s}\":null}}", .{field});
+}
+
+/// Prima del cascade: figli con `onDelete: setNull` aggiornati (FK → JSON null), riga non eliminata.
+fn applySetNullOnParentDelete(e: *Engine, tname: []const u8, pk: []const u8) !void {
+	const al = e.allocator();
+	for (e.child_edges.items) |edge| {
+		if (!std.mem.eql(u8, edge.parent_table, tname)) continue;
+		if (edge.on_delete != .set_null) continue;
+		const child_t = e.tables.getPtr(edge.child_table) orelse continue;
+		const id = indexPtrByCol(child_t, edge.fk_col) orelse continue;
+		var batch = std.ArrayListUnmanaged([]u8){};
+		defer {
+			for (batch.items) |p| al.free(p);
+			batch.deinit(al);
+		}
+		if (id.unique) {
+			if (id.uni.get(pk)) |child_pk| {
+				try batch.append(al, try dup(al, child_pk));
+			}
+		} else if (id.multi.get(pk)) |list| {
+			for (list.items) |cpk| try batch.append(al, try dup(al, cpk));
+		}
+		for (batch.items) |cpy| {
+			defer al.free(cpy);
+			const patch = try jsonPatchNullField(al, edge.fk_col);
+			defer al.free(patch);
+			try ingestRow(e, edge.child_table, cpy, patch, true, false);
+		}
+	}
+}
+
 fn deleteCascade(e: *Engine, tname: []const u8, pk: []const u8) anyerror!void {
 	const al = e.allocator();
 	for (e.child_edges.items) |edge| {
@@ -547,8 +581,13 @@ fn loadCatalogFile(e: *Engine, json: []const u8) !void {
 				const cc0 = jsonStr(cols_a.items[0]) orelse return error.BadCatalog;
 				const pc0 = jsonStr(pc_a.items[0]) orelse return error.BadCatalog;
 				const odv = fo.get("onDelete");
-				const od: []const u8 = if (odv) |ov| (jsonStr(ov) orelse "restrict") else "restrict";
-				const ond: OnDelete = if (std.mem.eql(u8, od, "cascade")) .cascade else .restrict;
+				const od: []const u8 = if (odv) |ov| (jsonStr(ov) orelse "cascade") else "cascade";
+				const ond: OnDelete = if (std.mem.eql(u8, od, "cascade"))
+					.cascade
+				else if (std.mem.eql(u8, od, "setNull") or std.mem.eql(u8, od, "set_null"))
+					.set_null
+				else
+					.restrict;
 				try fk_list.append(al, .{
 					.col = try dup(al, cc0),
 					.parent_table = try dup(al, pt),
@@ -867,6 +906,7 @@ export fn fwdb_row_delete(engine: ?*Engine, table_ptr: ?[*]const u8, table_len: 
 	e.mut.lock();
 	defer e.mut.unlock();
 	restrictCheck(e, tname, pk) catch return 8;
+	applySetNullOnParentDelete(e, tname, pk) catch return 9;
 	deleteCascade(e, tname, pk) catch return 9;
 	return 0;
 }

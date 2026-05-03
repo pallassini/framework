@@ -6,7 +6,7 @@ import { string } from "./properties/string";
 
 export { REF };
 
-export type RefMeta = { table: string; onDelete: "restrict" | "cascade" };
+export type RefMeta = { table: string; onDelete: "restrict" | "cascade" | "setNull" };
 
 export type FkSchema = InputSchema<string> & {
 	optional(): InputSchema<string | undefined>;
@@ -17,7 +17,7 @@ export type FkSchema = InputSchema<string> & {
  * per tooling e catalog (solo colonne top-level nello shape della tabella).
  * Usabile anche dentro `v.object` / `v.array` (es. snapshot) dove le stringhe `"tabella"` non valgono.
  */
-export function fk(tableName: string, opts?: { onDelete?: "restrict" | "cascade" }): FkSchema {
+export function fk(tableName: string, opts?: { onDelete?: "restrict" | "cascade" | "setNull" }): FkSchema {
 	const inner = string();
 	const onDelete = opts?.onDelete ?? "cascade";
 	const base = {

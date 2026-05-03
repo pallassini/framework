@@ -16,7 +16,10 @@ function eqScalarMatch(rowVal: unknown, filterVal: unknown): boolean {
 
 function matchOps(value: unknown, ops: WhereOps<unknown>): boolean {
 	if (ops.$eq !== undefined && !eqScalarMatch(value, ops.$eq)) return false;
-	if (ops.$ne !== undefined && value === ops.$ne) return false;
+	/** `$ne: null` = “valorizzato” come in SQL `IS NOT NULL`: esclude `null` e proprietà assente (`undefined`). */
+	if (ops.$ne !== undefined) {
+		if (ops.$ne === null ? value == null : value === ops.$ne) return false;
+	}
 	if (ops.$in && !ops.$in.includes(value)) return false;
 	if (ops.$nin && ops.$nin.includes(value)) return false;
 	if (ops.$lt !== undefined && !(typeof value === "number" && typeof ops.$lt === "number" && value < ops.$lt)) {

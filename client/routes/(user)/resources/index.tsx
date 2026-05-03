@@ -1,3 +1,4 @@
+import { notNull } from "db";
 import { device, For, server, state } from "client";
 import Menu from "../../_components/menu";
 import Popmenu from "client/_components/popmenu";
@@ -62,12 +63,18 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
   const bin = state(
     () => categories()?.filter((b) => b.type === type && b.deletedAt != null) ?? [],
   );
+  const hoverOut = state(true);
   return (
     <Popmenu
       closePulse={() => close()}
       direction="bottom-left"
       mode="light"
-      onClose={() => binOpen(false)}
+      hoverIn
+      hoverOut={hoverOut}
+      onClose={() => {
+        binOpen(false);
+        hoverOut(true);
+      }}
       collapsed={() => <icon name="dotsVertical" size={4} stroke={3} s="text-background" />}
       extended={() => (
         <>
@@ -85,25 +92,36 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
                   <icon name="plus" size={4} stroke={3} s="text-background" />
                   <t s="text-3 font-6">Crea Gruppo</t>
                 </div>
-                {/* BIN */}
+                {/* ARCHIVE */}
                 <div
                   show={{ when: bin()?.length > 0, instant: true }}
-                  s="row gap-1 centery children-centery hover:(bg-error text-background)  text-error  round-10px p-2"
+                  s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
                   click={() => {
                     binOpen(true);
+                    hoverOut(false);
                   }}
                 >
-                  <icon name="trash" size={4} stroke={3} s="" />
-                  <t s="text-3 font-6">Cestino ({bin()?.length ?? 0})</t>
+                  <icon name="archive" size={4} stroke={3} s="text-background" />
+                  <t s="text-3 font-6">Archivio ({bin()?.length ?? 0})</t>
                 </div>
               </div>
             </case>
             <case when={binOpen}>
               <div s="col ">
                 <div s="row children-centery gap-1 bg-secondary text-#fff p-4">
-                  <icon name="trash" size={4} stroke={3} s="text-background" />
-                  <t s="text-5 font-6">Cestino</t>
-                  <t s="text-3 font-6 text-error right round-10px p-1">Svuota</t>
+                  <icon name="archive" size={4} stroke={3} s="text-background" />
+                  <t s="text-5 font-6">Archivio</t>
+                  <t
+                    s="text-3 font-6 text-error right round-10px p-1 hover:(bg-error text-background)"
+                    click={() => {
+                      categories.remove({
+                        where: { type, deletedAt: notNull },
+                      });
+                      closer();
+                    }}
+                  >
+                    Svuota
+                  </t>
                 </div>
                 <div s="col gap-2 mt-2 p-4">
                   <For each={() => bin()}>
@@ -133,6 +151,7 @@ function TypeMenu({ type }: { type: "space" | "person" }) {
                             s="text-#fff bg-error round-10px p-1 hover:(scale-130)"
                             click={() => {
                               categories.remove({ id: b.id });
+
                               if (bin()?.length === 0) closer();
                             }}
                           />
@@ -194,18 +213,24 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
     close(true);
     setTimeout(() => close(false), 100);
   }
-  const confirmDelete = state(false);
+  const selected = state<"delete" | "resourcesDeleted" | null>(null);
+  const hoverOut = state(true);
   return (
     <Popmenu
       direction="bottom-left"
       mode="light"
-      onClose={() => confirmDelete(false)}
-      closePulse={() => close()}
+      hoverIn
+      hoverOut={hoverOut}
+      onClose={() => {
+        selected(null);
+        hoverOut(true);
+      }}
+      closePulse={close}
       collapsed={() => <icon name="dotsVertical" size={4} stroke={3} s="text-background" />}
       extended={() => (
         <>
-          <switch>
-            <case when={() => !confirmDelete()}>
+          <switch value={selected}>
+            <case when={null}>
               <div s="p-2">
                 {/* CREATE RESOURCE */}
                 <div
@@ -219,23 +244,47 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                   <icon name="plus" size={4} stroke={3} s="text-background" />
                   <t s="text-3 font-6">Crea {type === "space" ? "Spazio" : "Persona"}</t>
                 </div>
-                {/* DELETE RESOURCE */}
+                {/* DELETE CATEGORY */}
                 <div
-                  s={{
-                    base: {
-                      "row gap-1 centery children-centery text-error p-2 round-10px hover:(bg-error text-background)": true,
-                    },
-                  }}
+                  s="row gap-1 centery children-centery hover:(bg-error text-background) text-error round-10px p-2"
                   click={() => {
-                    confirmDelete(true);
+                    hoverOut(false);
+                    selected("delete");
                   }}
                 >
-                  <icon name="trash" size={4} stroke={3} s="" />
-                  <t s="text-3 font-6">Elimina Gruppo</t>
+                  <icon name="archiveRestore" size={4} stroke={3} />
+                  <t s="text-3 font-6">Archivia</t>
+                </div>
+              </div>
+              {/* RESOURCES IN ARCHIVE */}
+              <div
+                s="p-2"
+                show={{
+                  when:
+                    resources()?.filter((r) => r.categoryId === category.id && r.deletedAt != null)
+                      ?.length > 0,
+                  instant: true,
+                }}
+              >
+                <div
+                  s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
+                  click={() => {
+                    hoverOut(false);
+                    selected("resourcesDeleted");
+                  }}
+                >
+                  <icon name="archive" size={4} stroke={3} s="text-background" />
+                  <t s="text-3 font-6">
+                    Archivio (
+                    {resources()?.filter((r) => r.categoryId === category.id && r.deletedAt != null)
+                      ?.length ?? 0}
+                    )
+                  </t>
                 </div>
               </div>
             </case>
-            <case when={() => confirmDelete}>
+            {/* DELETE */}
+            <case when={"delete"}>
               <div
                 s="px-4 py-2  text-4 font-6 bg-error"
                 click={() => {
@@ -248,7 +297,77 @@ function CategoryMenu({ category, type }: { category: any; type: "space" | "pers
                   });
                 }}
               >
-                <t>elimina</t>
+                <t>Archivia</t>
+              </div>
+            </case>
+            {/* RESOURCES IN ARCHIVE */}
+            <case when={"resourcesDeleted"}>
+              <div s="col ">
+                <div s="row centery children-centery gap-1 bg-secondary text-#fff p-4">
+                  <div s="row p-1 children-centery gap-1">
+                    <icon name="archive" size={4} stroke={3} s="text-background" />
+                    <t s="text-5 font-6 ">Archivio</t>
+                  </div>
+                  <t
+                    s="text-3 font-6 text-error right round-10px p-1 hover:(bg-error text-background)"
+                    click={() => {
+                      resources.remove({
+                        where: { categoryId: category.id, deletedAt: notNull },
+                      });
+                      closer();
+                    }}
+                  >
+                    Svuota
+                  </t>
+                </div>
+                <div s="col gap-2 mt-2 p-4">
+                  <For
+                    each={() =>
+                      resources()?.filter(
+                        (r) => r.categoryId === category.id && r.deletedAt != null,
+                      )
+                    }
+                  >
+                    {(b) => (
+                      <div s="p-2 round-10px hover:(bg-#b7b7b7) children-centery row gap-1">
+                        <icon name="category" size={4} stroke={3} s="text-background" />
+                        <t s="text-3 font-6">{b.name}</t>
+                        <div s="right row gap-2">
+                          <icon
+                            name="plus"
+                            size={5}
+                            stroke={3}
+                            s="text-#fff bg-secondary round-10px p-1 hover:(scale-130)"
+                            click={() => {
+                              resources.update({ id: b.id, deletedAt: null });
+                              if (
+                                resources()?.filter(
+                                  (r) => r.categoryId === category.id && r.deletedAt != null,
+                                )?.length === 0
+                              )
+                                closer();
+                            }}
+                          />
+                          <icon
+                            name="trash"
+                            size={5}
+                            stroke={3}
+                            s="text-#fff bg-error round-10px p-1 hover:(scale-130)"
+                            click={() => {
+                              resources.remove({ id: b.id });
+                              if (
+                                resources()?.filter(
+                                  (r) => r.categoryId === category.id && r.deletedAt != null,
+                                )?.length === 0
+                              )
+                                closer();
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </For>
+                </div>
               </div>
             </case>
           </switch>
@@ -322,20 +441,33 @@ function Resources({ category, type }: { category: any; type: "space" | "person"
 }
 
 function ResorceMenu({ resource }: { resource: any }) {
-  const selected = state<"delete" | "move" | null>(null);
+  const selected = state<"move" | null>(null);
   const close = state(false);
   function closer() {
     close(true);
     setTimeout(() => selected(null), 100);
   }
+  const hoverOut = state(true);
   return (
     <>
       <Popmenu
         direction="bottom-left"
         mode="light"
-        onClose={() => selected(null)}
+        hoverOut={hoverOut}
+        onClose={() => {
+          selected(null);
+          hoverOut(true);
+        }}
         closePulse={close}
-        collapsed={() => <icon name="dotsVertical" size={4} stroke={3} s="text-background" />}
+        hoverIn
+        collapsed={() => (
+          <icon
+            name="dotsVertical"
+            size={device() == "mob" ? 1 : 4}
+            stroke={3}
+            s="text-background"
+          />
+        )}
         extended={() => (
           <>
             <switch value={selected}>
@@ -344,9 +476,19 @@ function ResorceMenu({ resource }: { resource: any }) {
                 <div s="p-2 text-4 font-6">
                   {/* MOVE */}
                   <div
-                  show={{ when: resources()?.length > 1, instant: true }}
+                    show={{
+                      when:
+                        categories()?.filter(
+                          (c) =>
+                            c.type === resource.type &&
+                            c.deletedAt == null &&
+                            c.id !== resource.categoryId,
+                        )?.length > 0,
+                      instant: true,
+                    }}
                     s="row gap-1 centery children-centery hover:(bg-#bbbbbb) round-10px p-2"
                     click={() => {
+                      hoverOut(false);
                       selected("move");
                     }}
                   >
@@ -357,11 +499,12 @@ function ResorceMenu({ resource }: { resource: any }) {
                   <div
                     s="row gap-1 centery children-centery hover:(bg-error text-background) round-10px p-2 text-error"
                     click={() => {
-                      selected("delete");
+                      closer();
+                      resources.update({ id: resource.id, deletedAt: new Date().toISOString() });
                     }}
                   >
-                    <icon name="trash" stroke={3} />
-                    <t s="text-3 font-6">Elimina</t>
+                    <icon name="archiveRestore" stroke={3} />
+                    <t s="text-3 font-6">Archivia</t>
                   </div>
                 </div>
               </case>
@@ -370,7 +513,12 @@ function ResorceMenu({ resource }: { resource: any }) {
                 <div s="p-2 text-4 font-6">
                   <For
                     each={() =>
-                      categories()?.filter((c) => c.type === resource.type && c.deletedAt == null && c.id !== resource.categoryId)
+                      categories()?.filter(
+                        (c) =>
+                          c.type === resource.type &&
+                          c.deletedAt == null &&
+                          c.id !== resource.categoryId,
+                      )
                     }
                   >
                     {(c) => (

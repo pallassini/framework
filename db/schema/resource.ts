@@ -13,6 +13,7 @@ const resourceShared = {
 export const resources = table({
   name: v.string(),
   ...resourceShared,
+  /** FK obbligatoria → `onDelete: cascade`: delete di `resourceCategories` rimuove anche questa riga (Zig). */
   categoryId: v.fk("resourceCategories"),
   userId: "users",
 });
