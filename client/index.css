@@ -1,3 +1,9 @@
+/*
+dobbiamo impostare un valore  di round diverso per ogni componente quindi per popmenu, botton e input, 
+e ognuno deve essere in base a padding di quell elemento e se non c'e allora usiamo un valore di bsae, 
+poi dobbiamo impostare lo smoothing a 60 quidi G2 IOS
+*/
+
 :root {
   --popmenuRound: 20px;
   --popmenuShadowColor: rgba(0, 0, 0, 0.083);
@@ -8,20 +14,22 @@
   --popmenuShadow: 0 var(--popmenuShadowY) var(--popmenuShadowBlur) var(--popmenuShadowSpread)
     var(--popmenuShadowColor);
 
-  --round: 10%;
+  --round: 20px;
   --duration: 200ms;
   --inputRound: 10px;
 
   --error: #eb0029;
 }
-
+/* ───────────────────────────────────────────────────────────────────────────────
+// DARK
+*/
 :root:not([data-theme]),
 [data-theme="dark"] {
   color-scheme: dark;
   --background: #050505;
-  --primary: #00eeff;
-  --secondary: #0a0a0a;
-  --tertiary: #2a2a2a;
+  --primary: #00d7e5; /* #00eeff */
+  --secondary: #0D0D0D;
+  --tertiary: #161B1C;
 
   --inputLight: #e6e6e6;
   --inputDark: #171717;
@@ -31,19 +39,13 @@
   --popmenu-surface-contrast: #e6e6e6;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────────
+// LIGHT
+*/
 [data-theme="light"] {
   color-scheme: light;
   --background: #f5f5f5;
   --primary: #00a8b8;
   --secondary: #ffffff;
   --tertiary: #e0e0e0;
-
-  --inputLight: #ffffff;
-  --inputDark: #2a2a2a;
-  --inputOptional: #7373739d;
-
-  --popmenu-surface: #e6e6e6;
-  --popmenu-surface-contrast: #171717;
-
-  --popmenuShadowColor: rgba(0, 0, 0, 0.12);
 }
