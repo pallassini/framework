@@ -1,6 +1,13 @@
 import type { Properties } from "csstype";
 import { B_ANIM_FILL, B_ANIM_RGB, normalizeAnimatedPower } from "./properties/b-animated";
 import { backgroundColor } from "./properties/background";
+import {
+	bgBlur,
+	bgBrightness,
+	bgContrast,
+	bgHueRotate,
+	bgSaturate,
+} from "./properties/bgdrop";
 import { blur } from "./properties/blur";
 import { border, borderBottom, borderLeft, borderRight, borderTop } from "./properties/border";
 import { font } from "./properties/font";
@@ -249,7 +256,22 @@ export const map = styleMap({
   bb: borderBottom,
   bl: borderLeft,
   bg: backgroundColor,
+  /**
+   * Suffisso lunghezza → `filter: blur(…)` sul **contenuto** del nodo.
+   * Per sfocare **lo sfondo dietro** il box componi i token `bgblur-*`, `bgsaturate-*`, … (vedi `./properties/bgdrop`):
+   * finiscono in un’unica catena `backdrop-filter` / `WebkitBackdropFilter` in ordine di scrittura.
+   */
   blur: blur,
+  /** Intero → `blur(Npx)`; altrimenti lunghezza (`12px`, `1rem`, …). Segmento `backdrop-filter`. */
+  bgblur: bgBlur,
+  /** `180%` oppure moltiplicatore `1.65`. Segmento `backdrop-filter`. */
+  bgsaturate: bgSaturate,
+  /** `105%` o `1.05`. Segmento `backdrop-filter`. */
+  bgbrightness: bgBrightness,
+  /** `110%` o `1.1`. Segmento `backdrop-filter`. */
+  bgcontrast: bgContrast,
+  /** `12deg` o `12`. Segmento `backdrop-filter` (`hue-rotate`). */
+  bghue: bgHueRotate,
   /**
    * **`shadow-card`** / **`shadow-card-sm`** / **`shadow-card-lg`** → `box-shadow` da card sollevata (riuso su qualsiasi contenitore).
    * **`shadow(…)`** → `box-shadow`: legacy `shadow(colore, 14, 2, 6, 0.5)` oppure nomi (`blur-*`, `spread-*`, `x-*` / `y-*`, anche **`x--4`** / **`-x-4`** per negativi, `pos-*`, `opacity-*`). Attenzione: **`overflow-hidden` sullo stesso nodo taglia l’ombra** — metti l’ombra su un wrapper esterno.

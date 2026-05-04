@@ -221,21 +221,41 @@ export function icon(props: IconProps): UiNode {
 		while (target.firstChild) target.removeChild(target.firstChild);
 		for (const n of Array.from(tpl.childNodes)) target.appendChild(n.cloneNode(true));
 	};
-	const applyIconSizingAndStroke = (target: SVGElement): void => {
+	const applyIconSizingAndStroke = (target: SVGElement, opts: { fillWrap: boolean }): void => {
+		const { fillWrap } = opts;
 		target.style.boxSizing = "content-box";
-		if (size == null) {
-			target.removeAttribute("width");
-			target.removeAttribute("height");
-			target.style.width = "1em";
-			target.style.height = "1em";
-			target.style.display = "inline-block";
-			target.style.verticalAlign = "middle";
-		} else {
+		target.style.removeProperty("width");
+		target.style.removeProperty("height");
+		target.style.removeProperty("max-width");
+		target.style.removeProperty("max-height");
+		target.style.overflow = "visible";
+		if (size != null) {
 			const s = resolveIconSizeProp(size);
 			target.setAttribute("width", s);
 			target.setAttribute("height", s);
+			target.style.verticalAlign = "middle";
+			target.style.display = "inline-block";
+		} else if (fillWrap) {
+			/** `s` con `w-*`/`h-*` sul wrapper: niente `size`; l’SVG riempie il box (come `width:100%` + viewBox in HTML). */
+			target.removeAttribute("width");
+			target.removeAttribute("height");
+			target.style.width = "100%";
+			target.style.height = "100%";
+			target.style.display = "block";
+			target.style.flexShrink = "0";
+		} else {
+			target.setAttribute("width", "1em");
+			target.setAttribute("height", "1em");
+			target.style.display = "inline-block";
+			target.style.verticalAlign = "middle";
 		}
-		if (stroke != null) target.setAttribute("stroke-width", String(stroke));
+		/** Solo icone tipo Lucide (`stroke` sul root). Su SVG fill-only / Figma, `stroke-width` eredita male e non scala come i path. */
+		if (stroke != null) {
+			const rootStroke = target.getAttribute("stroke");
+			if (rootStroke != null && rootStroke !== "none") {
+				target.setAttribute("stroke-width", String(stroke));
+			}
+		}
 		if (target.getAttribute("stroke") === "currentColor") {
 			target.removeAttribute("stroke");
 			target.style.stroke = "currentColor";
@@ -254,16 +274,23 @@ export function icon(props: IconProps): UiNode {
 	const firstFlat = flattenIconStyleToTokenString(sProp);
 	const useSplit = firstFlat != null && firstFlat.trim() !== "";
 	let wrapEl: HTMLSpanElement | null = null;
+	const splitFirst =
+		useSplit && firstFlat != null ? splitIconStyleString(firstFlat) : null;
+	const hasWrapStyleTokens = splitFirst != null && splitFirst.wrap.trim() !== "";
+	/** `s` sul wrapper con dimensioni esplicite (`w-10vw`, `h-8`, …), senza `size` → l’SVG riempie il box. */
+	const wrapHasLayoutSize =
+		hasWrapStyleTokens &&
+		/(?:^|[\s(;])(w-|h-|min-w|min-h|max-w|max-h|aspect-)/.test(splitFirst!.wrap);
+	const fillWrapSvg = size == null && useSplit && wrapHasLayoutSize;
 
-	if (useSplit) {
+	if (useSplit && splitFirst && firstFlat != null) {
 		/**
 		 * `s` dell’icona può contenere rhs reattivi (`"text-primary": tab() === id`).
 		 * Lo split va rieseguito a ogni tick: passiamo a `applyStyle` **funzioni** che
 		 * ricalcolano la stringa di token per wrap e svg.
 		 */
-		const splitFirst = splitIconStyleString(firstFlat);
 		const hasCircle = splitFirst.hasCircle;
-		const hasWrap = splitFirst.wrap.trim() !== "";
+		const hasWrap = hasWrapStyleTokens;
 		const hasSvg = splitFirst.svg.trim() !== "" || firstFlat.trim() !== "";
 		if (hasWrap) {
 			wrapEl = document.createElement("span");
@@ -279,6 +306,8 @@ export function icon(props: IconProps): UiNode {
 			}
 			/** `round-circle` su un box non quadrato diventa ellisse: forza `aspect-ratio: 1` così il wrapper è un cerchio vero. */
 			if (hasCircle) wrapEl.style.aspectRatio = "1";
+			/** Box quadrato da `w-*` solo: l’SVG 1:1 riempie come width/height uguali in HTML. */
+			else if (fillWrapSvg) wrapEl.style.aspectRatio = "1";
 			applyDomProps(wrapEl, { ...rest, children: undefined } as DomProps);
 		} else {
 			applyDomProps(svg, { ...rest, children: undefined } as DomProps);
@@ -293,7 +322,7 @@ export function icon(props: IconProps): UiNode {
 		applyDomProps(svg, { ...rest, children: undefined, s: sProp } as DomProps);
 	}
 
-	applyIconSizingAndStroke(svg);
+	applyIconSizingAndStroke(svg, { fillWrap: fillWrapSvg });
 
 	if (shadow !== undefined) {
 		/** Di default gli SVG clippano al viewBox: il glow di `drop-shadow` resterebbe nascosto fuori dal glifo. */
@@ -325,7 +354,7 @@ export function icon(props: IconProps): UiNode {
 			const tpl = resolveTemplate(next);
 			if (!tpl) return;
 			applyTemplateToSvg(svg, tpl);
-			applyIconSizingAndStroke(svg);
+			applyIconSizingAndStroke(svg, { fillWrap: fillWrapSvg });
 			prev = next;
 		});
 		onNodeDispose(svg, stop);

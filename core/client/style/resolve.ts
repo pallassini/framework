@@ -1,5 +1,6 @@
 import type { Properties } from "csstype";
 import type { StyleGroup, StyleResolver, StyleResolverContext } from "./properties";
+import { FW_BACKDROP_PARTS } from "./fw-backdrop-parts-symbol";
 import { tokenizeStyleString } from "./tokenize-style";
 
 /** `-mt-11vh` → base `mt`, suffix `11vh`, `negative: true` (come prefisso `-` su utility Tailwind-style). */
@@ -147,10 +148,23 @@ export function resolveClasses<M extends Record<string, unknown>>(
 	if (extraBases) for (const b of extraBases) bases.add(b);
 
 	let acc: Properties = {};
+	const backdropParts: string[] = [];
 	for (const token of tokens) {
 		const { base, suffix, negative } = parseStyleToken(token);
 		const ctx: StyleResolverContext | undefined = negative ? { negative: true, bases } : { bases };
-		Object.assign(acc, resolveToken(map, base, suffix, bases, ctx));
+		const resolved = resolveToken(map, base, suffix, bases, ctx) as Record<string | symbol, unknown>;
+		const symParts = resolved[FW_BACKDROP_PARTS];
+		if (Array.isArray(symParts)) {
+			for (const p of symParts) {
+				if (typeof p === "string") backdropParts.push(p);
+			}
+		}
+		Object.assign(acc, { ...resolved });
+	}
+	if (backdropParts.length) {
+		const chain = backdropParts.join(" ");
+		(acc as Record<string, string>).backdropFilter = chain;
+		(acc as Record<string, string>).WebkitBackdropFilter = chain;
 	}
 	applyPositionedInsetDefaults(acc);
 	return acc;

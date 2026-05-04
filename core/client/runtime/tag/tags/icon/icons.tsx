@@ -195,13 +195,7 @@ export const palette = (
 );
 
 export const category = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-  >
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
     <path
       fill-rule="evenodd"
       clip-rule="evenodd"
@@ -547,6 +541,25 @@ export const dotsVertical = (
     <circle cx="12" cy="12" r="1" />
     <circle cx="12" cy="5" r="1" />
     <circle cx="12" cy="19" r="1" />
+  </svg>
+);
+
+export const dotsHorizontal = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="lucide lucide-ellipsis-icon lucide-ellipsis"
+  >
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
   </svg>
 );
 
@@ -957,5 +970,203 @@ export const cart = (
     <path d="M16 10a4 4 0 0 1-8 0" />
     <path d="M3.103 6.034h17.794" />
     <path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z" />
+  </svg>
+);
+
+/** Vetro leggero: tinta da `s="text-*"` sul `<icon>` (`color` → `currentColor` nei gradienti). Riflessi bianchi fissi. */
+export const usersGlass = (
+  <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <g>
+      <g fill="none" class="nc-icon-wrapper">
+        <path
+          d="M5.29395 13C7.89293 13 10 15.1071 10 17.7061C9.99991 18.4206 9.42064 18.9999 8.70605 19H1.29395C0.579361 18.9999 9.3014e-05 18.4206 0 17.7061C0 15.1071 2.10707 13 4.70605 13H5.29395ZM19.2939 13C21.8929 13 24 15.1071 24 17.7061C23.9999 18.4206 23.4206 18.9999 22.7061 19H15.2939C14.5794 18.9999 14.0001 18.4206 14 17.7061C14 15.1071 16.1071 13 18.7061 13H19.2939ZM5 6.5C6.38071 6.5 7.5 7.61929 7.5 9C7.5 10.3807 6.38071 11.5 5 11.5C3.61929 11.5 2.5 10.3807 2.5 9C2.5 7.61929 3.61929 6.5 5 6.5ZM19 6.5C20.3807 6.5 21.5 7.61929 21.5 9C21.5 10.3807 20.3807 11.5 19 11.5C17.6193 11.5 16.5 10.3807 16.5 9C16.5 7.61929 17.6193 6.5 19 6.5Z"
+          fill="url(#ug-grad-accent)"
+          mask="url(#ug-mask)"
+        />
+        <path
+          d="M5.29395 13C7.89293 13 10 15.1071 10 17.7061C9.99991 18.4206 9.42064 18.9999 8.70605 19H1.29395C0.579361 18.9999 9.3014e-05 18.4206 0 17.7061C0 15.1071 2.10707 13 4.70605 13H5.29395ZM19.2939 13C21.8929 13 24 15.1071 24 17.7061C23.9999 18.4206 23.4206 18.9999 22.7061 19H15.2939C14.5794 18.9999 14.0001 18.4206 14 17.7061C14 15.1071 16.1071 13 18.7061 13H19.2939ZM5 6.5C6.38071 6.5 7.5 7.61929 7.5 9C7.5 10.3807 6.38071 11.5 5 11.5C3.61929 11.5 2.5 10.3807 2.5 9C2.5 7.61929 3.61929 6.5 5 6.5ZM19 6.5C20.3807 6.5 21.5 7.61929 21.5 9C21.5 10.3807 20.3807 11.5 19 11.5C17.6193 11.5 16.5 10.3807 16.5 9C16.5 7.61929 17.6193 6.5 19 6.5Z"
+          fill="url(#ug-grad-accent)"
+          filter="url(#ug-filter)"
+          clip-path="url(#ug-clip)"
+        />
+        <path
+          d="M12.3076 12C16.556 12 20 15.444 20 19.6924C20 20.9668 18.9668 22 17.6924 22H6.30762C5.03317 22 4.00004 20.9668 4 19.6924C4 15.444 7.44404 12 11.6924 12H12.3076ZM12 2C14.2091 2 16 3.79086 16 6C16 8.20914 14.2091 10 12 10C9.79086 10 8 8.20914 8 6C8 3.79086 9.79086 2 12 2Z"
+          fill="url(#ug-grad-body)"
+        />
+        <path
+          d="M15.25 6C15.25 4.20507 13.7949 2.75 12 2.75C10.2051 2.75 8.75 4.20507 8.75 6C8.75 7.79493 10.2051 9.25 12 9.25V10C9.79086 10 8 8.20914 8 6C8 3.79086 9.79086 2 12 2C14.2091 2 16 3.79086 16 6C16 8.20914 14.2091 10 12 10V9.25C13.7949 9.25 15.25 7.79493 15.25 6Z"
+          fill="url(#ug-grad-shine)"
+        />
+        <path
+          d="M17.6924 21.25V22H6.30762V21.25H17.6924ZM19.25 19.6924C19.25 15.8583 16.1417 12.75 12.3076 12.75H11.6924C7.85825 12.75 4.75 15.8583 4.75 19.6924C4.75004 20.5526 5.44739 21.25 6.30762 21.25V22C5.11295 22 4.13009 21.0921 4.01172 19.9287L4 19.6924C4 15.5767 7.23229 12.2156 11.2969 12.0098L11.6924 12H12.3076C16.556 12 20 15.444 20 19.6924L19.9883 19.9287C19.8778 21.0145 19.0145 21.8778 17.9287 21.9883L17.6924 22V21.25C18.5526 21.25 19.25 20.5526 19.25 19.6924Z"
+          fill="url(#ug-grad-rim)"
+        />
+        <defs>
+          <linearGradient
+            id="ug-grad-accent"
+            x1="12"
+            y1="6.5"
+            x2="12"
+            y2="19"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stop-color="currentColor" stop-opacity="0.35" />
+            <stop offset="1" stop-color="currentColor" stop-opacity="1" />
+          </linearGradient>
+          <linearGradient
+            id="ug-grad-body"
+            x1="12"
+            y1="2"
+            x2="12"
+            y2="22"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stop-color="currentColor" stop-opacity="0.12" />
+            <stop offset="1" stop-color="currentColor" stop-opacity="0.28" />
+          </linearGradient>
+          <linearGradient
+            id="ug-grad-shine"
+            x1="12"
+            y1="2"
+            x2="12"
+            y2="6.633"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stop-color="#ffffff" stop-opacity="0.95" />
+            <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient
+            id="ug-grad-rim"
+            x1="12"
+            y1="12"
+            x2="12"
+            y2="17.791"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stop-color="#ffffff" stop-opacity="0.9" />
+            <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+          <filter
+            id="ug-filter"
+            x="-100%"
+            y="-100%"
+            width="400%"
+            height="400%"
+            filterUnits="objectBoundingBox"
+            primitiveUnits="userSpaceOnUse"
+          >
+            <feGaussianBlur
+              stdDeviation="2"
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
+              in="SourceGraphic"
+              edgeMode="none"
+              result="blur"
+            />
+          </filter>
+          <clipPath id="ug-clip">
+            <path
+              d="M12.3076 12C16.556 12 20 15.444 20 19.6924C20 20.9668 18.9668 22 17.6924 22H6.30762C5.03317 22 4.00004 20.9668 4 19.6924C4 15.444 7.44404 12 11.6924 12H12.3076ZM12 2C14.2091 2 16 3.79086 16 6C16 8.20914 14.2091 10 12 10C9.79086 10 8 8.20914 8 6C8 3.79086 9.79086 2 12 2Z"
+              fill="url(#ug-grad-body)"
+            />
+          </clipPath>
+          <mask id="ug-mask">
+            <rect width="100%" height="100%" fill="#ffffff" />
+            <path
+              d="M12.3076 12C16.556 12 20 15.444 20 19.6924C20 20.9668 18.9668 22 17.6924 22H6.30762C5.03317 22 4.00004 20.9668 4 19.6924C4 15.444 7.44404 12 11.6924 12H12.3076ZM12 2C14.2091 2 16 3.79086 16 6C16 8.20914 14.2091 10 12 10C9.79086 10 8 8.20914 8 6C8 3.79086 9.79086 2 12 2Z"
+              fill="#000000"
+            />
+          </mask>
+        </defs>
+      </g>
+    </g>
+  </svg>
+);
+
+/** Tre punti “vetro”: tinta da `s="text-*"` sul `<icon>` (`color` → `currentColor` nel corpo). Riflessi bianchi fissi. */
+export const dotsGlass = (
+  <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <g class="nc-icon-wrapper">
+      <path
+        d="M4.5 9.5C5.88071 9.5 7 10.6193 7 12C7 13.3807 5.88071 14.5 4.5 14.5C3.11929 14.5 2 13.3807 2 12C2 10.6193 3.11929 9.5 4.5 9.5ZM12 9.5C13.3807 9.5 14.5 10.6193 14.5 12C14.5 13.3807 13.3807 14.5 12 14.5C10.6193 14.5 9.5 13.3807 9.5 12C9.5 10.6193 10.6193 9.5 12 9.5ZM19.5 9.5C20.8807 9.5 22 10.6193 22 12C22 13.3807 20.8807 14.5 19.5 14.5C18.1193 14.5 17 13.3807 17 12C17 10.6193 18.1193 9.5 19.5 9.5Z"
+        fill="url(#dg-grad-body)"
+      />
+      <path
+        d="M13.75 12C13.75 11.0335 12.9665 10.25 12 10.25C11.0335 10.25 10.25 11.0335 10.25 12C10.25 12.9665 11.0335 13.75 12 13.75V14.5C10.6193 14.5 9.5 13.3807 9.5 12C9.5 10.6193 10.6193 9.5 12 9.5C13.3807 9.5 14.5 10.6193 14.5 12C14.5 13.3807 13.3807 14.5 12 14.5V13.75C12.9665 13.75 13.75 12.9665 13.75 12Z"
+        fill="url(#dg-grad-shine-c)"
+      />
+      <path
+        d="M6.25 12C6.25 11.0335 5.4665 10.25 4.5 10.25C3.5335 10.25 2.75 11.0335 2.75 12C2.75 12.9665 3.5335 13.75 4.5 13.75V14.5C3.11929 14.5 2 13.3807 2 12C2 10.6193 3.11929 9.5 4.5 9.5C5.88071 9.5 7 10.6193 7 12C7 13.3807 5.88071 14.5 4.5 14.5V13.75C5.4665 13.75 6.25 12.9665 6.25 12Z"
+        fill="url(#dg-grad-shine-l)"
+      />
+      <path
+        d="M21.25 12C21.25 11.0335 20.4665 10.25 19.5 10.25C18.5335 10.25 17.75 11.0335 17.75 12C17.75 12.9665 18.5335 13.75 19.5 13.75V14.5C18.1193 14.5 17 13.3807 17 12C17 10.6193 18.1193 9.5 19.5 9.5C20.8807 9.5 22 10.6193 22 12C22 13.3807 20.8807 14.5 19.5 14.5V13.75C20.4665 13.75 21.25 12.9665 21.25 12Z"
+        fill="url(#dg-grad-shine-r)"
+      />
+      <defs>
+        <linearGradient
+          id="dg-grad-body"
+          x1="12"
+          y1="9.5"
+          x2="12"
+          y2="14.5"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stop-color="currentColor" stop-opacity="0.42" />
+          <stop offset="1" stop-color="currentColor" stop-opacity="0.88" />
+        </linearGradient>
+        <linearGradient
+          id="dg-grad-shine-c"
+          x1="12"
+          y1="9.5"
+          x2="12"
+          y2="12.396"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stop-color="#ffffff" stop-opacity="0.95" />
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient
+          id="dg-grad-shine-l"
+          x1="4.5"
+          y1="9.5"
+          x2="4.5"
+          y2="12.396"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stop-color="#ffffff" stop-opacity="0.95" />
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient
+          id="dg-grad-shine-r"
+          x1="19.5"
+          y1="9.5"
+          x2="19.5"
+          y2="12.396"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stop-color="#ffffff" stop-opacity="0.95" />
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+    </g>
+  </svg>
+);
+
+export const logo = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="375"
+    height="340"
+    viewBox="0 0 375 340"
+    fill="none"
+  >
+    <path
+      d="M118.014 77.5C140.75 38.1204 152.117 18.4306 166.959 11.8227C179.904 6.05909 194.687 6.05909 207.633 11.8227C222.474 18.4306 233.842 38.1204 256.578 77.5L334.52 212.5C357.256 251.88 368.624 271.569 366.926 287.726C365.444 301.819 358.053 314.622 346.589 322.951C333.445 332.5 310.71 332.5 265.238 332.5H109.353C63.8817 332.5 41.1459 332.5 28.0026 322.951C16.5385 314.622 9.14701 301.819 7.6658 287.726C5.96763 271.569 17.3355 251.88 40.0714 212.5L118.014 77.5Z"
+      stroke="#6D6D6D"
+      stroke-width="15"
+    />
   </svg>
 );

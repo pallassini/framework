@@ -1,10 +1,18 @@
 import { applyDomProps } from "../../logic/dom-props";
 import { toNodes } from "../../logic/children";
+import { onNodeDispose } from "../../logic/lifecycle";
 import type { DomProps, SharedProps, UiNode } from "../props";
+import { watch } from "../../../state/effect";
+import { isSignal, type Signal } from "../../../state";
 import { applyMediaBlendEffect, type MediaBlendLevel } from "./media/blend";
 
 export type ImgProps = SharedProps & {
-	src: string;
+	/**
+	 * URL statico, oppure funzione / `Signal` reattivo (stesso `<img>`, aggiorna `src` al cambio).
+	 * Nei file sotto `client/routes`, per asset `./file.png` usa `new URL("./file.png", import.meta.url).href`
+	 * (o `src="./file.png"` letterale): altrimenti il plugin `route-asset-src` non risolve il path.
+	 */
+	src: string | (() => string) | Signal<string>;
 	alt?: string;
 	decoding?: HTMLImageElement["decoding"];
 	loading?: HTMLImageElement["loading"];
@@ -12,10 +20,32 @@ export type ImgProps = SharedProps & {
 	blend?: MediaBlendLevel;
 };
 
+function readImgSrc(src: string | (() => string) | Signal<string>): string {
+	if (isSignal(src)) return String(src());
+	if (typeof src === "function") return (src as () => string)();
+	return String(src);
+}
+
 export function img(props: ImgProps): UiNode {
 	const el = document.createElement("img");
 	const { src, alt, decoding, loading, children, blend, ...rest } = props;
-	el.src = src;
+	const srcReactive = isSignal(src) || typeof src === "function";
+
+	if (srcReactive) {
+		let last = "";
+		const stop = watch(
+			() => {
+				const next = readImgSrc(src);
+				if (!next || next === last) return;
+				last = next;
+				el.src = next;
+			},
+			{ flush: "sync" },
+		);
+		onNodeDispose(el, stop);
+	} else {
+		el.src = readImgSrc(src);
+	}
 	if (alt != null) el.alt = alt;
 	if (decoding != null) el.decoding = decoding;
 	if (loading != null) el.loading = loading;

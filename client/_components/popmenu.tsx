@@ -1,4 +1,4 @@
-import { device, state, watch, icon } from "client";
+import { device, state, watch } from "client";
 import { toNodes } from "../../core/client/runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
@@ -69,8 +69,17 @@ interface PopmenuProps {
    * Default: `p-2 text-secondary scale-110`. Passa `false` per disattivare (resta l’allineamento interno).
    * Il nome `hover` nel framework indica l’`HoverProp` (mouse enter/leave) sui tag DOM, non i token;
    * qui si usa `collapsedS` per evitare ambiguità. `hover` resta alias deprecato.
+   *
+   * Il wrapper interno **riempie** lo slot chiuso (`cw×ch`, come la shell): `bg-*` / gradient su
+   * `collapsedS` coprono tutto il rettangolo come con `mode` light/dark (niente alone del tema ai bordi).
+   * Per la sola shell trasparente (icona “floating”) usa `collapsedShellS` / `s` sulla shell.
    */
   collapsedS?: unknown | false;
+  /**
+   * Token `s` applicati alla **shell** solo con menu chiuso (es. `bg-transparent`, `text-#030303`).
+   * Aperto si torna al tema inline di `boxStyle` come senza `s`. Ignorato se passi già `s` sulla shell.
+   */
+  collapsedShellS?: unknown;
   /** @deprecated Usa `collapsedS` (i token stile sul wrapper del collapsed). */
   hover?: unknown;
   /** Se `true` (o oggetto con opzioni), chiede conferma prima di chiudere (clickout / esc). */
@@ -85,8 +94,15 @@ interface PopmenuProps {
   hoverOut?: boolean | (() => boolean);
   /** Al primo `open=true`, mette focus sul primo input/textarea dentro l'extended. */
   autofocus?: boolean;
-  /** Modalità cromatica base della shell. Default `dark` (come il vecchio `normal`). */
-  mode?: "light" | "dark";
+  /**
+   * Modalità cromatica della shell. Default `dark`.
+   * - `light` / `dark`: tinta unita tema (come prima).
+   * - `liquidGlassDark`: interno scuro uniforme; luci agli angoli (inset chiare top-left / bottom-right).
+   * - `liquidGlassLight`: pannello **grigio‑chiaro** (non bianco puro) + bordo scuro + ombre così
+   *   volume e angoli restano leggibili anche su sfondo nero o bianco.
+   * Per entrambe: raggio default `12px` se non passi `round`.
+   */
+  mode?: "light" | "dark" | "liquidGlassDark" | "liquidGlassLight";
   /** Raggio angoli shell. Default globale: `var(--round)`. */
   round?: number | string;
   /** Raggio shell quando il popmenu è chiuso (solo collapsed). */
@@ -258,10 +274,17 @@ const measureHostStyle: Record<string, string> = {
   boxSizing: "border-box",
 };
 
-/** Evita la striscia chiara sotto l’icona (line-height / baseline dell’inline SVG) nel menu chiuso. */
+/**
+ * Wrapper `collapsed`: niente altezze/larghezze in % (su mobile bloccavano il padding verticale
+ * su `<icon>` / `collapsedS`). Flex centra nel box misurato; `lineHeight: 0` evita striscia sotto le SVG.
+ * Per `bg-*` a tutta area: usa token `w-100%` / `min-h-100%` su `collapsedS` se ti serve.
+ */
 const collapsedSlotAlignStyle: Record<string, string> = {
+  boxSizing: "border-box",
   lineHeight: "0",
-  display: "block",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 /** Default stile del wrapper `collapsed` (icona+padding; scalabile; colore testo/icone). */
@@ -323,6 +346,7 @@ export default function Popmenu(props: PopmenuProps) {
     offset,
     s,
     collapsedS,
+    collapsedShellS,
     hover: legacyCollapsedWrapperHover,
     confirmCollapsed,
     feedback,
@@ -344,7 +368,22 @@ export default function Popmenu(props: PopmenuProps) {
       ? false
       : (collapsedS ?? legacyCollapsedWrapperHover ?? DEFAULT_COLLAPSED_WRAPPER_S);
 
-  const resolvedMode: "light" | "dark" = mode;
+  const hasCollapsedShellS =
+    collapsedShellS != null &&
+    collapsedShellS !== false &&
+    !(typeof collapsedShellS === "string" && collapsedShellS.trim() === "");
+
+  /** `s` shell: se il parent non passa `s`, con menu chiuso si possono applicare token (es. `bg-transparent`). */
+  const shellS: unknown =
+    s != null && s !== false
+      ? s
+      : hasCollapsedShellS
+        ? () => (open() ? false : collapsedShellS)
+        : s;
+
+  const isLiquidGlassDark = mode === "liquidGlassDark";
+  const isLiquidGlassLight = mode === "liquidGlassLight";
+  const isLiquidGlass = isLiquidGlassDark || isLiquidGlassLight;
 
   ensureBounceKeyframe();
   const open = state(false);
@@ -555,21 +594,29 @@ export default function Popmenu(props: PopmenuProps) {
   };
 
   if (INPUT_DEBUG) watch(() => {
-    const shellBg =
-      resolvedMode === "light"
-        ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
-        : "var(--popmenuDark, #171717)";
+    const colorSchemeLightTrace =
+      mode === "liquidGlassLight" || (mode === "light" && !isLiquidGlass);
+    const shellBgTrace =
+      isLiquidGlassDark
+        ? "liquidGlassDark (solid + corner highlights)"
+        : isLiquidGlassLight
+          ? "liquidGlassLight (gray gradient + rim/shadow stack)"
+          : mode === "light"
+            ? "var(--popmenu-surface-contrast, #e6e6e6)"
+            : "var(--popmenu-surface, #171717)";
     logInputDebug(`[PopmenuThemeTrace]`, {
       open: open(),
       modeProp: mode,
-      resolvedMode,
-      shellBackground: shellBg,
-      colorSchemeOnShell: resolvedMode === "light" ? "light" : "dark",
+      isLiquidGlass,
+      isLiquidGlassDark,
+      isLiquidGlassLight,
+      shellBackground: shellBgTrace,
+      colorSchemeOnShell: colorSchemeLightTrace ? "light" : "dark",
       note:
         "Input: temi con Form/Input o formModeShellScopeVars; la shell popmenu non inietta --fw-input-*.",
       cssVarsInjectedOnShell: {
-        "--fw-popmenu-bg": shellBg,
-        "--fw-popmenu-mode": resolvedMode,
+        "--fw-popmenu-bg": shellBgTrace,
+        "--fw-popmenu-mode": mode,
       },
     });
   });
@@ -747,16 +794,19 @@ export default function Popmenu(props: PopmenuProps) {
     const tick = bounceTick();
     /** Alterna fra due nomi di keyframe identici per riavviare l'animazione su ogni insistenza. */
     const bounceName = tick === 0 ? "none" : (tick % 2 === 1 ? "popmenu-bounce-a" : "popmenu-bounce-b");
-    const shellBg =
-      resolvedMode === "light"
-        ? "var(--popmenuLigth, var(--popmenuLight, #e6e6e6))"
-        : "var(--popmenuDark, #171717)";
-    const shellRound =
-      round !== undefined
-        ? typeof round === "number"
-          ? `${round}px`
-          : round
-        : "var(--popmenuRound, var(--round, 20px))";
+    const shellBgFlat =
+      mode === "light"
+        ? "var(--popmenu-surface-contrast, #e6e6e6)"
+        : "var(--popmenu-surface, #171717)";
+    let shellRound: string;
+    if (round !== undefined) {
+      shellRound = typeof round === "number" ? `${round}px` : round;
+    } else if (isLiquidGlass) {
+      /** Leggermente più arrotondato del tema “squadrato”; sovrascrivibile con `round` / `*Round`. */
+      shellRound = "12px";
+    } else {
+      shellRound = "var(--popmenuRound, var(--round, 20px))";
+    }
     const closedRound =
       collapsedRound !== undefined
         ? typeof collapsedRound === "number"
@@ -818,16 +868,40 @@ export default function Popmenu(props: PopmenuProps) {
     } else {
       shellShadow = composedShadowFromTokens();
     }
-    const shellTextColor =
-      resolvedMode === "light" ? "#111" : "rgba(255,255,255,0.95)";
-    /** Se la shell passa `s=…`, lasciamo a `s` (applyStyle) background/colore: altrimenti `style` con `boxStyle` li riscrive dopo `s`. */
-    const shellThemeFromS = s != null && s !== false;
+    /** Dark: luci inset chiare agli angoli. Light: ombra esterna + bevel + luci inset su base grigia. */
+    const liquidGlassRimDark =
+      "inset 3px 3px 5px -3px rgba(255,255,255,0.16), inset -3px -3px 5px -3px rgba(255,255,255,0.1)";
+    const liquidGlassRimLight =
+      "0 6px 20px rgba(0,0,0,0.28), " +
+      "0 0 0 1px rgba(255,255,255,0.5), " +
+      "inset 0 0 0 1px rgba(0,0,0,0.14), " +
+      "inset 1px 1px 0 0 rgba(255,255,255,0.5), " +
+      "inset -1px -1px 0 0 rgba(0,0,0,0.14), " +
+      "inset 6px 6px 14px -6px rgba(255,255,255,0.12), " +
+      "inset -6px -6px 14px -6px rgba(0,0,0,0.1)";
+    const liquidGlassRim = isLiquidGlassLight ? liquidGlassRimLight : liquidGlassRimDark;
+    if (isLiquidGlass) {
+      shellShadow = shellShadow === "none" ? liquidGlassRim : `${shellShadow}, ${liquidGlassRim}`;
+    }
+    const colorSchemeLight =
+      mode === "liquidGlassLight" || (mode === "light" && !isLiquidGlass);
+    const shellTextColor = colorSchemeLight ? "#111" : "rgba(255,255,255,0.95)";
+    /** Se la shell passa `s=…`, o `collapsedShellS` vale solo da chiuso: `applyStyle` gestisce bg/color. */
+    const shellThemeFromS =
+      (s != null && s !== false) || (hasCollapsedShellS && !isOpen);
     const st: Record<string, string> = {
       position: "absolute",
       width: `${w}px`,
       height: `${h}px`,
       cursor: "pointer",
       overflow: "hidden",
+      /**
+       * Compositing `transform` + `border-radius` + `overflow:hidden` può lasciare un alone chiaro
+       * agli angoli (subpixel / layer). `backface-visibility` + `isolation` stabilizzano la pittura.
+       */
+      backfaceVisibility: "hidden",
+      WebkitBackfaceVisibility: "hidden",
+      isolation: "isolate",
       opacity: ready ? "1" : "0",
       /* Opacità 0 ma rettangolo ancora “hit” → niente click-through: il tap passa al backdrop. */
       pointerEvents: ready ? "auto" : "none",
@@ -841,10 +915,10 @@ export default function Popmenu(props: PopmenuProps) {
        * ristabiliamo qui, browser + UA style dei form restano in “dark
        * controls” e gli input in popmenu **chiari** possono sembrare scuri.
        */
-      colorScheme: resolvedMode === "light" ? "light" : "dark",
+      colorScheme: colorSchemeLight ? "light" : "dark",
       borderRadius: activeRound,
       boxShadow: shellShadow,
-      "--fw-popmenu-mode": resolvedMode,
+      "--fw-popmenu-mode": mode,
       animation: bounceName === "none" ? "none" : `${bounceName} 380ms cubic-bezier(0.25, 1.25, 0.5, 1) 1`,
       transition:
         `width ${d}ms ${e}, ` +
@@ -860,8 +934,17 @@ export default function Popmenu(props: PopmenuProps) {
     };
     if (!shellThemeFromS) {
       st.color = shellTextColor;
-      st.background = shellBg;
-      st["--fw-popmenu-bg"] = shellBg;
+      if (isLiquidGlassDark) {
+        st.background = "rgb(10, 10, 12)";
+        st["--fw-popmenu-bg"] = "rgb(10, 10, 12)";
+      } else if (isLiquidGlassLight) {
+        /** Grigio‑chiaro freddo: contrasto reale con highlight bianchi e ombre. */
+        st.background = "linear-gradient(165deg, rgb(222, 226, 234) 0%, rgb(198, 202, 214) 100%)";
+        st["--fw-popmenu-bg"] = "rgb(208, 212, 222)";
+      } else {
+        st.background = shellBgFlat;
+        st["--fw-popmenu-bg"] = shellBgFlat;
+      }
     }
     if (pos.styles.top != null) st.top = pos.styles.top;
     if (pos.styles.bottom != null) st.bottom = pos.styles.bottom;
@@ -915,6 +998,8 @@ export default function Popmenu(props: PopmenuProps) {
       st.bottom = "0";
     }
     st.transform = `translate(${tx}, ${ty}) scale(${scaleVal})`;
+    /** Stesso raggio della shell: evita micro-gap fra clip arrotondato e contenuto con `transform`. */
+    st.borderRadius = "inherit";
     return st;
   };
 
@@ -925,6 +1010,7 @@ export default function Popmenu(props: PopmenuProps) {
   const confirmBarStyle = () => ({
     position: "absolute",
     inset: "0",
+    borderRadius: "inherit",
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
@@ -958,6 +1044,7 @@ export default function Popmenu(props: PopmenuProps) {
     return {
       position: "absolute" as const,
       inset: "0",
+      borderRadius: "inherit",
       display: "flex",
       flexDirection: "column" as const,
       alignItems: "stretch",
@@ -1298,7 +1385,7 @@ export default function Popmenu(props: PopmenuProps) {
           shellEl = el as HTMLElement | null;
         }}
         style={boxStyle as any}
-        s={s as any}
+        s={shellS as any}
         click={() => {
           if (!open()) requestOpen();
         }}
