@@ -11,6 +11,7 @@ import {
   isNoneInputMode,
 } from "./presets";
 import { logInputDebug } from "./inputDebug";
+import { roundingRef } from "../../_utils/rounding";
 
 /**
  * `<Input type="number">` — scheletro.
@@ -555,7 +556,7 @@ export default function InputNumber(props: InputNumberProps) {
         ? typeof roundRaw === "number"
           ? `${roundRaw}px`
           : roundRaw
-        : `var(--inputRound, var(--round, ${c.m().radius}))`;
+        : `var(--roundPx, var(--round, ${c.m().radius}))`;
     const r = `calc(${baseRadius} - 1px)`;
     const radius = side === "minus" ? `${r} 0 0 ${r}` : `0 ${r} ${r} 0`;
     return {
@@ -719,7 +720,7 @@ export default function InputNumber(props: InputNumberProps) {
         ? typeof roundRaw === "number"
           ? `${roundRaw}px`
           : roundRaw
-        : `var(--inputRound, var(--round, ${met.radius}))`;
+        : `var(--roundPx, var(--round, ${met.radius}))`;
     return {
       position: "relative",
       display: "inline-flex",
@@ -851,13 +852,16 @@ export default function InputNumber(props: InputNumberProps) {
 
   return (
     <div
-      ref={(el) => {
-        numberWrapEl = el as HTMLDivElement | null;
-      }}
+      class="Input"
+      data-rounding=""
       style={wrapInlineStyle as any}
       s={sProp as any}
       pointerenter={() => hoverWrap(true)}
       pointerleave={() => hoverWrap(false)}
+      ref={(el) => {
+        numberWrapEl = el as HTMLDivElement | null;
+        return roundingRef({ applyBorderRadius: false })(el);
+      }}
     >
       <div
         style={() => stepperStyle("minus")}

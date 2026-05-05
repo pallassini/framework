@@ -17,6 +17,7 @@ import {
 } from "./presets";
 import { INPUT_DEBUG, logInputDebug } from "./inputDebug";
 import { pickInputElementDom } from "./common";
+import { roundingRef } from "../../_utils/rounding";
 
 /**
  * Props specifiche per `<Input type="string">`.
@@ -168,7 +169,7 @@ export default function InputString(props: InputStringProps) {
     const fs = fieldCtl?.style();
     const raw = round ?? fs?.round;
     if (raw !== undefined) return typeof raw === "number" ? `${raw}px` : raw;
-    return `var(--inputRound, var(--round, ${m().radius}))`;
+    return `var(--roundPx, var(--round, ${m().radius}))`;
   };
 
   /**
@@ -687,7 +688,13 @@ export default function InputString(props: InputStringProps) {
   };
 
   return (
-    <div style={wrapStyle as any} s={sProp as any}>
+    <div
+      class="Input"
+      data-rounding=""
+      style={wrapStyle as any}
+      s={sProp as any}
+      ref={roundingRef({ applyBorderRadius: false })}
+    >
       <input
         {...domPass}
         type={passwordMode ? "password" : "text"}

@@ -14,7 +14,11 @@ export function padding(suffix: string, ctx?: Ctx): Properties | undefined {
 	if (ctx?.negative) return undefined;
 	const v = resolveSpacingToken(suffix, "box");
 	if (!v) return undefined;
-	return { paddingTop: v, paddingRight: v, paddingBottom: v, paddingLeft: v };
+	/**
+	 * Espone il padding uniforme come variabile `--p` per RoundCtx / RoundFromCtx.
+	 * Così con `p-4` l'elemento pubblica automaticamente il "padding esterno" per la formula del radius.
+	 */
+	return { paddingTop: v, paddingRight: v, paddingBottom: v, paddingLeft: v, ["--p"]: v } as Properties;
 }
 
 export function paddingTop(suffix: string, ctx?: Ctx): Properties | undefined {

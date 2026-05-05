@@ -52,8 +52,8 @@ function directionalRound(
 export function round(suffix: string, ctx?: { negative?: boolean }): Properties | undefined {
 	if (ctx?.negative) return undefined;
 	const r = resolveRoundRadiusCss(suffix);
-	if (r) return { borderRadius: r };
-	return undefined;
+	if (!r) return undefined;
+	return { borderRadius: r };
 }
 
 /** `roundt-*` — solo angoli superiori (come il bordo superiore del wrapper arrotondato). */

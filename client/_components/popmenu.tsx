@@ -3,6 +3,7 @@ import { toNodes } from "../../core/client/runtime/logic/children";
 import { onNodeDispose, replaceChildrenWithDispose } from "../../core/client/runtime/logic/lifecycle";
 import { clientConfig } from "../config";
 import { INPUT_DEBUG, logInputDebug } from "./input/inputDebug";
+import { roundingRef } from "../_utils/rounding";
 
 /**
  * Converte "N" (in unità del canvas, stesse di w-N/h-N del framework) in rem.
@@ -805,7 +806,7 @@ export default function Popmenu(props: PopmenuProps) {
       /** Leggermente più arrotondato del tema “squadrato”; sovrascrivibile con `round` / `*Round`. */
       shellRound = "12px";
     } else {
-      shellRound = "var(--popmenuRound, var(--round, 20px))";
+      shellRound = "var(--roundPx, var(--round, 20px))";
     }
     const closedRound =
       collapsedRound !== undefined
@@ -1383,7 +1384,10 @@ export default function Popmenu(props: PopmenuProps) {
       <div
         ref={(el) => {
           shellEl = el as HTMLElement | null;
+          return roundingRef({ applyBorderRadius: false })(el);
         }}
+        class="Menu"
+        data-rounding=""
         style={boxStyle as any}
         s={shellS as any}
         click={() => {

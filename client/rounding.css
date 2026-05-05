@@ -1,0 +1,13 @@
+/* Rounded surfaces: CSS handles border-radius immediately */
+[data-rounding] {
+  border-radius: var(--roundPx, var(--round, 0px));
+  /* Avoid any "settling" animation when JS updates --roundPx/clip-path */
+  transition: border-radius 0ms linear, clip-path 0ms linear;
+  /* Improve rasterization quality */
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Note: we don't hide by default; keep first paint immediate */
+

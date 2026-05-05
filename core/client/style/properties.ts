@@ -498,6 +498,33 @@ export const map = styleMap({
     suffix === "nowrap" ? { whiteSpace: "nowrap" as const } : undefined,
   /** `aspect-square` / `aspect-16/9` / `aspect-1` → `aspect-ratio`. */
   aspect: aspect,
+
+  /**
+   * Radius context (nesting) tokens.
+   * Use in `s` strings:
+   * - `RoundFromCtx`: compute `--r` from outer context (or base)
+   * - `RoundCtx`: publish `--ctxRound`/`--ctxPadding` for descendants
+   *
+   * With the change in `round.ts`, `round-round` will use `--r` automatically when present.
+   */
+  RoundFromCtx: {
+    "--rBase": "var(--round, 0px)",
+    "--r": "max(0px, calc(var(--ctxRound, var(--rBase)) - var(--ctxPadding, 0px)))",
+  } as Properties,
+  RoundCtx: {
+    "--ctxRound": "var(--r, var(--round, 0px))",
+    "--ctxPadding": "var(--p, 0px)",
+  } as Properties,
+
+  /* lowercase aliases (optional convenience) */
+  roundfromctx: {
+    "--rBase": "var(--round, 0px)",
+    "--r": "max(0px, calc(var(--ctxRound, var(--rBase)) - var(--ctxPadding, 0px)))",
+  } as Properties,
+  roundctx: {
+    "--ctxRound": "var(--r, var(--round, 0px))",
+    "--ctxPadding": "var(--p, 0px)",
+  } as Properties,
 });
 
 // TYPES

@@ -1,4 +1,5 @@
 import { Icon } from "../../core/client/runtime/tag/tags/icon";
+import { roundingRef } from "../_utils/rounding";
 
 type CardProps = {
   title?: string;
@@ -13,13 +14,16 @@ type CardProps = {
 export default function Block({ title, icon: iconName, children, s, style, actions }: CardProps) {
   return (
     <div
+      class="Block"
+      data-rounding=""
       s={{
         base: {
-          "col w-100% round-round des:(p-4) mob:(p-3) centerx bg-secondary": true,
+          "col w-100% des:(p-4) mob:(p-3) centerx bg-secondary": true,
           ...s,
         },
       }}
       style={style as any}
+      ref={roundingRef({ applyBorderRadius: false })}
     >
       <div
         s={{

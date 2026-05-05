@@ -74,6 +74,30 @@ import { mob, styleViewport } from "./viewport";
 type El = HTMLElement | SVGElement;
 
 const managedStyleKeys = new WeakMap<El, Set<string>>();
+const managedStyleClasses = new WeakMap<El, string>();
+
+function normalizeClassString(raw: string | null | undefined): string {
+	return (raw ?? "").trim().replace(/\s+/g, " ");
+}
+
+function subtractClassString(full: string, sub: string): string {
+	const f = normalizeClassString(full);
+	const s = normalizeClassString(sub);
+	if (!s) return f;
+	const fullSet = new Set(f.split(" ").filter(Boolean));
+	for (const c of s.split(" ").filter(Boolean)) fullSet.delete(c);
+	return [...fullSet].join(" ");
+}
+
+function mergeUserAndStyleClasses(el: El, nextStyleClass: string): string {
+	const prevStyle = managedStyleClasses.get(el) ?? "";
+	const current = el.getAttribute("class") ?? "";
+	const user = subtractClassString(current, prevStyle);
+	const parts = [normalizeClassString(user), normalizeClassString(nextStyleClass)].filter(Boolean);
+	const merged = parts.join(" ").trim();
+	managedStyleClasses.set(el, normalizeClassString(nextStyleClass));
+	return merged;
+}
 
 const overlayInteractionCleanup = new WeakMap<El, () => void>();
 
@@ -149,7 +173,8 @@ function attachOverlays(el: El, resolved: ResolvedStyle): void {
 		if (baseClass) parts.push(baseClass);
 		if (useHover && hovCls) parts.push(hovCls);
 		if (useFocus && focCls) parts.push(focCls);
-		const cls = parts.join(" ").trim();
+		const styleCls = parts.join(" ").trim();
+		const cls = mergeUserAndStyleClasses(el, styleCls);
 		if (cls) el.setAttribute("class", cls);
 		else el.removeAttribute("class");
 	};
@@ -215,6 +240,7 @@ function attachOverlays(el: El, resolved: ResolvedStyle): void {
 }
 
 function camelToKebab(prop: string): string {
+	if (prop.startsWith("--")) return prop;
 	return prop.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 }
 
@@ -309,7 +335,17 @@ function clearS(el: El): void {
 		clearVideoEdgeFade(el);
 	}
 	clearMapStyles(el);
-	el.removeAttribute("class");
+	/** Preserve user classes; remove only those last applied by `s`. */
+	const prevStyle = managedStyleClasses.get(el) ?? "";
+	if (prevStyle) {
+		const current = el.getAttribute("class") ?? "";
+		const user = subtractClassString(current, prevStyle);
+		if (user) el.setAttribute("class", user);
+		else el.removeAttribute("class");
+		managedStyleClasses.delete(el);
+	} else {
+		// legacy behavior: do nothing (don't clobber user classes)
+	}
 	el.removeAttribute("data-fw-layers");
 }
 
@@ -412,7 +448,8 @@ function applyFromResolved(el: El, resolved: ResolvedStyle): void {
 		fwLifecycleDebugLog("applyFromResolved no animationLifecycle (skip sync)");
 	}
 
-	const cls = resolved.classes.filter(Boolean).join(" ");
+	const styleCls = resolved.classes.filter(Boolean).join(" ");
+	const cls = mergeUserAndStyleClasses(el, styleCls);
 	if (cls) el.setAttribute("class", cls);
 	else el.removeAttribute("class");
 

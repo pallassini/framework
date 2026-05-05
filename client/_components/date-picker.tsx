@@ -292,7 +292,7 @@ export function DatePicker(
         ? typeof roundRaw === "number"
           ? `${roundRaw}px`
           : roundRaw
-        : `var(--inputRound, var(--round, ${met.radius}))`;
+        : `var(--roundPx, var(--round, ${met.radius}))`;
     return {
       position: "relative",
       display: "inline-block",

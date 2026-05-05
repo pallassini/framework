@@ -352,7 +352,7 @@ export function TimePicker(
         ? typeof roundRaw === "number"
           ? `${roundRaw}px`
           : roundRaw
-        : `var(--inputRound, var(--round, ${met.radius}))`;
+        : `var(--roundPx, var(--round, ${met.radius}))`;
     return {
       position: "relative",
       display: "inline-flex",
